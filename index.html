@@ -1018,13 +1018,16 @@ const CANDLE_ATTACKS = [
 // Second half: BLUE SOUL (gravity; Z jumps, holding Z jumps higher).
 const YELLOW_TIP = '#ffe14a', BLUE_SOUL_TIP = '#2ea8ff';
 // TNT: shooting it sets off a small cross-shaped blast that also clears rocks (and other TNT)
-// Shooting TNT lights it: it keeps moving with its row, flashes a warning cross, then blows.
+// Shooting TNT lights it: it stops dead where it was hit, flashes a warning cross, then blows.
 const FUSE = 22;
 function tnt(o) {
   const inner = o.upd;
   return spawn(Object.assign({ r: 7, yellow: true, draw: drawTNT }, o, {
-    onShot: b => { if (!b.lit) { b.lit = G.t; sfx('crack'); } },
-    upd: b => { if (inner) inner(b); if (b.lit && G.t - b.lit >= FUSE) explode(b); },
+    onShot: b => { if (!b.lit) { b.lit = G.t; b.vx = b.vy = b.ax = b.ay = 0; sfx('crack'); } },
+    upd: b => {
+      if (!b.lit) { if (inner) inner(b); return; }
+      if (G.t - b.lit >= FUSE) explode(b);
+    },
   }));
 }
 function explode(b) {
@@ -1032,8 +1035,8 @@ function explode(b) {
   b.dead = true;
   sparkle(b.x, b.y, '#ffe14a', 10, 2.2);
   const B = G.box;
-  spawn({ kind: 'rect', x: B.x + B.w / 2, y: b.y, w: B.w + 30, h: 14, life: 18, cull: false, clears: true, draw: drawYBlast });
-  spawn({ kind: 'rect', x: b.x, y: B.y + B.h / 2, w: 14, h: B.h + 30, life: 18, cull: false, clears: true, draw: drawYBlast });
+  spawn({ kind: 'rect', x: B.x + B.w / 2, y: b.y, w: B.w + 30, h: 28, life: 18, cull: false, clears: true, draw: drawYBlast });
+  spawn({ kind: 'rect', x: b.x, y: B.y + B.h / 2, w: 28, h: B.h + 30, life: 18, cull: false, clears: true, draw: drawYBlast });
 }
 const bottle = o => spawn(Object.assign({ r: 6, yellow: true, draw: drawBottle }, o));
 const floorY = () => G.box.y + G.box.h;
@@ -2210,7 +2213,7 @@ function drawTNT(b) {
     // warning cross across the whole box
     const B = G.box, on = (G.t >> 2) % 2;
     ctx.fillStyle = `rgba(255,80,60,${on ? 0.4 : 0.2})`;
-    ctx.fillRect(B.x - b.x, -7, B.w, 14); ctx.fillRect(-7, B.y - b.y, 14, B.h);
+    ctx.fillRect(B.x - b.x, -14, B.w, 28); ctx.fillRect(-14, B.y - b.y, 28, B.h);
     if (on) { blit(SPR3.tnt, true); return; }
   }
   blit(SPR3.tnt); if ((G.t >> 2) % 2) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, -10, 2, 2); } }

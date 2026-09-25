@@ -106,7 +106,7 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 
 A skeletal ghost gunslinger in a wide-brim hat and striped poncho, trailing smoke where its legs should be. Deadeye changes how your heart works, the way Undertale's colored SOULs do.
 
-**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: a short warning flashes along its row and column, then the blast hurts you if you're still in line, clears every rock it crosses, and sets off other TNT.
+**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line, clears every rock it crosses, and sets off other TNT.
 
 | Attack | What happens |
 | --- | --- |
