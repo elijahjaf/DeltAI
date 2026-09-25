@@ -4,7 +4,7 @@ A Deltarune-style turn-based battle that runs in the browser. Three heroes fight
 
 All art is 16-bit style pixel art. Each sprite is drawn in code at low resolution, given a dark outline, and scaled up 2x. There are no image files.
 
-**Play:** open `index.html` in any modern browser. It has no build step and no dependencies. It uses Google Fonts when online and falls back to a monospace font offline.
+**Play:** open `index.html` in any modern browser. The page has two tabs: **Play** (the game and its controls) and **How to Play** (a full guide). Opening the guide pauses the game and its music. You can link straight to the guide with `#how-to-play`. It has no build step and no dependencies. It uses Google Fonts when online and falls back to a monospace font offline.
 
 ## Music
 

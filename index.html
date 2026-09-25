@@ -67,6 +67,41 @@
     .pad { display: flex; }
     .keys { display: none; }
   }
+  /* tabs */
+  .tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--plum); }
+  .tab {
+    font: 400 13px/1 "Silkscreen", "Courier New", monospace; letter-spacing: 0.05em;
+    background: var(--key); color: var(--muted);
+    border: 2px solid var(--plum); border-bottom: 0; border-radius: 4px 4px 0 0;
+    padding: 10px 16px 8px; margin-bottom: -2px; cursor: pointer;
+  }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { background: var(--ink); color: var(--gold); border-color: var(--gold); border-bottom: 2px solid var(--ink); }
+  .tab:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .panel { display: flex; flex-direction: column; gap: 14px; }
+  .panel[hidden] { display: none; }
+  /* how-to */
+  .guide { display: flex; flex-direction: column; gap: 26px; max-width: 760px; }
+  .guide section { display: flex; flex-direction: column; gap: 10px; }
+  .guide h2 { margin: 0; font: 400 16px/1.3 "Silkscreen", "Courier New", monospace; letter-spacing: 0.05em; color: var(--gold); text-wrap: balance; }
+  .guide h3 { margin: 0; font: 400 13px/1.3 "Silkscreen", "Courier New", monospace; letter-spacing: 0.04em; color: var(--text); }
+  .guide p { margin: 0; color: var(--muted); max-width: 68ch; }
+  .guide b { color: var(--text); font-weight: 600; }
+  .guide ol, .guide ul { margin: 0; padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+  .table-wrap { overflow-x: auto; }
+  .guide table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .guide th { text-align: left; font: 400 11px/1.3 "Silkscreen", "Courier New", monospace; letter-spacing: 0.05em; color: var(--muted); padding: 6px 10px; border-bottom: 2px solid var(--plum); }
+  .guide td { padding: 8px 10px; border-bottom: 1px solid #1f1430; color: var(--muted); vertical-align: top; }
+  .guide td:first-child { color: var(--text); white-space: nowrap; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .card { border: 2px solid var(--plum); padding: 12px; display: flex; flex-direction: column; gap: 6px; background: #0d0718; }
+  .card h3 { color: var(--gold); }
+  .card p { font-size: 14px; }
+  .tag { display: inline-block; font: 400 10px/1 "Silkscreen", "Courier New", monospace; padding: 3px 5px; border-radius: 2px; margin-right: 4px; }
+  .tag.blue { background: #0f3a66; color: #bfe6ff; }
+  .tag.orange { background: #663a0f; color: #ffd9a0; }
+  .tag.yellow { background: #5a4a0a; color: #fff6b0; }
+  .tag.red { background: #5a0a1a; color: #ffb0b8; }
 </style>
 </head>
 <body>
@@ -76,45 +111,134 @@
     <p>Three heroes against Marionette NEO, Candlemaw or Deadeye</p>
   </header>
 
-  <div class="stage">
-    <canvas id="game" width="1280" height="960" tabindex="0" aria-label="Battle screen"></canvas>
+  <div class="tabs" role="tablist" aria-label="Page sections">
+    <button class="tab" role="tab" id="tab-play" aria-controls="panel-play" aria-selected="true">PLAY</button>
+    <button class="tab" role="tab" id="tab-how" aria-controls="panel-how" aria-selected="false" tabindex="-1">HOW TO PLAY</button>
   </div>
 
-  <div class="pad" id="pad" aria-label="Touch controls">
-    <div class="dpad">
-      <button data-k="up" aria-label="Up">&#9650;</button>
-      <button data-k="left" aria-label="Left">&#9664;</button>
-      <button data-k="right" aria-label="Right">&#9654;</button>
-      <button data-k="down" aria-label="Down">&#9660;</button>
+  <div class="panel" role="tabpanel" id="panel-play" aria-labelledby="tab-play">
+    <div class="stage">
+      <canvas id="game" width="1280" height="960" tabindex="0" aria-label="Battle screen"></canvas>
     </div>
-    <div class="ab">
-      <button data-k="back" aria-label="Back or focus">X</button>
-      <button data-k="ok" aria-label="Confirm">Z</button>
+
+    <div class="pad" id="pad" aria-label="Touch controls">
+      <div class="dpad">
+        <button data-k="up" aria-label="Up">&#9650;</button>
+        <button data-k="left" aria-label="Left">&#9664;</button>
+        <button data-k="right" aria-label="Right">&#9654;</button>
+        <button data-k="down" aria-label="Down">&#9660;</button>
+      </div>
+      <div class="ab">
+        <button data-k="back" aria-label="Back or focus">X</button>
+        <button data-k="ok" aria-label="Confirm">Z</button>
+      </div>
+    </div>
+
+    <div class="keys">
+      <span><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> or <kbd>WASD</kbd> move</span>
+      <span><kbd>Z</kbd> / <kbd>Enter</kbd> confirm, strike, shoot, jump</span>
+      <span><kbd>X</kbd> / <kbd>Shift</kbd> back, hold to focus while dodging</span>
+      <span><kbd>M</kbd> music and sound on or off</span>
     </div>
   </div>
 
-  <div class="keys">
-    <span><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> or <kbd>WASD</kbd> move</span>
-    <span><kbd>Z</kbd> / <kbd>Enter</kbd> confirm, strike</span>
-    <span><kbd>X</kbd> / <kbd>Shift</kbd> back, hold to focus while dodging</span>
-    <span><kbd>M</kbd> music and sound on or off</span>
-  </div>
+  <div class="panel guide" role="tabpanel" id="panel-how" aria-labelledby="tab-how" hidden>
+    <section>
+      <h2>Getting started</h2>
+      <ol>
+        <li>On the title screen, use <b>Up/Down</b> to pick a row and <b>Left/Right</b> to choose an <b>enemy</b> and a <b>mode</b> (Normal or Hard).</li>
+        <li>Press <b>Z</b> to begin. Your first key press also starts the music.</li>
+        <li>Each round, choose an action for each hero. Then survive the enemy's attack by steering your heart inside the green box.</li>
+        <li>Win by bringing the enemy's HP to 0, or by raising its MERCY to 100% and sparing it.</li>
+      </ol>
+    </section>
 
-  <div class="rules">
-    <div class="rule"><b>FIGHT</b><span>Press Z as the bar crosses the mark. A dead-center hit is a critical.</span></div>
-    <div class="rule"><b>MAGIC</b><span>Terrestro's spells deal damage and Lune's spells heal. Both cost EXP.</span></div>
-    <div class="rule"><b>ACT</b><span>Astra acts instead of casting. Against Marionette NEO, read the flavor text and pick the matching ACT. Against Candlemaw, Keep Vigil always raises MERCY a little.</span></div>
-    <div class="rule"><b>SPARE</b><span>Any hero can SPARE. Once MERCY reaches 100% and the enemy's name turns yellow, sparing it ends the battle.</span></div>
-    <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including a downed one.</span></div>
-    <div class="rule"><b>DEFEND</b><span>Take half damage this turn and gain 16% EXP. Grazing bullets also earns EXP.</span></div>
-    <div class="rule"><b>BLUE &amp; ORANGE</b><span>Blue bullets only hurt while you move, so stand still. Orange bullets only hurt while you stand still, so keep moving.</span></div>
-    <div class="rule"><b>THREE BOSSES</b><span>Pick Marionette NEO, Candlemaw or Deadeye on the title screen. Each has its own attacks and ACTs.</span></div>
-    <div class="rule"><b>YELLOW SOUL</b><span>Against Deadeye your heart flips and turns yellow. Press Z to shoot: yellow objects break, and yellow TNT explodes.</span></div>
-    <div class="rule"><b>BLUE SOUL</b><span>At half HP or half MERCY, Deadeye turns your heart blue. Gravity pulls it down: press Z to jump, hold Z to jump higher.</span></div>
-    <div class="rule"><b>HARD MODE</b><span>Pick it on the title screen. The enemy has more HP, hits harder and attacks at full fury from the start.</span></div>
+    <section>
+      <h2>Controls</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Key</th><th>In menus</th><th>While dodging</th></tr></thead>
+        <tbody>
+          <tr><td><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> / <kbd>WASD</kbd></td><td>Move the cursor</td><td>Move the heart</td></tr>
+          <tr><td><kbd>Z</kbd> / <kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Confirm; strike during FIGHT</td><td>Shoot (yellow heart) or jump (blue heart)</td></tr>
+          <tr><td><kbd>X</kbd> / <kbd>Shift</kbd></td><td>Go back to the previous hero or menu</td><td>Hold to move slowly for precise dodging</td></tr>
+          <tr><td><kbd>M</kbd></td><td colspan="2">Music and sound effects on or off</td></tr>
+        </tbody>
+      </table></div>
+      <p>On a phone or tablet, an on-screen d-pad with Z and X buttons appears under the game.</p>
+    </section>
+
+    <section>
+      <h2>Your turn</h2>
+      <div class="rules">
+        <div class="rule"><b>FIGHT</b><span>A bar slides toward a mark. Press Z as it crosses. The closer you are, the more damage you do; dead center is a critical.</span></div>
+        <div class="rule"><b>MAGIC</b><span>Terrestro's spells deal damage and Lune's spells heal. Spells cost EXP from the orange meter on the left.</span></div>
+        <div class="rule"><b>ACT</b><span>Astra's peaceful option. It raises the enemy's MERCY; how it works depends on the boss (see below).</span></div>
+        <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including one who is down.</span></div>
+        <div class="rule"><b>SPARE</b><span>Any hero can SPARE. It only works once MERCY is 100% and the enemy's name has turned yellow.</span></div>
+        <div class="rule"><b>DEFEND</b><span>That hero takes half damage this round and you gain 16% EXP.</span></div>
+      </div>
+      <p><b>EXP</b> also comes from <b>grazing</b>: brush past bullets without touching them. A hero at 0 HP is <b>down</b>. They skip turns and slowly recover, or you can heal them sooner. If all three go down, it's game over.</p>
+    </section>
+
+    <section>
+      <h2>The party</h2>
+      <div class="cards">
+        <div class="card"><h3>ASTRA &middot; 150 HP</h3><p>A galaxy-skinned star knight. Has <b>ACT</b> instead of MAGIC.</p></div>
+        <div class="card"><h3>TERRESTRO &middot; 200 HP</h3><p>A cave monster and the hardest hitter. Damage spells: <b>Crystal Spike</b> (25% EXP) and <b>Quake</b> (55% EXP).</p></div>
+        <div class="card"><h3>LUNE &middot; 110 HP</h3><p>A moon seer and healer. <b>Moonbeam</b> (15%), <b>Mend</b> (25%, can revive) and <b>Aurora</b> (65%, heals everyone).</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Dodging</h2>
+      <p>Your heart is the red icon inside the green box. Anything white hurts it. Some attacks change the rules:</p>
+      <ul>
+        <li><span class="tag blue">BLUE</span> bullets only hurt while you move. Stand still and let them pass.</li>
+        <li><span class="tag orange">ORANGE</span> bullets only hurt while you stand still. Keep moving through them.</li>
+        <li><span class="tag yellow">YELLOW HEART</span> The heart flips upside down and <b>Z fires shots upward</b>. Yellow objects break when shot. Yellow <b>TNT</b> freezes in place, flashes a warning cross, then blasts its whole row and column. Stay out of the lines!</li>
+        <li><span class="tag blue">BLUE HEART</span> Gravity pulls the heart down. <b>Tap Z</b> for a short hop and <b>hold Z</b> for a full jump. You can land on platforms.</li>
+        <li><span class="tag red">HAZARDS</span> Some attacks add darkness, reversed controls, strings that drag you, wind, slowing wax puddles, or a shrinking box. The line under the box explains each one.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>The bosses</h2>
+      <div class="cards">
+        <div class="card"><h3>MARIONETTE NEO</h3><p>A scrap-metal puppet with 21 attacks. It turns frantic below half HP.</p><p><b>ACT:</b> each turn's flavor text hints at its mood. Pick the matching ACT (Applaud, Dance, Oil Joints or Untangle) for +18% MERCY. <b>Reveal</b> shows the right answer next turn.</p></div>
+        <div class="card"><h3>CANDLEMAW</h3><p>A haunted candle with 12 attacks built on <span class="tag blue">BLUE</span> and <span class="tag orange">ORANGE</span> fire.</p><p><b>ACT:</b> <b>Keep Vigil</b> always works: +8% MERCY every time.</p></div>
+        <div class="card"><h3>DEADEYE</h3><p>A ghost gunslinger. The first half uses the <span class="tag yellow">YELLOW HEART</span>. At half HP or half MERCY it switches to the <span class="tag blue">BLUE HEART</span>.</p><p><b>ACT:</b> <b>Accept Duel</b> gives +7% MERCY, but each use makes its attacks hit 5% harder.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Hard Mode</h2>
+      <p>Pick HARD on the title screen. Enemies have more HP, hit harder, and attack at full fury from the first turn. Bullets are faster, the item bag is smaller, you recover less time after a hit, and MERCY rises more slowly.</p>
+    </section>
   </div>
 </div>
 
+<script>
+// Page tabs: PLAY shows the game; HOW TO PLAY pauses it.
+(() => {
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  function show(id, focus) {
+    for (const t of tabs) {
+      const on = t.id === id;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    }
+    document.body.dataset.tab = id === 'tab-how' ? 'how' : 'play';
+    try { localStorage.setItem('lastwish-tab', id); } catch (e) {}
+    if (focus && id === 'tab-play') document.getElementById('game').focus({ preventScroll: true });
+  }
+  tabs.forEach(t => t.addEventListener('click', () => show(t.id, true)));
+  let start = 'tab-play';
+  try { start = localStorage.getItem('lastwish-tab') || start; } catch (e) {}
+  if (location.hash === '#how-to-play') start = 'tab-how';
+  show(tabs.some(t => t.id === start) ? start : 'tab-play', false);
+})();
+</script>
 <script>
 (() => {
 'use strict';
@@ -157,7 +281,9 @@ const KEYMAP = {
 };
 function press(a) { if (!held.has(a)) pressed.add(a); held.add(a); initAudio(); }
 function release(a) { held.delete(a); }
+const paused = () => document.body.dataset.tab === 'how';
 window.addEventListener('keydown', e => {
+  if (paused()) return;
   const a = KEYMAP[e.code];
   if (!a) return;
   e.preventDefault();
@@ -3133,7 +3259,17 @@ function draw() {
 newGame();
 let last = performance.now(), acc = 0;
 const STEP = 1000 / 60;
+let suspendedByTab = false;
 function frame(now) {
+  if (paused()) {
+    // guide tab open: freeze the game and silence the audio until the player comes back
+    held.clear(); pressed.clear();
+    if (AC && AC.state === 'running') { AC.suspend(); suspendedByTab = true; }
+    last = now;
+    requestAnimationFrame(frame);
+    return;
+  }
+  if (suspendedByTab && AC) { AC.resume(); suspendedByTab = false; }
   acc += Math.min(100, now - last);
   last = now;
   while (acc >= STEP) { step(); pressed.clear(); acc -= STEP; }
