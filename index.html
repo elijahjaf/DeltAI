@@ -102,7 +102,9 @@
 
   <div class="rules">
     <div class="rule"><b>FIGHT</b><span>Press Z as the bar crosses the mark. A dead-center hit is a critical.</span></div>
-    <div class="rule"><b>MAGIC</b><span>Each hero has their own spells. They cost EXP and either deal damage or heal.</span></div>
+    <div class="rule"><b>MAGIC</b><span>Terrestro and Lune have their own spells. They cost EXP and either deal damage or heal.</span></div>
+    <div class="rule"><b>ACT</b><span>Astra acts instead of casting. Read the flavor text for what the enemy wants, then pick the matching ACT to raise its MERCY.</span></div>
+    <div class="rule"><b>SPARE</b><span>Any hero can SPARE. Once MERCY reaches 100% and the enemy's name turns yellow, sparing it ends the battle.</span></div>
     <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including a downed one.</span></div>
     <div class="rule"><b>DEFEND</b><span>Take half damage this turn and gain 16% EXP. Grazing bullets also earns EXP.</span></div>
     <div class="rule"><b>BLUE ATTACKS</b><span>Blue bullets pass through you harmlessly if you stand still. They only hurt while you move.</span></div>
@@ -131,7 +133,7 @@ const COL = {
 const TEXTBOX = { x: 8, y: 390, w: 624, h: 82 };
 const BOX_CY = 172;
 const HERO_POS = [{ x: 134, y: 112 }, { x: 98, y: 190 }, { x: 134, y: 268 }];
-const ENEMY_POS = { x: 522, y: 162 };
+const ENEMY_POS = { x: 522, y: 156 };
 const SOUL_R = 4, GRAZE_R = 20;
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -205,6 +207,7 @@ const SFX = {
   magic: () => [880, 660, 1100].forEach((f, i) => tone(f, 0.1, 'sine', 0.05, 0, i * 0.05)),
   zap: () => tone(90, 0.2, 'sawtooth', 0.05, 60),
   down: () => tone(220, 0.5, 'sawtooth', 0.06, -170),
+  mercy: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.1, 'triangle', 0.045, 0, i * 0.05)),
   win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'square', 0.04, 0, i * 0.12)),
   lose: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.3, 'triangle', 0.05, 0, i * 0.18)),
 };
@@ -212,15 +215,11 @@ const sfx = n => { if (SFX[n]) SFX[n](); };
 
 // ---------------------------------------------------------------- data
 const PARTY_DEF = [
-  { name: 'VESSA', role: 'knight', maxHp: 150, atk: 64, color: '#58c6ff', dark: '#1f5c8a',
-    spells: [
-      { name: 'Flare Edge', cost: 30, type: 'dmg', power: 150, desc: 'A burning slash. Heavy damage to the foe.' },
-      { name: 'Rally Cry', cost: 45, type: 'healAll', power: 40, desc: 'Heals every hero for 40 HP.' },
-    ] },
-  { name: 'BROM', role: 'brute', maxHp: 200, atk: 80, color: '#ff6bd0', dark: '#8a2470',
+  { name: 'ASTRA', role: 'knight', maxHp: 150, atk: 64, color: '#58c6ff', dark: '#1f5c8a', acts: true, spells: [] },
+  { name: 'TERRESTRO', role: 'brute', maxHp: 200, atk: 80, color: '#ff6bd0', dark: '#8a2470',
     spells: [
       { name: 'Quake', cost: 55, type: 'dmg', power: 260, desc: 'Splits the stage floor. Huge damage.' },
-      { name: 'Iron Gut', cost: 20, type: 'healSelf', power: 75, desc: 'Brom shrugs it off. Heals himself 75 HP.' },
+      { name: 'Iron Gut', cost: 20, type: 'healSelf', power: 75, desc: 'Terrestro shrugs it off. Heals 75 HP.' },
     ] },
   { name: 'LUNE', role: 'seer', maxHp: 110, atk: 36, color: '#78f59a', dark: '#2a7a44',
     spells: [
@@ -234,7 +233,20 @@ const ITEM_DEF = [
   { name: 'Honey Loaf', heal: 100, qty: 2, desc: 'Dense and sticky. Heals 100 HP.' },
   { name: 'Phoenix Tea', heal: 999, qty: 1, desc: 'Still warm. Fully heals and revives.' },
 ];
-const ACTIONS = ['FIGHT', 'MAGIC', 'ITEM', 'DEFEND'];
+const actionsFor = c => ['FIGHT', c.acts ? 'ACT' : 'MAGIC', 'ITEM', 'SPARE', 'DEFEND'];
+// Astra's ACTs. Each enemy turn has a mood (hinted in the flavor text); the matching ACT raises MERCY.
+const ACTS = [
+  { id: 'check', name: 'Check', desc: 'Study MARIONETTE NEO and read its stats.' },
+  { id: 'applaud', name: 'Applaud', verb: 'applaud', desc: 'Cheer for the show. It wants this when it plays to the crowd.',
+    ok: "* ASTRA applauded wildly! MARIONETTE NEO's eye sparkled with joy." },
+  { id: 'dance', name: 'Dance', verb: 'dance', desc: 'Take its hand. It wants this when it looks for a partner.',
+    ok: '* ASTRA took its gloved hand and waltzed across the stage! It spun happily.' },
+  { id: 'oil', name: 'Oil Joints', verb: 'oil its joints', desc: 'Grease its gears. It wants this when its joints creak.',
+    ok: '* ASTRA oiled its screeching joints. MARIONETTE NEO sighed with relief.' },
+  { id: 'untangle', name: 'Untangle', verb: 'untangle its strings', desc: 'Fix its strings. It wants this when they are knotted.',
+    ok: '* ASTRA carefully untangled its strings. It moves more freely now.' },
+];
+const MERCY_STEP = 25, MERCY_STEP_HARD = 20;
 const DEFEND_EXP = 16;
 const ENEMY_HP = 3200, ENEMY_HP_HARD = 4400;
 const HARD_ITEMS = [3, 1, 1];
@@ -247,12 +259,12 @@ function newGame(state = 'title', hard = false) {
     state, hard, t: 0, turn: 0, exp: 0, shake: 0, phase2: false,
     party: PARTY_DEF.map(d => ({ ...d, hp: d.maxHp, defending: false, action: null, flash: 0, anim: 0 })),
     items: ITEM_DEF.map((i, k) => ({ ...i, qty: hard ? HARD_ITEMS[k] : i.qty })),
-    enemy: { name: 'MARIONETTE NEO', maxHp: hp, hp, shownHp: hp, shake: 0, flash: 0, fade: 0 },
+    enemy: { name: 'MARIONETTE NEO', maxHp: hp, hp, shownHp: hp, mercy: 0, shownMercy: 0, spared: false, shake: 0, flash: 0, fade: 0 },
     menu: null, msg: null, queue: [], lanes: [],
     popups: [], particles: [], bullets: [],
     box: { ...TEXTBOX }, soul: { x: 320, y: 200, iframes: 0, graze: 0, moving: false, blueSafe: 0 },
-    atk: null, A: null, stateT: 0, gameOverAt: 0, expFlash: 0,
-    stats: { grazes: 0, expGained: 0, hits: 0, damage: 0 },
+    atk: null, A: null, spared: false, stateT: 0, gameOverAt: 0, expFlash: 0,
+    stats: { grazes: 0, expGained: 0, hits: 0, damage: 0, acts: 0 },
   };
 }
 newGame();
@@ -373,14 +385,14 @@ function soulClampY(pad = 12) { return clamp(G.soul.y, G.box.y + pad, G.box.y + 
 // ---------------------------------------------------------------- enemy moveset
 // Attacks cycle in order, one per turn. Below half HP every attack runs at level 2.
 const ATTACKS = [
-  { name: 'NEEDLE RAIN', hint: '* MARIONETTE NEO threads a thousand needles through its circuits.', w: 200, h: 160, dur: 360, dmg: 22,
+  { name: 'NEEDLE RAIN', hint: '* MARIONETTE NEO threads needles through its circuits. Its joints screech and creak.', mood: 'oil', w: 200, h: 160, dur: 360, dmg: 22,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 4 : 6;
       if (A.t % every === 0 && A.t < A.dur - 50) {
         needle(rnd(B.x + 4, B.x + B.w - 4), B.y - 12, A.lvl > 1 ? rnd(-0.7, 0.7) : rnd(-0.15, 0.15), rnd(2.6, 3.8));
       }
     } },
-  { name: 'PUPPET STRINGS', hint: '* Its strings hum with electricity and pull taut.', w: 240, h: 180, dur: 390, dmg: 26,
+  { name: 'PUPPET STRINGS', hint: '* Its strings hum with electricity. They look painfully knotted.', mood: 'untangle', w: 240, h: 180, dur: 390, dmg: 26,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 26 : 36;
       if (A.t % every === 5 && A.t < A.dur - 70) {
@@ -392,7 +404,7 @@ const ATTACKS = [
         }
       }
     } },
-  { name: 'CARD FAN', hint: '* MARIONETTE NEO shuffles a deck with far too many aces.', w: 220, h: 180, dur: 390, dmg: 22,
+  { name: 'CARD FAN', hint: '* MARIONETTE NEO shuffles a deck of aces and grins out at the crowd.', mood: 'applaud', w: 220, h: 180, dur: 390, dmg: 22,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 30 : 42;
       if (A.t % every === 10 && A.t < A.dur - 60) {
@@ -415,7 +427,7 @@ const ATTACKS = [
         });
       }
     } },
-  { name: 'LOOSE BUTTONS', hint: '* Loose buttons rattle around inside its chassis.', w: 220, h: 200, dur: 400, dmg: 22,
+  { name: 'LOOSE BUTTONS', hint: '* Loose buttons rattle in its chassis. It holds out a gloved hand, waiting.', mood: 'dance', w: 220, h: 200, dur: 400, dmg: 22,
     init(A) { for (let i = 0; i < (A.lvl > 1 ? 6 : 4); i++) this.ball(A); },
     ball(A) {
       const B = G.box, a = rnd(0, Math.PI * 2), sp = A.lvl > 1 ? 2.6 : 2.1;
@@ -433,7 +445,7 @@ const ATTACKS = [
       });
     },
     update(A) { if (A.t === 180 || (A.lvl > 1 && A.t === 260)) this.ball(A); } },
-  { name: 'CURTAIN FALL', hint: '* The stage curtains begin to sway.', w: 240, h: 180, dur: 420, dmg: 24,
+  { name: 'CURTAIN FALL', hint: '* The curtains sway. MARIONETTE NEO pauses, waiting for applause.', mood: 'applaud', w: 240, h: 180, dur: 420, dmg: 24,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 44 : 54;
       if (A.t % every !== 0 || A.t > A.dur - 90) return;
@@ -444,7 +456,7 @@ const ATTACKS = [
       if (lw > 0) spawn({ kind: 'rect', x: B.x + lw / 2, y: B.y - 10, w: lw, h: 14, vy, draw: drawCurtain });
       if (rw > 0) spawn({ kind: 'rect', x: rx + rw / 2, y: B.y - 10, w: rw, h: 14, vy, draw: drawCurtain });
     } },
-  { name: 'PAPER BLOOM', hint: '* A paper flower unfolds from a hatch in its palm.', w: 220, h: 200, dur: 400, dmg: 20,
+  { name: 'PAPER BLOOM', hint: '* A paper flower unfolds from its palm. It offers you a hand to dance.', mood: 'dance', w: 220, h: 200, dur: 400, dmg: 20,
     init(A) {
       const B = G.box;
       A.d.cx = B.x + B.w / 2; A.d.cy = B.y + B.h / 2 - 12; A.d.off = 0;
@@ -462,7 +474,7 @@ const ATTACKS = [
         }
       }
     } },
-  { name: 'SPARE HEADS', hint: '* Spare heads giggle from the wings. They all look like it.', w: 230, h: 190, dur: 420, dmg: 24,
+  { name: 'SPARE HEADS', hint: '* Spare heads giggle from the wings. Their rusty joints creak.', mood: 'oil', w: 230, h: 190, dur: 420, dmg: 24,
     init(A) {
       const B = G.box;
       const spots = [[B.x + 20, B.y + 20], [B.x + B.w - 20, B.y + 20], [B.x + B.w / 2, B.y + 22], [B.x + 20, B.y + B.h / 2]];
@@ -472,7 +484,7 @@ const ATTACKS = [
       const B = G.box;
       if (A.t % 110 === 100 && A.t < A.dur - 150) headAt(Math.random() < 0.5 ? B.x + 20 : B.x + B.w - 20, B.y + 20, 150);
     } },
-  { name: 'STAGE LIGHTS', hint: '* The stage lights crackle overhead.', w: 260, h: 170, dur: 400, dmg: 30,
+  { name: 'STAGE LIGHTS', hint: '* The stage lights crackle. MARIONETTE NEO strikes a pose for the crowd.', mood: 'applaud', w: 260, h: 170, dur: 400, dmg: 30,
     update(A) {
       const B = G.box, cols = 6, cw = B.w / cols, every = A.lvl > 1 ? 46 : 58;
       if (A.t % every !== 8 || A.t > A.dur - 70) return;
@@ -484,7 +496,7 @@ const ATTACKS = [
           onArm: () => { sfx('zap'); G.shake = 4; } });
       }
     } },
-  { name: 'TANGLED THREAD', hint: '* Its wires are getting badly tangled.', w: 240, h: 200, dur: 400, dmg: 22,
+  { name: 'TANGLED THREAD', hint: '* Its wires and strings are badly tangled and knotted.', mood: 'untangle', w: 240, h: 200, dur: 400, dmg: 22,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 20 : 28;
       if (A.t % every !== 0 || A.t > A.dur - 60) return;
@@ -501,7 +513,7 @@ const ATTACKS = [
         spawn(o);
       }
     } },
-  { name: 'CHANDELIER', hint: '* The chandelier above creaks ominously.', w: 240, h: 190, dur: 400, dmg: 26,
+  { name: 'CHANDELIER', hint: '* The chandelier creaks overhead. So do its rusty joints.', mood: 'oil', w: 240, h: 190, dur: 400, dmg: 26,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 48 : 64;
       if (A.t % every !== 4 || A.t > A.dur - 80) return;
@@ -509,7 +521,7 @@ const ATTACKS = [
       spawn({ x, y: B.y - 14, r: 11, vy: 0.8, ay: 0.05, draw: drawCrystal,
         upd: b => { if (b.y >= G.box.y + G.box.h - 16) { b.dead = true; burst(b.x, b.y, G.A.lvl > 1 ? 12 : 9, 1.9, true); sfx('zap'); } } });
     } },
-  { name: 'SCISSOR DANCE', blue: true, hint: '* MARIONETTE NEO opens a pair of BLUE scissors. Blue only cuts what moves.', w: 220, h: 220, dur: 440, dmg: 28,
+  { name: 'SCISSOR DANCE', blue: true, hint: '* It twirls BLUE scissors, looking for a dance partner. Blue only cuts what moves.', mood: 'dance', w: 220, h: 220, dur: 440, dmg: 28,
     init(A) {
       const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2;
       for (const s of [1, -1]) {
@@ -532,7 +544,7 @@ const ATTACKS = [
         }
       }
     } },
-  { name: 'GRAND FINALE', hint: '* MARIONETTE NEO takes a deep bow. It is time for the finale.', w: 240, h: 200, dur: 460, dmg: 26,
+  { name: 'GRAND FINALE', hint: '* MARIONETTE NEO bows to the crowd. It is time for the grand finale.', mood: 'applaud', w: 240, h: 200, dur: 460, dmg: 26,
     update(A) {
       const B = G.box;
       if (A.t % (A.lvl > 1 ? 10 : 13) === 0 && A.t < A.dur - 50) needle(rnd(B.x + 4, B.x + B.w - 4), B.y - 12, rnd(-0.3, 0.3), rnd(2.2, 3.2));
@@ -561,7 +573,7 @@ function startRound() {
   let text = ATTACKS[G.turn % ATTACKS.length].hint;
   if (!G.phase2 && G.enemy.hp <= G.enemy.maxHp / 2) {
     G.phase2 = true;
-    text = '* A string snaps and MARIONETTE NEO\'s servos start screaming. Its dance turns frantic!';
+    text = '* A string snaps! MARIONETTE NEO turns frantic. ' + text.slice(2);
   } else if (G.turn === 0) {
     text = '* MARIONETTE NEO drops onto the stage, sparking. ' + text.slice(2);
   }
@@ -590,13 +602,15 @@ function undoAction(c) {
 function updateMenu() {
   const m = G.menu, c = curChar();
   if (m.sub === 'action') {
-    if (P('left')) { m.sel = (m.sel + 3) % 4; sfx('move'); }
-    if (P('right')) { m.sel = (m.sel + 1) % 4; sfx('move'); }
+    if (P('left')) { m.sel = (m.sel + 4) % 5; sfx('move'); }
+    if (P('right')) { m.sel = (m.sel + 1) % 5; sfx('move'); }
     if (P('ok')) {
-      const opt = ACTIONS[m.sel];
+      const opt = actionsFor(c)[m.sel];
       if (opt === 'FIGHT') commitAction({ type: 'fight' });
       else if (opt === 'DEFEND') commitAction({ type: 'defend' });
+      else if (opt === 'SPARE') commitAction({ type: 'spare' });
       else if (opt === 'MAGIC') { m.sub = 'magic'; m.subSel = 0; sfx('select'); }
+      else if (opt === 'ACT') { m.sub = 'act'; m.subSel = 0; sfx('select'); }
       else if (opt === 'ITEM') {
         const first = G.items.findIndex(i => i.qty > 0);
         if (first < 0) sfx('buzz'); else { m.sub = 'item'; m.subSel = first; sfx('select'); }
@@ -616,6 +630,14 @@ function updateMenu() {
       else if (s.type === 'heal') { m.pending = { type: 'magic', spell: s }; m.sub = 'target'; m.tSel = m.ci; sfx('select'); }
       else commitAction({ type: 'magic', spell: s });
     }
+    if (P('back')) { m.sub = 'action'; sfx('back'); }
+  } else if (m.sub === 'act') {
+    // two-column grid, row-major like Deltarune's ACT menu
+    const n = ACTS.length, i = m.subSel;
+    if (P('left') || P('right')) { const j = i % 2 ? i - 1 : i + 1; if (j < n) { m.subSel = j; sfx('move'); } }
+    if (P('up')) { m.subSel = i - 2 >= 0 ? i - 2 : i + 2 * Math.floor((n - 1 - i) / 2); sfx('move'); }
+    if (P('down')) { m.subSel = i + 2 < n ? i + 2 : i % 2; sfx('move'); }
+    if (P('ok')) commitAction({ type: 'act', act: ACTS[m.subSel] });
     if (P('back')) { m.sub = 'action'; sfx('back'); }
   } else if (m.sub === 'item') {
     const avail = G.items.map((it, i) => it.qty > 0 ? i : -1).filter(i => i >= 0);
@@ -657,6 +679,28 @@ function beginResolve() {
         const who = a.target === c ? 'themself' : a.target.name;
         return `* ${c.name} gave ${who} the ${a.item.name}. ${a.target.name} recovered ${n} HP.`;
       });
+    } else if (a.type === 'act') {
+      q.push(() => {
+        const act = a.act, e = G.enemy;
+        c.anim = 20;
+        if (act.id === 'check') return '* MARIONETTE NEO - AT 28 DF 12. A stage puppet rebuilt from scrap. All it wants is for its show to go well.';
+        const mood = ATTACKS[G.turn % ATTACKS.length].mood;
+        if (act.id !== mood) { sfx('miss'); return `* ${c.name} tried to ${act.verb}... but that isn't what MARIONETTE NEO wanted right now.`; }
+        const before = e.mercy;
+        e.mercy = Math.min(100, e.mercy + (G.hard ? MERCY_STEP_HARD : MERCY_STEP));
+        const gain = e.mercy - before;
+        G.stats.acts++;
+        sfx('mercy');
+        if (gain > 0) popup(ENEMY_POS.x, ENEMY_POS.y - 80, `+${gain}% MERCY`, COL.gold, 16);
+        sparkle(ENEMY_POS.x, ENEMY_POS.y - 40, COL.gold, 12, 2);
+        return act.ok + (e.mercy >= 100 ? ' Its name turned YELLOW. It can be SPARED!' : ` MERCY +${gain}%.`);
+      });
+    } else if (a.type === 'spare') {
+      q.push(() => {
+        if (G.enemy.mercy >= 100) { G.spared = true; sfx('mercy'); return `* ${c.name} spared MARIONETTE NEO!`; }
+        sfx('miss');
+        return `* ${c.name} spared MARIONETTE NEO... but its name wasn't YELLOW.`;
+      });
     } else if (a.type === 'magic') {
       q.push(() => {
         const s = a.spell;
@@ -680,12 +724,14 @@ function beginResolve() {
   if (q.length) { setState('resolve'); nextStep(); } else afterResolve();
 }
 function nextStep() {
+  if (G.spared) { victory(true); return; }
   if (G.enemy.hp <= 0) { victory(); return; }
   const s = G.queue.shift();
   if (!s) { afterResolve(); return; }
   setMsg(s());
 }
 function afterResolve() {
+  if (G.spared) { victory(true); return; }
   if (G.enemy.hp <= 0) { victory(); return; }
   const f = G.party.filter(c => c.action && c.action.type === 'fight');
   if (f.length) startFight(f); else startEnemyTurn();
@@ -795,11 +841,16 @@ function updateDodge() {
   if (A.t >= A.dur) { G.bullets = []; setState('boxOut'); }
 }
 
-function victory() {
-  G.enemy.hp = 0;
+function victory(spared = false) {
+  const s = G.stats, hard = G.hard ? ' ON HARD' : '';
+  G.enemy.spared = spared;
   setState('victory');
   sfx('win');
-  const s = G.stats;
+  if (spared) {
+    setMsg(`* MARIONETTE NEO was SPARED! It takes a happy bow as the curtain falls. YOU WON${hard}! Turns: ${G.turn + 1}   Correct ACTs: ${s.acts}   Damage: ${s.damage}`);
+    return;
+  }
+  G.enemy.hp = 0;
   setMsg(`* MARIONETTE NEO's last string snaps and it powers down. YOU WON${G.hard ? ' ON HARD' : ''}! Turns: ${G.turn + 1}   Damage: ${s.damage}   Grazes: ${s.grazes}   EXP earned: ${Math.round(s.expGained)}%`);
 }
 function gameOver() { G.bullets = []; setState('gameover'); sfx('lose'); }
@@ -813,6 +864,7 @@ function step() {
   if (e.shake > 0) e.shake--;
   if (e.flash > 0) e.flash--;
   e.shownHp = lerp(e.shownHp, e.hp, 0.12);
+  e.shownMercy = lerp(e.shownMercy, e.mercy, 0.12);
   if (G.shake > 0) G.shake--;
   if (G.expFlash > 0) G.expFlash--;
   G.popups.forEach(p => p.t++);
@@ -845,7 +897,8 @@ function step() {
       break;
     }
     case 'victory':
-      e.fade = Math.min(1, e.fade + 0.01);
+      e.fade = Math.min(1, e.fade + (e.spared ? 0.006 : 0.01));
+      if (e.spared && e.fade < 1 && G.t % 5 === 0) sparkle(ENEMY_POS.x + rnd(-50, 50), ENEMY_POS.y + rnd(-90, 40), COL.gold, 2, 1);
       G.msg.shown = Math.min(G.msg.text.length, G.msg.shown + 1.5);
       if (P('ok') && G.stateT > 60) { newGame('title', G.hard); sfx('select'); }
       break;
@@ -940,7 +993,7 @@ const PAL = {
 };
 
 // ---------------------------------------------------------------- heroes
-function bakeVessa() {
+function bakeAstra() {
   const P = PAL, main = '#4aa8ff', mainD = '#2a64b8', mainL = '#9fd6ff', hair = '#2b3f8f', hairD = '#18245a', hairL = '#5670c8';
   const cape = '#243a7a', capeD = '#141f4a', red = '#e8364f', redD = '#9e1f36';
   return bake(26, 34, g => {
@@ -981,7 +1034,7 @@ function bakeVessa() {
     R(g, P.skin, 20, 20, 3, 2); R(g, P.skinD, 20, 21, 3, 1);
   });
 }
-function bakeBrom() {
+function bakeTerrestro() {
   const P = PAL, skin = '#b98ae0', skinD = '#8a5fb5', skinL = '#d8b8f2';
   const hair = '#9a2a7e', hairD = '#5e1450', hairL = '#d4549f', vest = '#ff6bd0', vestD = '#b53d90', vestL = '#ffb3ea';
   const horn = '#f4ead2', hornD = '#b8a88a';
@@ -1070,7 +1123,7 @@ function heroShield(color) {
     '...xx...',
   ], { x: color, y: '#ffffff', w: '#ffffff' });
 }
-const HERO_SPR = [bakeVessa(), bakeBrom(), bakeLune()].map((s, i) => ({
+const HERO_SPR = [bakeAstra(), bakeTerrestro(), bakeLune()].map((s, i) => ({
   base: s, down: rotatedCCW(s), shield: heroShield(PARTY_DEF[i].color),
   port: [{ x: 8, y: 0, w: 14, h: 15 }, { x: 8, y: 0, w: 16, h: 16 }, { x: 7, y: 9, w: 16, h: 14 }][i],
 }));
@@ -1252,8 +1305,11 @@ const SPR = (() => {
     ['.....xx.....', '.....xx.....', '....xwwx....', 'xxxxxwwxxxxx', '.xxwwwwwwxx.', '..xxwwwwxx..', '...xxwwxx...', '..xxxxxxxx..', '..xxx..xxx..', '.xxx....xxx.', '.xx......xx.', '............'],
     ['....yyyy....', '....xxxx....', '.....xx.....', '.....xx.....', '....xxxx....', '...xxxxxx...', '..xxwxxxxx..', '..xwwxxxxx..', '..xxxxxxxx..', '..xxxxxxxx..', '...yyyyyy...', '............'],
     ['xxxxxxxxxxxx', 'xyyyyyyyyyyx', 'xywxxxxxxxyx', 'xywxxxxxxxyx', 'xyxxxxxxxxyx', '.xyxxxxxxyx.', '.xyxxxxxxyx.', '..xyxxxxyx..', '..xyxxxxyx..', '...xyxxyx...', '....xyyx....', '.....xx.....'],
+    ['.xxxxxxxxxx.', 'xxwwxxxxxxxx', 'xwxxxxxxxxxy', 'xx.xx.xx.xxy', 'xx.xx.xx.xxy', 'xxxxxxxxxxxy', '.xyyyyyyyyy.', '..xxy.......', '..xy........', '.xy.........', '.y..........', '............'],
+    ['xw........xy', 'xxw......xxy', '.xxw....xxy.', '..xxw..xxy..', '...xxwxxy...', '....xxxy....', '....xxxy....', '...xxyxxy...', '..xxy..xxy..', '.xxy....xxy.', 'xxy......xxy', 'xy........xy'],
   ];
-  const tint = (x, y, w) => ICON_MAPS.map(m => fromMap(m, { x, y, w }, null));
+  const NAMES = ['FIGHT', 'MAGIC', 'ITEM', 'DEFEND', 'ACT', 'SPARE'];
+  const tint = (x, y, w) => Object.fromEntries(ICON_MAPS.map((m, i) => [NAMES[i], fromMap(m, { x, y, w }, null)]));
   S.icons = { normal: tint('#ff8a1f', '#b85a10', '#ffc48a'), sel: tint('#ffd23f', '#c98a1c', '#ffffff'), off: tint('#4a3a5a', '#2e2440', '#5a4a6a') };
   return S;
 })();
@@ -1411,7 +1467,7 @@ function drawEnemy() {
   if (e.fade >= 1) return;
   const t = G.t, p2 = G.phase2;
   const shx = e.shake > 0 ? rnd(-e.shake, e.shake) * 0.5 : 0;
-  const ex = snap(ENEMY_POS.x + shx), ey = snap(ENEMY_POS.y + Math.sin(t * 0.04) * 6 + e.fade * 110);
+  const ex = snap(ENEMY_POS.x + shx), ey = snap(ENEMY_POS.y + Math.sin(t * 0.04) * 6 + (e.spared ? 0 : e.fade * 110));
   const white = e.flash > 0 && (e.flash >> 1) % 2;
   const railY = 34, railX = ENEMY_POS.x;
   ctx.save();
@@ -1490,14 +1546,20 @@ function drawEnemy() {
   // stray sparks when damaged
   if (p2 && t % 14 === 0 && e.fade === 0) sparkle(ex + 26 + rnd(-6, 6), ey - 26, '#ffe14a', 3, 1.6);
 
-  // HP bar under the enemy
-  const bx = 432, by = 262, bw = 184;
-  txt(e.name, bx, by - 15, { size: 10, font: HEAD_FONT, color: COL.dim });
-  pixelBar(bx, by, bw, 8, e.shownHp / e.maxHp, '#ffffff');
-  const fw = Math.round(bw * e.hp / e.maxHp / 2) * 2;
-  ctx.fillStyle = G.phase2 ? COL.red : COL.gold; ctx.fillRect(bx, by, fw, 8);
-  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(bx, by, fw, 2);
-  txt(Math.ceil(e.hp) + ' / ' + e.maxHp, bx + bw, by + 10, { size: 12, align: 'right', color: COL.white });
+  // HP and MERCY bars under the enemy; the name turns yellow once it can be spared
+  const bx = 432, bw = 184, barX = 482, barW = 104;
+  const spareable = e.mercy >= 100;
+  txt(e.name, bx, 244, { size: 10, font: HEAD_FONT, color: spareable ? COL.gold : COL.dim });
+  txt(Math.ceil(e.hp) + ' / ' + e.maxHp, bx + bw, 243, { size: 12, align: 'right', color: COL.white });
+  txt('HP', bx, 258, { size: 9, font: HEAD_FONT, color: COL.dim });
+  pixelBar(barX, 258, barW, 6, e.shownHp / e.maxHp, '#ffffff');
+  const fw = Math.round(barW * e.hp / e.maxHp / 2) * 2;
+  ctx.fillStyle = G.phase2 ? COL.red : COL.gold; ctx.fillRect(barX, 258, fw, 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(barX, 258, fw, 2);
+  txt(Math.round(e.hp / e.maxHp * 100) + '%', bx + bw, 256, { size: 11, align: 'right', color: COL.white });
+  txt('MERCY', bx, 270, { size: 9, font: HEAD_FONT, color: spareable ? COL.gold : COL.dim });
+  pixelBar(barX, 270, barW, 6, e.shownMercy / 100, spareable ? COL.gold : COL.orange, '#3a1a08');
+  txt(Math.round(e.mercy) + '%', bx + bw, 268, { size: 11, align: 'right', color: spareable ? COL.gold : COL.white });
 }
 
 function drawExpGauge() {
@@ -1523,7 +1585,7 @@ function drawExpGauge() {
   txt(exp >= 100 ? 'MAX' : Math.floor(exp) + '%', x + w / 2, y + h + 10, { size: 13, align: 'center', color: exp >= 100 ? COL.gold : COL.white });
 }
 
-const ACTION_LABEL = { fight: 'FIGHT', magic: 'MAGIC', item: 'ITEM', defend: 'DEFEND' };
+const ACTION_LABEL = { fight: 'FIGHT', magic: 'MAGIC', act: 'ACT', item: 'ITEM', spare: 'SPARE', defend: 'DEFEND' };
 function drawCards() {
   for (let i = 0; i < 3; i++) {
     const c = G.party[i], S = HERO_SPR[i];
@@ -1540,7 +1602,7 @@ function drawCards() {
     ctx.drawImage(c.flash > 0 && (c.flash >> 2) % 2 ? S.base.white : S.base.img, pr.x, pr.y, pr.w, pr.h, x + 26 - pr.w, y + 44 - pr.h * 2, pr.w * 2, pr.h * 2);
     ctx.restore();
     ctx.fillStyle = cur ? c.color : COL.panelLine; ctx.fillRect(x + 8, y + 44, 36, 2);
-    txt(c.name, x + 52, y + 8, { size: 13, font: HEAD_FONT, color: isUp(c) ? c.color : COL.dim });
+    txt(c.name, x + 52, y + (c.name.length > 6 ? 9 : 8), { size: c.name.length > 6 ? 10 : 13, font: HEAD_FONT, color: isUp(c) ? c.color : COL.dim });
     const low = c.hp > 0 && c.hp < c.maxHp * 0.3;
     txt(`${c.hp}/${c.maxHp}`, x + w - 10, y + 6, { size: 15, align: 'right', color: c.hp <= 0 ? COL.red : low ? COL.gold : COL.white });
     txt('HP', x + 52, y + 31, { size: 11, font: HEAD_FONT, color: COL.dim });
@@ -1554,17 +1616,18 @@ function drawCards() {
 }
 
 function drawActionRow() {
-  const m = G.menu;
-  for (let k = 0; k < 4; k++) {
-    const x = 8 + k * 156, y = 354, w = 150, h = 32;
+  const m = G.menu, opts = actionsFor(curChar());
+  opts.forEach((label, k) => {
+    const x = 8 + k * 126, y = 354, w = 120, h = 32;
     const sel = m.sel === k, active = sel && m.sub === 'action';
-    const disabled = k === 2 && !G.items.some(i => i.qty > 0);
+    const disabled = label === 'ITEM' && !G.items.some(i => i.qty > 0);
+    const glow = label === 'SPARE' && G.enemy.mercy >= 100;
     frameBox(x, y, w, h, sel ? COL.gold : '#9a5a18', 2);
-    const color = disabled ? '#4a3a5a' : sel ? COL.gold : COL.orange;
-    if (active) heart(x + 18, y + h / 2, 2, 'red');
-    else spr(SPR.icons[disabled ? 'off' : sel ? 'sel' : 'normal'][k], x + 18, y + h / 2);
-    txt(ACTIONS[k], x + 38, y + 9, { size: 14, font: HEAD_FONT, color });
-  }
+    const color = disabled ? '#4a3a5a' : sel || glow ? COL.gold : COL.orange;
+    if (active) heart(x + 17, y + h / 2, 2, 'red');
+    else spr(SPR.icons[disabled ? 'off' : sel || glow ? 'sel' : 'normal'][label], x + 17, y + h / 2);
+    txt(label, x + 33, y + 10, { size: 13, font: HEAD_FONT, color });
+  });
 }
 
 function drawTextBox() {
@@ -1583,6 +1646,17 @@ function drawSubMenu() {
   const T = TEXTBOX, m = G.menu, c = curChar();
   const rowY = i => T.y + 10 + i * 22;
   const descX = 360;
+  if (m.sub === 'act') {
+    ACTS.forEach((act, i) => {
+      const x = T.x + 36 + (i % 2) * 150, y = rowY(Math.floor(i / 2));
+      if (i === m.subSel) heart(x - 16, y + 9, 1.4, 'red');
+      txt(act.name, x, y, { size: 17, color: i === m.subSel ? COL.gold : COL.white });
+    });
+    wrap(ACTS[m.subSel].desc, 252, 15).slice(0, 2).forEach((l, i) => txt(l, descX, T.y + 10 + i * 19, { size: 15, color: COL.dim }));
+    const e = G.enemy;
+    txt(e.mercy >= 100 ? 'MERCY 100%. It can be SPARED!' : `MERCY ${Math.round(e.mercy)}%`, descX, T.y + 54, { size: 14, color: COL.gold });
+    return;
+  }
   if (m.sub === 'magic') {
     const avail = availExp();
     c.spells.forEach((s, i) => {
@@ -1707,8 +1781,8 @@ function drawTitle() {
     txt(`${c.maxHp} HP`, x, 232, { size: 14, align: 'center', color: COL.dim });
   });
   const lines = [
-    'Pick FIGHT, MAGIC, ITEM or DEFEND for each hero.',
-    'On the enemy turn, steer the heart and dodge. Graze for EXP.',
+    'Choose an action for each hero, then dodge with the heart.',
+    'ASTRA can ACT to raise MERCY. At 100%, anyone can SPARE.',
     'BLUE attacks only hurt you while you are moving.',
   ];
   lines.forEach((l, i) => txt(l, W / 2, 262 + i * 21, { size: 15, align: 'center', color: i === 2 ? '#2ea8ff' : COL.white }));

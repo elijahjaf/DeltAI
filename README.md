@@ -23,14 +23,21 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 
 | Hero | HP | Fight power | Spells (EXP cost) |
 | --- | --- | --- | --- |
-| VESSA, knight | 150 | 64 | Flare Edge (30%, damage), Rally Cry (45%, heals everyone) |
-| BROM, brute | 200 | 80 | Quake (55%, big damage), Iron Gut (20%, heals himself) |
+| ASTRA, knight | 150 | 64 | None. Astra has **ACT** instead of MAGIC |
+| TERRESTRO, brute | 200 | 80 | Quake (55%, big damage), Iron Gut (20%, heals self) |
 | LUNE, seer | 110 | 36 | Mend (25%, heals one hero and can revive), Starfall (40%, damage), Aurora (65%, heals everyone) |
 
 ## Actions
 
 - **FIGHT**: a timing bar slides toward a mark. Press Z as it crosses. The closer you are, the more damage you deal, and a dead-center hit is a 1.5x critical.
-- **MAGIC**: spends shared EXP, which works like Deltarune's TP. Each hero has their own damage and healing spells.
+- **MAGIC** (Terrestro and Lune): spends shared EXP, which works like Deltarune's TP. Each has their own damage and healing spells.
+- **ACT** (Astra): the peaceful way to progress. Each turn the flavor text hints at what Marionette NEO wants. Pick the matching ACT to raise its **MERCY** by 25% (20% on Hard). A wrong ACT does nothing.
+  - *Applaud*: it's playing to the crowd or waiting for applause.
+  - *Dance*: it holds out a hand or looks for a partner.
+  - *Oil Joints*: its joints creak or screech.
+  - *Untangle*: its strings are knotted or tangled.
+  - *Check*: shows its stats.
+- **SPARE** (everyone): once MERCY reaches 100%, the enemy's name turns yellow and sparing it ends the battle peacefully. Sparing earlier does nothing.
 - **ITEM**: a shared, limited bag (4 Glow Berries, 2 Honey Loaves, 1 Phoenix Tea). Any hero can use one on any teammate, including a downed one.
 - **DEFEND**: halves the damage that hero takes this turn and grants 16% EXP.
 
@@ -64,5 +71,6 @@ Below half HP a string snaps and Marionette NEO gets frantic. Its eye and core t
 - The enemy has 4400 HP.
 - Every attack runs at its frantic level from turn one and deals about 15% more damage.
 - Bullets are 10% faster, rising to 20% once the enemy is below half HP.
+- MERCY rises 20% per correct ACT instead of 25%.
 - The item bag holds 3 Glow Berries, 1 Honey Loaf and 1 Phoenix Tea.
 - The heart's invincibility after a hit is shorter.
