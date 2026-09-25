@@ -106,12 +106,12 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 
 A skeletal ghost gunslinger in a wide-brim hat and striped poncho, trailing smoke where its legs should be. Deadeye changes how your heart works, the way Undertale's colored SOULs do.
 
-**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line, clears every rock it crosses, and sets off other TNT.
+**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line. The blast doesn't affect anything else: rocks, bullets and other TNT are untouched.
 
 | Attack | What happens |
 | --- | --- |
 | Target Practice | rows of yellow bottles drift down; stray white bullets cross the box |
-| TNT Wall | walls of rocks descend; shoot the TNT in each wall to blast a gap |
+| TNT Wall | walls of rocks descend with one gap, plugged by TNT; shoot it, dodge its blast, then slip through |
 | Six Shooter | aimed volleys of yellow slugs to shoot down or dodge |
 | Tumbleweeds | bouncing yellow tumbleweeds |
 | Outlaw Gang | a Space Invaders-style gang of yellow outlaws (some are TNT) that fires back |

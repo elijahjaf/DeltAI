@@ -195,7 +195,7 @@
       <ul>
         <li><span class="tag blue">BLUE</span> bullets only hurt while you move. Stand still and let them pass.</li>
         <li><span class="tag orange">ORANGE</span> bullets only hurt while you stand still. Keep moving through them.</li>
-        <li><span class="tag yellow">YELLOW HEART</span> The heart flips upside down and <b>Z fires shots upward</b>. Yellow objects break when shot. Yellow <b>TNT</b> freezes in place, flashes a warning cross, then blasts its whole row and column. Stay out of the lines!</li>
+        <li><span class="tag yellow">YELLOW HEART</span> The heart flips upside down and <b>Z fires shots upward</b>. Yellow objects break when shot. Yellow <b>TNT</b> freezes in place, flashes a warning cross, then blasts its whole row and column. The blast only hurts you, so stay out of the lines!</li>
         <li><span class="tag blue">BLUE HEART</span> Gravity pulls the heart down. <b>Tap Z</b> for a short hop and <b>hold Z</b> for a full jump. You can land on platforms.</li>
         <li><span class="tag red">HAZARDS</span> Some attacks add darkness, reversed controls, strings that drag you, wind, slowing wax puddles, or a shrinking box. The line under the box explains each one.</li>
       </ul>
@@ -1143,7 +1143,7 @@ const CANDLE_ATTACKS = [
 // First half: YELLOW SOUL (Z fires shots upward; yellow objects break, yellow TNT explodes).
 // Second half: BLUE SOUL (gravity; Z jumps, holding Z jumps higher).
 const YELLOW_TIP = '#ffe14a', BLUE_SOUL_TIP = '#2ea8ff';
-// TNT: shooting it sets off a small cross-shaped blast that also clears rocks (and other TNT)
+// TNT: shooting it sets off a full-box + blast that can only hurt the player
 // Shooting TNT lights it: it stops dead where it was hit, flashes a warning cross, then blows.
 const FUSE = 22;
 function tnt(o) {
@@ -1161,8 +1161,9 @@ function explode(b) {
   b.dead = true;
   sparkle(b.x, b.y, '#ffe14a', 10, 2.2);
   const B = G.box;
-  spawn({ kind: 'rect', x: B.x + B.w / 2, y: b.y, w: B.w + 30, h: 28, life: 18, cull: false, clears: true, draw: drawYBlast });
-  spawn({ kind: 'rect', x: b.x, y: B.y + B.h / 2, w: 28, h: B.h + 30, life: 18, cull: false, clears: true, draw: drawYBlast });
+  sfx('zap'); G.shake = 5;
+  spawn({ kind: 'rect', x: B.x + B.w / 2, y: b.y, w: B.w + 30, h: 28, life: 18, cull: false, draw: drawYBlast });
+  spawn({ kind: 'rect', x: b.x, y: B.y + B.h / 2, w: 28, h: B.h + 30, life: 18, cull: false, draw: drawYBlast });
 }
 const bottle = o => spawn(Object.assign({ r: 6, yellow: true, draw: drawBottle }, o));
 const floorY = () => G.box.y + G.box.h;
@@ -1188,15 +1189,14 @@ const DEADEYE_YELLOW = [
       if (A.t % 50 === 25 && A.t < A.dur - 40) { const left = Math.random() < 0.5; spawn({ x: left ? B.x - 8 : B.x + B.w + 8, y: rnd(B.y + 20, B.y + B.h * 0.6), vx: left ? 2 : -2, r: 4, draw: drawSlug }); }
     } },
   { name: 'TNT WALL', soul: 'yellow', hint: '* DEADEYE rolls out a crate of TNT. All that hauling left it parched.', mood: 'water', w: 240, h: 200, dur: 440, dmg: 26,
-    tip: 'Shoot the TNT, then step aside: it blasts the whole row and column!', tipColor: YELLOW_TIP,
+    tip: 'Shoot the TNT in the gap, dodge its blast, then slip through!', tipColor: YELLOW_TIP,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 90 : 110;
       if (A.t % every !== 10 || A.t > A.dur - 150) return;
-      const n = 14, gap = (B.w - 8) / (n - 1), bombs = new Set([2 + randInt(4), 8 + randInt(4)]);
-      for (let k = 0; k < n; k++) {
-        const o = { x: B.x + 4 + k * gap, y: B.y - 10, vy: A.lvl > 1 ? 0.85 : 0.7 };
-        if (bombs.has(k)) tnt(o); else spawn(Object.assign(o, { r: 8, draw: drawRock }));
-      }
+      // a wall of rocks with one opening, plugged by a TNT too wide to squeeze past
+      const n = 14, gap = (B.w - 8) / (n - 1), hole = 1 + randInt(n - 3), vy = A.lvl > 1 ? 0.85 : 0.7;
+      for (let k = 0; k < n; k++) if (k !== hole && k !== hole + 1) spawn({ x: B.x + 4 + k * gap, y: B.y - 10, vy, r: 8, draw: drawRock });
+      tnt({ x: B.x + 4 + (hole + 0.5) * gap, y: B.y - 10, vy, r: 11 });
     } },
   { name: 'SIX SHOOTER', soul: 'yellow', hint: "* DEADEYE's hand hovers over its revolver. It wants a showdown.", mood: 'duel', w: 220, h: 200, dur: 400, dmg: 24,
     tip: 'Shoot the yellow slugs out of the air, or dodge them.', tipColor: YELLOW_TIP,
@@ -1223,7 +1223,7 @@ const DEADEYE_YELLOW = [
       }
     } },
   { name: 'OUTLAW GANG', soul: 'yellow', hint: '* A gang of paper outlaws marches in. DEADEYE sizes you up for a duel.', mood: 'duel', w: 260, h: 200, dur: 460, dmg: 24,
-    tip: 'Shoot the outlaws. TNT blasts its whole row and column.', tipColor: YELLOW_TIP,
+    tip: "Shoot the outlaws. Stay out of shot TNT's row and column!", tipColor: YELLOW_TIP,
     init(A) {
       const B = G.box, cols = 6, rows = 3;
       A.d = { ox: B.x + 24, oy: B.y + 16, dir: 1 };
@@ -1731,17 +1731,6 @@ function updateDodge() {
     }
   }
   G.shots = G.shots.filter(sh => !sh.dead);
-  // blasts clear rocks and set off other TNT
-  for (const bl of G.bullets) {
-    if (!bl.clears || bl.dead) continue;
-    bl.activeT = (bl.activeT || 0) + 1;
-    if (bl.activeT === 1 && bl.w > bl.h) { sfx('zap'); G.shake = 5; }
-    if (bl.activeT > 6) continue;
-    for (const o of G.bullets) {
-      if (o === bl || o.clears || o.dead || o.platform || bDist(bl, o.x, o.y) > (o.r || 6)) continue;
-      if (o.onShot) o.onShot(o); else { o.dead = true; sparkle(o.x, o.y, '#ffffff', 4, 1.4); }
-    }
-  }
   G.bullets = G.bullets.filter(b => !b.dead);
 
   if (G.gameOverAt && G.t >= G.gameOverAt) { gameOver(); return; }
@@ -2349,7 +2338,7 @@ function drawOutlaw(b) { ctx.rotate(-b.ang); blit(SPR3.outlaw); }
 function drawRock() { blit(SPR3.rock); }
 function drawPellet() { blit(SPR3.pellet); }
 function drawYBlast(b) {
-  const k = Math.max(0, 1 - (b.activeT || 0) / 18), horiz = b.w >= b.h;
+  const k = Math.max(0, 1 - b.age / 18), horiz = b.w >= b.h;
   const L = horiz ? b.w : b.h, T = Math.max(2, snap((horiz ? b.h : b.w) * k));
   ctx.fillStyle = '#ffb347'; horiz ? ctx.fillRect(-L / 2, -T / 2, L, T) : ctx.fillRect(-T / 2, -L / 2, T, L);
   ctx.fillStyle = '#fff6b0'; const t2 = Math.max(2, snap(T / 2)); horiz ? ctx.fillRect(-L / 2, -t2 / 2, L, t2) : ctx.fillRect(-t2 / 2, -L / 2, t2, L);
