@@ -73,7 +73,7 @@
 <div class="wrap">
   <header>
     <h1>CURTAIN CALL</h1>
-    <p>A three-hero battle against Marionette NEO</p>
+    <p>A three-hero battle against Marionette NEO or Candlemaw</p>
   </header>
 
   <div class="stage">
@@ -107,7 +107,8 @@
     <div class="rule"><b>SPARE</b><span>Any hero can SPARE. Once MERCY reaches 100% and the enemy's name turns yellow, sparing it ends the battle.</span></div>
     <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including a downed one.</span></div>
     <div class="rule"><b>DEFEND</b><span>Take half damage this turn and gain 16% EXP. Grazing bullets also earns EXP.</span></div>
-    <div class="rule"><b>BLUE ATTACKS</b><span>Blue bullets pass through you harmlessly if you stand still. They only hurt while you move.</span></div>
+    <div class="rule"><b>BLUE &amp; ORANGE</b><span>Blue bullets only hurt while you move, so stand still. Orange bullets only hurt while you stand still, so keep moving.</span></div>
+    <div class="rule"><b>TWO BOSSES</b><span>Pick Marionette NEO (21 attacks) or Candlemaw (12 attacks) on the title screen. Each has its own ACTs.</span></div>
     <div class="rule"><b>HARD MODE</b><span>Pick it on the title screen. The enemy has more HP, hits harder and attacks at full fury from the start.</span></div>
   </div>
 </div>
@@ -234,33 +235,19 @@ const ITEM_DEF = [
   { name: 'Phoenix Tea', heal: 999, qty: 1, desc: 'Still warm. Fully heals and revives.' },
 ];
 const actionsFor = c => ['FIGHT', c.acts ? 'ACT' : 'MAGIC', 'ITEM', 'SPARE', 'DEFEND'];
-// Astra's ACTs. Each enemy turn has a mood (hinted in the flavor text); the matching ACT raises MERCY.
-const ACTS = [
-  { id: 'check', name: 'Check', desc: 'Study MARIONETTE NEO and read its stats.' },
-  { id: 'reveal', name: 'Reveal', desc: 'Peer behind the curtain. Next turn, the right ACT is revealed.' },
-  { id: 'applaud', name: 'Applaud', verb: 'applaud', desc: 'Cheer for the show. It wants this when it plays to the crowd.',
-    ok: "* ASTRA applauded wildly! MARIONETTE NEO's eye sparkled with joy." },
-  { id: 'dance', name: 'Dance', verb: 'dance', desc: 'Take its hand. It wants this when it looks for a partner.',
-    ok: '* ASTRA took its gloved hand and waltzed across the stage! It spun happily.' },
-  { id: 'oil', name: 'Oil Joints', verb: 'oil its joints', desc: 'Grease its gears. It wants this when its joints creak.',
-    ok: '* ASTRA oiled its screeching joints. MARIONETTE NEO sighed with relief.' },
-  { id: 'untangle', name: 'Untangle', verb: 'untangle its strings', desc: 'Fix its strings. It wants this when they are knotted.',
-    ok: '* ASTRA carefully untangled its strings. It moves more freely now.' },
-];
 const MERCY_STEP = 25, MERCY_STEP_HARD = 20;
 const DEFEND_EXP = 16;
-const ENEMY_HP = 3200, ENEMY_HP_HARD = 4400;
 const HARD_ITEMS = [3, 1, 1];
 
 // ---------------------------------------------------------------- state
 let G;
-function newGame(state = 'title', hard = false) {
-  const hp = hard ? ENEMY_HP_HARD : ENEMY_HP;
+function newGame(state = 'title', hard = false, bossId = 'neo') {
+  const boss = BOSSES[bossId], hp = hard ? boss.hpHard : boss.hp;
   G = {
-    state, hard, t: 0, turn: 0, exp: 0, shake: 0, phase2: false,
+    state, hard, boss, bossId, titleRow: 0, t: 0, turn: 0, exp: 0, shake: 0, phase2: false,
     party: PARTY_DEF.map(d => ({ ...d, hp: d.maxHp, defending: false, action: null, flash: 0, anim: 0 })),
     items: ITEM_DEF.map((i, k) => ({ ...i, qty: hard ? HARD_ITEMS[k] : i.qty })),
-    enemy: { name: 'MARIONETTE NEO', maxHp: hp, hp, shownHp: hp, mercy: 0, shownMercy: 0, spared: false, shake: 0, flash: 0, fade: 0 },
+    enemy: { name: boss.name, maxHp: hp, hp, shownHp: hp, mercy: 0, shownMercy: 0, spared: false, shake: 0, flash: 0, fade: 0 },
     menu: null, msg: null, queue: [], lanes: [],
     popups: [], particles: [], bullets: [],
     box: { ...TEXTBOX }, soul: { x: 320, y: 200, iframes: 0, graze: 0, moving: false, blueSafe: 0 },
@@ -268,7 +255,6 @@ function newGame(state = 'title', hard = false) {
     stats: { grazes: 0, expGained: 0, hits: 0, damage: 0, acts: 0 },
   };
 }
-newGame();
 
 const isUp = c => c.hp > 0;
 const setMsg = text => { G.msg = { text, shown: 0, age: 0 }; };
@@ -346,6 +332,7 @@ function spawn(o) {
 }
 function bDist(b, px, py) {
   if (b.kind === 'circle') return Math.hypot(px - b.x, py - b.y) - b.r;
+  if (b.kind === 'ring') return Math.abs(Math.hypot(px - b.x, py - b.y) - b.R) - b.thick / 2;
   const c = Math.cos(-b.ang), s = Math.sin(-b.ang);
   const dx = px - b.x, dy = py - b.y;
   const lx = dx * c - dy * s, ly = dx * s + dy * c;
@@ -360,11 +347,11 @@ function needle(x, y, vx, vy) {
 function stringAt(x, y, ang, len) {
   return spawn({ kind: 'rect', x, y, w: len, h: 7, ang, warn: 38, life: 38 + 16, cull: false, draw: drawString, onArm: () => sfx('zap') });
 }
-function burst(x, y, n, sp, fountain = false) {
+function burst(x, y, n, sp, fountain = false, draw = drawShard) {
   const off = rnd(0, Math.PI * 2);
   for (let i = 0; i < n; i++) {
     const a = fountain ? Math.PI + (i + 0.5) * Math.PI / n : off + i * Math.PI * 2 / n;
-    spawn({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ay: fountain ? 0.045 : 0, r: 4, draw: drawShard });
+    spawn({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ay: fountain ? 0.045 : 0, r: 4, draw });
   }
 }
 function headAt(x, y, burstAt) {
@@ -385,7 +372,7 @@ function soulClampY(pad = 12) { return clamp(G.soul.y, G.box.y + pad, G.box.y + 
 
 // ---------------------------------------------------------------- enemy moveset
 // Attacks cycle in order, one per turn. Below half HP every attack runs at level 2.
-const ATTACKS = [
+const NEO_BASE_ATTACKS = [
   { name: 'NEEDLE RAIN', hint: '* MARIONETTE NEO threads needles through its circuits. Its joints screech and creak.', mood: 'oil', w: 200, h: 160, dur: 360, dmg: 22,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 4 : 6;
@@ -558,6 +545,322 @@ const ATTACKS = [
     } },
 ];
 
+
+// ---------------------------------------------------------------- shared attack helpers
+// homing: accelerate toward the heart, capped at a max speed
+const seek = (acc, max) => b => {
+  const S = G.soul, dx = S.x - b.x, dy = S.y - b.y, L = Math.hypot(dx, dy) || 1;
+  b.vx += dx / L * acc; b.vy += dy / L * acc;
+  const m = max * G.A.spd, sp = Math.hypot(b.vx, b.vy);
+  if (sp > m) { b.vx *= m / sp; b.vy *= m / sp; }
+};
+// strike a few of six columns, usually including the heart's
+function columnStrike(A, draw, onArm) {
+  const B = G.box, cols = 6, cw = B.w / cols, k = A.lvl > 1 ? 3 : 2, set = new Set();
+  if (Math.random() < 0.6) set.add(clamp(Math.floor((G.soul.x - B.x) / cw), 0, cols - 1));
+  while (set.size < k) set.add(randInt(cols));
+  for (const c of set) spawn({ kind: 'rect', x: B.x + cw * (c + 0.5), y: B.y + B.h / 2, w: cw - 6, h: B.h + 30, warn: 44, life: 58, cull: false, draw, onArm });
+}
+const beamArm = () => { sfx('zap'); G.shake = 6; };
+function crossers(A, every, sp, draw, r = 5) {
+  if (A.t % every !== 0 || A.t > A.dur - 50) return;
+  const B = G.box, dir = randInt(4);
+  const x = rnd(B.x + 8, B.x + B.w - 8), y = rnd(B.y + 8, B.y + B.h - 8);
+  const o = { r, draw };
+  if (dir === 0) Object.assign(o, { x: B.x - 10, y, vx: sp });
+  if (dir === 1) Object.assign(o, { x: B.x + B.w + 10, y, vx: -sp });
+  if (dir === 2) Object.assign(o, { x, y: B.y - 10, vy: sp });
+  if (dir === 3) Object.assign(o, { x, y: B.y + B.h + 10, vy: -sp });
+  spawn(o);
+}
+
+// ---------------------------------------------------------------- MARIONETTE NEO: extra acts
+const NEO_EXTRA = [
+  { name: 'CANNON BEAM', hint: '* Its cannon arm whirs and grinds. Its joints screech for oil.', mood: 'oil', w: 240, h: 180, dur: 400, dmg: 30,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 52 : 70;
+      if (A.t % every === 20 && A.t < A.dur - 70) {
+        if (A.lvl > 1 && (A.t / every | 0) % 2) spawn({ kind: 'rect', x: soulClampX(12), y: B.y + B.h / 2, w: 22, h: B.h + 40, warn: 40, life: 58, cull: false, draw: drawBeam, onArm: beamArm });
+        else spawn({ kind: 'rect', x: B.x + B.w / 2, y: soulClampY(12), w: B.w + 40, h: 22, warn: 40, life: 58, cull: false, draw: drawBeam, onArm: beamArm });
+      }
+      if (A.t % 18 === 0 && A.t < A.dur - 40) spawn({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 8, vy: rnd(1.6, 2.4), r: 4, draw: drawShard });
+    } },
+  { name: "PUPPETEER'S PULL", hint: '* It tugs a string tied to your SOUL. The string is painfully knotted.', mood: 'untangle', w: 240, h: 200, dur: 420, dmg: 24,
+    tip: 'A string drags your heart around. Fight the pull!',
+    init(A) { A.pull = { x: G.box.x + G.box.w / 2, y: G.box.y + 40, sp: 1.1 }; },
+    update(A) {
+      const B = G.box;
+      A.pull.x = B.x + B.w / 2 + Math.sin(A.t * 0.021) * B.w * 0.38;
+      A.pull.y = B.y + B.h / 2 + Math.sin(A.t * 0.033) * B.h * 0.36;
+      A.pull.sp = A.lvl > 1 ? 1.35 : 1.1;
+      if (A.t % (A.lvl > 1 ? 14 : 18) === 0 && A.t < A.dur - 40) {
+        const left = Math.random() < 0.5;
+        needle(left ? B.x - 12 : B.x + B.w + 12, rnd(B.y + 8, B.y + B.h - 8), left ? 2.4 : -2.4, 0);
+      }
+    } },
+  { name: 'BLUE & ORANGE', hint: '* Strings of BLUE and ORANGE twirl past. It looks for a dance partner.', mood: 'dance', w: 240, h: 180, dur: 420, dmg: 26,
+    tip: 'BLUE: stand still.  ORANGE: keep moving.', tipColor: '#ff9a1f',
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 34 : 44;
+      if (A.t % every !== 10 || A.t > A.dur - 90) return;
+      A.d.n = (A.d.n || 0) + 1;
+      const orange = A.d.n % 2 === 0, fromA = Math.random() < 0.5, sp = 1.9;
+      if (A.lvl > 1 && A.d.n % 3 === 0) spawn({ kind: 'rect', blue: !orange, orange, x: B.x + B.w / 2, y: fromA ? B.y - 6 : B.y + B.h + 6, w: B.w + 20, h: 8, vy: fromA ? sp : -sp, draw: drawWall });
+      else spawn({ kind: 'rect', blue: !orange, orange, x: fromA ? B.x - 6 : B.x + B.w + 6, y: B.y + B.h / 2, w: 8, h: B.h + 20, vx: fromA ? sp : -sp, draw: drawWall });
+    } },
+  { name: 'LIGHTS OUT', hint: '* The stage lights die. In the dark, it waits for your applause.', mood: 'applaud', w: 220, h: 200, dur: 420, dmg: 24,
+    tip: 'Only the light around your heart shows the way.',
+    init(A) { A.dark = 48; },
+    update(A) {
+      const B = G.box;
+      if (A.t % 70 === 10 && A.t < A.dur - 100) {
+        const c = [[B.x + 14, B.y + 14], [B.x + B.w - 14, B.y + 14], [B.x + 14, B.y + B.h - 14], [B.x + B.w - 14, B.y + B.h - 14]][randInt(4)];
+        spawn({ x: c[0], y: c[1], r: 6, glow: true, warn: 30, life: 230, cull: false, draw: drawEye, upd: seek(0.05, A.lvl > 1 ? 1.5 : 1.2) });
+      }
+      crossers(A, A.lvl > 1 ? 22 : 30, 1.6, drawBead);
+    } },
+  { name: 'MIRROR, MIRROR', hint: '* A cracked mirror flips the stage. It poses for the crowd.', mood: 'applaud', w: 220, h: 200, dur: 380, dmg: 22,
+    tip: 'Your controls are REVERSED!', tipColor: '#c77dff',
+    init(A) { A.invert = true; A.d.off = 0; },
+    update(A) {
+      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2 - 20;
+      if (A.t > 40 && A.t % (A.lvl > 1 ? 22 : 28) === 0 && A.t < A.dur - 50) {
+        A.d.off += 0.2; const n = A.lvl > 1 ? 12 : 10;
+        for (let k = 0; k < n; k++) { const a = A.d.off + k * Math.PI * 2 / n; spawn({ x: cx, y: cy, vx: Math.cos(a) * 1.4, vy: Math.sin(a) * 1.4, r: 5, draw: drawPetal }); }
+      }
+      if (A.t % 40 === 20 && A.t < A.dur - 50) {
+        const x = rnd(B.x + 10, B.x + B.w - 10), a = Math.atan2(G.soul.y - B.y, G.soul.x - x);
+        spawn({ kind: 'rect', x, y: B.y - 8, vx: Math.cos(a) * 2, vy: Math.sin(a) * 2, w: 12, h: 8, ang: a, draw: drawCard });
+      }
+    } },
+  { name: 'TIME BOMBS', hint: '* Wind-up bombs tick inside its chest. It holds out a hand for a dance.', mood: 'dance', w: 240, h: 200, dur: 420, dmg: 28,
+    tip: 'Bombs blast along their whole row and column.',
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 44 : 60;
+      if (A.t % every !== 5 || A.t > A.dur - 100) return;
+      let x, y, tries = 0;
+      do { x = rnd(B.x + 16, B.x + B.w - 16); y = rnd(B.y + 16, B.y + B.h - 16); } while (Math.hypot(x - G.soul.x, y - G.soul.y) < 50 && ++tries < 12);
+      spawn({ x, y, r: 8, life: 92, cull: false, draw: drawBomb, upd: b => {
+        if (b.age === 58) {
+          const B = G.box;
+          spawn({ kind: 'rect', x: B.x + B.w / 2, y: b.y, w: B.w + 30, h: 12, warn: 32, life: 48, cull: false, draw: drawBlast });
+          spawn({ kind: 'rect', x: b.x, y: B.y + B.h / 2, w: 12, h: B.h + 30, warn: 32, life: 48, cull: false, draw: drawBlast });
+        }
+        if (b.age === 90) { b.dead = true; burst(b.x, b.y, 6, 1.6); sfx('zap'); G.shake = 5; }
+      } });
+    } },
+  { name: 'STRING CAGE', hint: '* Strings wind into a cage around you. They are hopelessly knotted.', mood: 'untangle', w: 220, h: 220, dur: 420, dmg: 24,
+    tip: 'Slip out through the gap before the cage closes.',
+    update(A) {
+      const every = A.lvl > 1 ? 80 : 105;
+      if (A.t % every !== 10 || A.t > A.dur - 110) return;
+      const cx = G.soul.x, cy = G.soul.y, n = 20, gap = randInt(n), gw = A.lvl > 1 ? 2 : 3, spin = (Math.random() < 0.5 ? 1 : -1) * 0.012;
+      for (let k = 0; k < n; k++) {
+        if ((k - gap + n) % n < gw) continue;
+        const a0 = k * Math.PI * 2 / n;
+        spawn({ x: cx + Math.cos(a0) * 120, y: cy + Math.sin(a0) * 120, r: 5, cull: false, life: 200, draw: drawBead, d: { cx, cy, a: a0, r: 120 },
+          upd: b => { b.d.r -= (G.A.lvl > 1 ? 1.05 : 0.9) * G.A.spd; b.d.a += spin; b.x = b.d.cx + Math.cos(b.d.a) * b.d.r; b.y = b.d.cy + Math.sin(b.d.a) * b.d.r; if (b.d.r < 4) b.dead = true; } });
+      }
+    } },
+  { name: 'CLOSING CURTAINS', hint: '* The curtains close in around you. Its gears grind and creak.', mood: 'oil', w: 280, h: 180, dur: 420, dmg: 24,
+    tip: 'The stage is shrinking!', fill: '#6a0f28',
+    update(A) {
+      const B = G.box, k = Math.min(1, A.t / (A.dur * 0.7)), w = 280 - (280 - (A.lvl > 1 ? 100 : 120)) * k;
+      B.w = w; B.x = 320 - w / 2;
+      if (A.t % (A.lvl > 1 ? 9 : 12) === 0 && A.t < A.dur - 40) needle(rnd(B.x + 4, B.x + B.w - 4), B.y - 12, 0, rnd(2.2, 3.2));
+    } },
+  { name: 'BUZZSAWS', hint: '* Saws spin along the edges of the stage. Its wires tangle in the blades.', mood: 'untangle', w: 240, h: 190, dur: 420, dmg: 26,
+    init(A) {
+      const n = A.lvl > 1 ? 3 : 2;
+      for (let k = 0; k < n; k++) {
+        const b = spawn({ r: 11, warn: 40, cull: false, life: A.dur, draw: drawSaw, d: { p: k / n, dir: k % 2 ? 1 : -1 }, upd: b => {
+          const B = G.box, r = 11, iw = B.w - 2 * r, ih = B.h - 2 * r, per = 2 * (iw + ih);
+          b.d.p += b.d.dir * (G.A.lvl > 1 ? 2.8 : 2.3) * G.A.spd / per;
+          let s = ((b.d.p % 1) + 1) % 1 * per;
+          if (s < iw) { b.x = B.x + r + s; b.y = B.y + r; }
+          else if ((s -= iw) < ih) { b.x = B.x + r + iw; b.y = B.y + r + s; }
+          else if ((s -= ih) < iw) { b.x = B.x + r + iw - s; b.y = B.y + r + ih; }
+          else { s -= iw; b.x = B.x + r; b.y = B.y + r + ih - s; }
+        } });
+        b.upd(b);
+      }
+    },
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 36 : 46) === 30 && A.t < A.dur - 60) {
+        spawn({ kind: 'rect', x: rnd(B.x + 28, B.x + B.w - 28), y: B.y + B.h - 35, w: 14, h: 70, warn: 34, life: 60, cull: false, draw: drawSpring, onArm: () => sfx('zap') });
+      }
+    } },
+];
+const NEO_ORDER = ['NEEDLE RAIN', 'PUPPET STRINGS', 'CARD FAN', 'LOOSE BUTTONS', 'CANNON BEAM', 'CURTAIN FALL', "PUPPETEER'S PULL", 'PAPER BLOOM',
+  'SPARE HEADS', 'LIGHTS OUT', 'BLUE & ORANGE', 'STAGE LIGHTS', 'TANGLED THREAD', 'MIRROR, MIRROR', 'CHANDELIER', 'TIME BOMBS', 'STRING CAGE',
+  'CLOSING CURTAINS', 'BUZZSAWS', 'SCISSOR DANCE', 'GRAND FINALE'];
+const NEO_ATTACKS = (() => {
+  const all = Object.fromEntries([...NEO_BASE_ATTACKS, ...NEO_EXTRA].map(a => [a.name, a]));
+  return NEO_ORDER.map(n => all[n]);
+})();
+NEO_ATTACKS.find(a => a.blue).tip = 'BLUE attacks pass through you while you stand still.';
+
+// ---------------------------------------------------------------- CANDLEMAW
+const CANDLE_ATTACKS = [
+  { name: 'WAX DRIP', hint: '* CANDLEMAW is melting, dripping hot wax everywhere.', mood: 'fan', w: 220, h: 180, dur: 380, dmg: 22,
+    tip: 'Wax puddles slow your heart down.',
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 7 : 10) !== 0 || A.t > A.dur - 40) return;
+      spawn({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 10, vy: 1.6, ay: 0.04, r: 5, draw: drawWax, upd: b => {
+        const B = G.box;
+        if (b.y < B.y + B.h - 8) return;
+        b.dead = true;
+        if (Math.random() < 0.5) spawn({ x: b.x, y: B.y + B.h - 5, r: 16, solid: false, slow: true, life: 160, cull: false, draw: drawPuddle });
+      } });
+    } },
+  { name: 'EMBER RISE', hint: '* Embers drift upward as CANDLEMAW hums a low hymn.', mood: 'sing', w: 240, h: 190, dur: 400, dmg: 22,
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 5 : 7) !== 0 || A.t > A.dur - 40) return;
+      const x0 = rnd(B.x + 6, B.x + B.w - 6), ph = rnd(0, 6);
+      spawn({ x: x0, y: B.y + B.h + 8, vy: -rnd(1.4, 2.2), r: 4, glow: true, draw: drawEmber, d: { x0, ph }, upd: b => { b.x = b.d.x0 + Math.sin(b.age * 0.07 + b.d.ph) * 14; } });
+    } },
+  { name: 'FLAME PILLARS', hint: '* Its flames gutter low... then something stirs beneath the floor.', mood: 'relight', w: 260, h: 170, dur: 400, dmg: 30,
+    update(A) { if (A.t % (A.lvl > 1 ? 46 : 58) === 8 && A.t < A.dur - 70) columnStrike(A, drawPillar, beamArm); } },
+  { name: 'FIRE WHEEL', hint: '* CANDLEMAW spins faster and faster, its wax running hot.', mood: 'fan', w: 220, h: 220, dur: 420, dmg: 26,
+    init(A) {
+      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2, spokes = A.lvl > 1 ? 5 : 4;
+      spawn({ x: cx, y: cy, solid: false, life: A.dur, cull: false, draw: drawHub });
+      for (let s = 0; s < spokes; s++) for (let k = 1; k <= 5; k++) {
+        const a = s * Math.PI * 2 / spokes + 0.4, rad = k * 21;
+        spawn({ x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad, r: 6, warn: 50, glow: true, cull: false, life: A.dur, draw: drawFireball, d: { a, rad },
+          upd: b => { const A = G.A; b.d.a += (A.t < A.dur / 2 ? 1 : -1) * (A.lvl > 1 ? 0.022 : 0.017) * A.spd; b.x = cx + Math.cos(b.d.a) * b.d.rad; b.y = cy + Math.sin(b.d.a) * b.d.rad; } });
+      }
+    },
+    update() {} },
+  { name: 'COLD DRAFT', hint: '* A cold draft blows through. Its wicks gutter and flicker.', mood: 'relight', w: 260, h: 180, dur: 400, dmg: 22,
+    tip: 'The wind pushes your heart!',
+    init(A) { A.push = { x: 0, y: 0 }; },
+    update(A) {
+      const B = G.box, dir = Math.floor(A.t / 130) % 2 ? -1 : 1;
+      A.push.x = dir * (A.lvl > 1 ? 1.15 : 0.95);
+      if (A.t % (A.lvl > 1 ? 12 : 16) === 0 && A.t < A.dur - 40) spawn({ x: dir > 0 ? B.x - 10 : B.x + B.w + 10, y: rnd(B.y + 8, B.y + B.h - 8), vx: dir * rnd(2.2, 3), r: 5, draw: drawSoot });
+    } },
+  { name: 'CANDLE VOLLEY', hint: '* It hurls lit candle stubs, trailing sooty black smoke.', mood: 'trim', w: 240, h: 190, dur: 400, dmg: 26,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 26 : 36;
+      if (A.t % every !== 0 || A.t > A.dur - 70) return;
+      const left = Math.random() < 0.5, tx = Math.random() < 0.5 ? soulClampX(20) : rnd(B.x + 20, B.x + B.w - 20);
+      const x0 = left ? B.x - 10 : B.x + B.w + 10, y0 = B.y + B.h * 0.5, T = 60, g = 0.08;
+      spawn({ x: x0, y: y0, vx: (tx - x0) / T, vy: ((B.y + B.h - 8 - y0) - 0.5 * g * T * T) / T, ay: g, r: 6, glow: true, draw: drawStub,
+        upd: b => { b.ang += 0.2; if (b.vy > 0 && b.y >= G.box.y + G.box.h - 8) { b.dead = true; burst(b.x, b.y - 2, G.A.lvl > 1 ? 7 : 5, 1.8, true, drawEmber); } } });
+    } },
+  { name: 'SMOKE SCREEN', hint: '* Thick black smoke pours from its wicks. It can barely breathe.', mood: 'trim', w: 220, h: 200, dur: 420, dmg: 22,
+    tip: 'Only the light around your heart shows the way.',
+    init(A) { A.dark = 50; },
+    update(A) {
+      const B = G.box;
+      if (A.t % 80 === 20 && A.t < A.dur - 100) {
+        const c = [[B.x + 14, B.y + 14], [B.x + B.w - 14, B.y + 14]][randInt(2)];
+        spawn({ x: c[0], y: c[1], r: 6, glow: true, warn: 30, life: 220, cull: false, draw: drawFireball, upd: seek(0.04, A.lvl > 1 ? 1.5 : 1.25) });
+      }
+      crossers(A, A.lvl > 1 ? 20 : 26, 1.7, drawSoot);
+    } },
+  { name: 'CHORD OF FIRE', hint: '* CANDLEMAW sings one long chord. The air rings BLUE and ORANGE.', mood: 'sing', w: 240, h: 200, dur: 420, dmg: 26,
+    tip: 'BLUE: stand still.  ORANGE: keep moving.', tipColor: '#ff9a1f',
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 50 : 64;
+      if (A.t % every === 20 && A.t < A.dur - 100) {
+        A.d.n = (A.d.n || 0) + 1;
+        const orange = A.d.n % 2 === 0;
+        spawn({ kind: 'ring', x: B.x + B.w / 2, y: B.y + B.h / 2, R: 4, thick: 8, blue: !orange, orange, life: 130, cull: false, draw: drawRing, upd: b => { b.R += 1.4 * G.A.spd; } });
+      }
+      if (A.lvl > 1) crossers(A, 40, 1.6, drawEmber, 4);
+    } },
+  { name: 'HYMN', hint: '* CANDLEMAW begins a mournful hymn, swaying to the tune.', mood: 'sing', w: 260, h: 180, dur: 400, dmg: 22,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 34 : 46;
+      if (A.t % every !== 0 || A.t > A.dur - 80) return;
+      const left = Math.random() < 0.5, y0 = rnd(B.y + 34, B.y + B.h - 34), amp = rnd(18, 32), ph = rnd(0, 6);
+      for (let i = 0; i < 6; i++) spawn({ x: left ? B.x - 12 - i * 20 : B.x + B.w + 12 + i * 20, y: y0, vx: left ? 1.8 : -1.8, r: 5, draw: drawNote, d: { y0, amp, ph },
+        upd: b => { b.y = b.d.y0 + Math.sin(b.x * 0.045 + b.d.ph) * b.d.amp; } });
+    } },
+  { name: 'MELTDOWN', hint: '* The heat is unbearable. CANDLEMAW is melting into a puddle.', mood: 'fan', w: 240, h: 200, dur: 420, dmg: 24,
+    tip: 'Melted wax is rising!', fill: '#b9a988',
+    update(A) {
+      const B = G.box, k = Math.min(1, A.t / (A.dur * 0.7));
+      B.h = 200 - (A.lvl > 1 ? 100 : 85) * k;
+      if (A.t % (A.lvl > 1 ? 7 : 9) === 0 && A.t < A.dur - 40) spawn({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 10, vy: 1.7, ay: 0.03, r: 5, draw: drawWax });
+    } },
+  { name: 'WICK WHIPS', hint: '* Its long wicks crackle and whip, black with soot.', mood: 'trim', w: 240, h: 200, dur: 420, dmg: 26,
+    init(A) {
+      const B = G.box, L = 170;
+      for (const s of [-1, 1]) {
+        const ax = s < 0 ? B.x + 24 : B.x + B.w - 24, ay = B.y - 10, ph = s < 0 ? 0 : Math.PI;
+        const b = spawn({ kind: 'rect', w: L, h: 6, warn: 50, cull: false, life: A.dur, draw: drawWick, d: { ax, ay, ph },
+          upd: b => { const a = Math.PI / 2 + Math.sin(b.age * 0.028 * G.A.spd * (G.A.lvl > 1 ? 1.25 : 1) + b.d.ph) * 1.05; b.ang = a; b.x = b.d.ax + Math.cos(a) * L / 2; b.y = b.d.ay + Math.sin(a) * L / 2; } });
+        b.upd(b);
+      }
+    },
+    update(A) { if (A.t > 60) crossers(A, A.lvl > 1 ? 30 : 42, 1.6, drawEmber, 4); } },
+  { name: 'LAST VIGIL', hint: '* It is burning down to the very end. Its flame flickers weakly.', mood: 'relight', w: 240, h: 200, dur: 460, dmg: 26,
+    update(A) {
+      const B = G.box;
+      if (A.t % 12 === 0 && A.t < A.dur - 40) { const x0 = rnd(B.x + 6, B.x + B.w - 6), ph = rnd(0, 6); spawn({ x: x0, y: B.y + B.h + 8, vy: -1.7, r: 4, glow: true, draw: drawEmber, d: { x0, ph }, upd: b => { b.x = b.d.x0 + Math.sin(b.age * 0.07 + b.d.ph) * 12; } }); }
+      if (A.t % 90 === 60 && A.t < A.dur - 70) columnStrike(A, drawPillar, beamArm);
+      if (A.t === 40 || A.t === 220 || (A.lvl > 1 && A.t === 130)) spawn({ x: B.x + 14, y: B.y + 14, r: 6, glow: true, warn: 30, life: 200, cull: false, draw: drawFireball, upd: seek(0.045, 1.35) });
+    } },
+];
+
+// ---------------------------------------------------------------- bosses and their ACTs
+// Every boss shares Check and Reveal; the other four ACTs match its moods.
+const BASE_ACTS = [
+  { id: 'check', name: 'Check', desc: 'Study the enemy and read its stats.' },
+  { id: 'reveal', name: 'Reveal', desc: 'Peer behind the curtain. Next turn, the right ACT is revealed.' },
+];
+const BOSSES = {
+  neo: {
+    id: 'neo', name: 'MARIONETTE NEO', hp: 3200, hpHard: 4400, attacks: NEO_ATTACKS, draw: () => drawNeo(),
+    blurb: 'A scrap-metal puppet with a cracked grin. 21 acts.',
+    light: 'rgba(255,60,90,0.07)',
+    check: '* MARIONETTE NEO - AT 28 DF 12. A stage puppet rebuilt from scrap. All it wants is for its show to go well.',
+    intro: '* MARIONETTE NEO drops onto the stage, sparking.',
+    phase2: '* A string snaps! MARIONETTE NEO turns frantic.',
+    winFight: "* MARIONETTE NEO's last string snaps and it powers down.",
+    winSpare: '* MARIONETTE NEO was SPARED! It takes a happy bow as the curtain falls.',
+    acts: [
+      { id: 'applaud', name: 'Applaud', verb: 'applaud', desc: 'Cheer for the show. It wants this when it plays to the crowd.',
+        ok: "* ASTRA applauded wildly! MARIONETTE NEO's eye sparkled with joy." },
+      { id: 'dance', name: 'Dance', verb: 'dance', desc: 'Take its hand. It wants this when it looks for a partner.',
+        ok: '* ASTRA took its clawed hand and waltzed across the stage! It spun happily.' },
+      { id: 'oil', name: 'Oil Joints', verb: 'oil its joints', desc: 'Grease its gears. It wants this when its joints creak.',
+        ok: '* ASTRA oiled its screeching joints. MARIONETTE NEO sighed with relief.' },
+      { id: 'untangle', name: 'Untangle', verb: 'untangle its strings', desc: 'Fix its strings. It wants this when they are knotted.',
+        ok: '* ASTRA carefully untangled its strings. It moves more freely now.' },
+    ],
+  },
+  candle: {
+    id: 'candle', name: 'CANDLEMAW', hp: 3400, hpHard: 4600, attacks: CANDLE_ATTACKS, draw: () => drawCandle(),
+    blurb: 'A chapel candle that learned to hunger. 12 acts.',
+    light: 'rgba(255,170,80,0.08)',
+    check: '* CANDLEMAW - AT 30 DF 10. A chapel candle that has burned alone for centuries. It is terrified of going out.',
+    intro: '* CANDLEMAW rises from a pool of its own wax.',
+    phase2: '* CANDLEMAW is burning down! Its flames turn a cold BLUE.',
+    winFight: '* CANDLEMAW gutters out, leaving only a curl of smoke.',
+    winSpare: '* CANDLEMAW was SPARED! It settles into a calm, steady glow.',
+    acts: [
+      { id: 'relight', name: 'Relight', verb: 'relight its wicks', desc: 'Shelter its flame. It wants this when its wicks gutter.',
+        ok: '* ASTRA cupped a hand around its guttering wick. CANDLEMAW burned tall and proud.' },
+      { id: 'trim', name: 'Trim Wick', verb: 'trim its wicks', desc: 'Clear the soot. It wants this when it chokes on smoke.',
+        ok: '* ASTRA trimmed its sooty wicks. The smoke cleared and CANDLEMAW breathed easier.' },
+      { id: 'sing', name: 'Sing', verb: 'sing along', desc: 'Join its song. It wants this when it hums a hymn.',
+        ok: '* ASTRA sang along with its hymn. CANDLEMAW\'s wax softened into a smile.' },
+      { id: 'fan', name: 'Fan', verb: 'fan its wax', desc: 'Cool it down. It wants this when it melts and drips.',
+        ok: '* ASTRA fanned its melting wax. CANDLEMAW cooled and let out a long sigh.' },
+    ],
+  },
+};
+const BOSS_IDS = ['neo', 'candle'];
+const curAttack = () => G.boss.attacks[G.turn % G.boss.attacks.length];
+const curActs = () => [...BASE_ACTS, ...G.boss.acts];
+
 // ---------------------------------------------------------------- round flow
 function startRound() {
   for (const c of G.party) {
@@ -571,12 +874,12 @@ function startRound() {
   const first = G.party.findIndex(isUp);
   if (first < 0) { gameOver(); return; }
   G.menu = { ci: first, sub: 'action', sel: 0, subSel: 0, tSel: 0, pending: null };
-  let text = ATTACKS[G.turn % ATTACKS.length].hint;
+  let text = curAttack().hint;
   if (!G.phase2 && G.enemy.hp <= G.enemy.maxHp / 2) {
     G.phase2 = true;
-    text = '* A string snaps! MARIONETTE NEO turns frantic. ' + text.slice(2);
+    text = G.boss.phase2 + ' ' + text.slice(2);
   } else if (G.turn === 0) {
-    text = '* MARIONETTE NEO drops onto the stage, sparking. ' + text.slice(2);
+    text = G.boss.intro + ' ' + text.slice(2);
   }
   const r = revealedAct();
   if (r) text += ` REVEALED: ${r.name.toUpperCase()}.`;
@@ -586,7 +889,7 @@ function startRound() {
 
 const curChar = () => G.party[G.menu.ci];
 // The ACT that a Reveal from last turn points at, if any.
-const revealedAct = () => G.revealTurn === G.turn ? ACTS.find(a => a.id === ATTACKS[G.turn % ATTACKS.length].mood) : null;
+const revealedAct = () => G.revealTurn === G.turn ? curActs().find(a => a.id === curAttack().mood) : null;
 function nextUp(from) { for (let i = from + 1; i < 3; i++) if (isUp(G.party[i])) return i; return -1; }
 function prevUp(from) { for (let i = from - 1; i >= 0; i--) if (isUp(G.party[i])) return i; return -1; }
 const reservedExp = () => G.party.reduce((s, c) => s + (c.action && c.action.type === 'magic' ? c.action.spell.cost : 0), 0);
@@ -638,11 +941,11 @@ function updateMenu() {
     if (P('back')) { m.sub = 'action'; sfx('back'); }
   } else if (m.sub === 'act') {
     // two-column grid, row-major like Deltarune's ACT menu
-    const n = ACTS.length, i = m.subSel;
+    const acts = curActs(), n = acts.length, i = m.subSel;
     if (P('left') || P('right')) { const j = i % 2 ? i - 1 : i + 1; if (j < n) { m.subSel = j; sfx('move'); } }
     if (P('up')) { m.subSel = i - 2 >= 0 ? i - 2 : i + 2 * Math.floor((n - 1 - i) / 2); sfx('move'); }
     if (P('down')) { m.subSel = i + 2 < n ? i + 2 : i % 2; sfx('move'); }
-    if (P('ok')) commitAction({ type: 'act', act: ACTS[m.subSel] });
+    if (P('ok')) commitAction({ type: 'act', act: acts[m.subSel] });
     if (P('back')) { m.sub = 'action'; sfx('back'); }
   } else if (m.sub === 'item') {
     const avail = G.items.map((it, i) => it.qty > 0 ? i : -1).filter(i => i >= 0);
@@ -694,9 +997,9 @@ function beginResolve() {
           sparkle(HERO_POS[0].x, HERO_POS[0].y - 60, '#8ff3ff', 10, 1.5);
           return `* ${c.name} peered behind the curtain... Next turn, the right ACT will be REVEALED.`;
         }
-        if (act.id === 'check') return '* MARIONETTE NEO - AT 28 DF 12. A stage puppet rebuilt from scrap. All it wants is for its show to go well.';
-        const mood = ATTACKS[G.turn % ATTACKS.length].mood;
-        if (act.id !== mood) { sfx('miss'); return `* ${c.name} tried to ${act.verb}... but that isn't what MARIONETTE NEO wanted right now.`; }
+        if (act.id === 'check') return G.boss.check;
+        const mood = curAttack().mood;
+        if (act.id !== mood) { sfx('miss'); return `* ${c.name} tried to ${act.verb}... but that isn't what ${e.name} wanted right now.`; }
         const before = e.mercy;
         e.mercy = Math.min(100, e.mercy + (G.hard ? MERCY_STEP_HARD : MERCY_STEP));
         const gain = e.mercy - before;
@@ -708,9 +1011,9 @@ function beginResolve() {
       });
     } else if (a.type === 'spare') {
       q.push(() => {
-        if (G.enemy.mercy >= 100) { G.spared = true; sfx('mercy'); return `* ${c.name} spared MARIONETTE NEO!`; }
+        if (G.enemy.mercy >= 100) { G.spared = true; sfx('mercy'); return `* ${c.name} spared ${G.enemy.name}!`; }
         sfx('miss');
-        return `* ${c.name} spared MARIONETTE NEO... but its name wasn't YELLOW.`;
+        return `* ${c.name} spared ${G.enemy.name}... but its name wasn't YELLOW.`;
       });
     } else if (a.type === 'magic') {
       q.push(() => {
@@ -791,7 +1094,7 @@ function updateFight() {
 
 // ENEMY TURN: dodge inside the box
 function startEnemyTurn() {
-  const atk = ATTACKS[G.turn % ATTACKS.length];
+  const atk = curAttack();
   const lvl = G.phase2 || G.hard ? 2 : 1;
   const spd = G.hard ? (G.phase2 ? 1.2 : 1.1) : 1;
   G.atk = atk;
@@ -805,23 +1108,31 @@ function startEnemyTurn() {
 function updateDodge() {
   const S = G.soul, B = G.box;
   const slow = held.has('back');
-  const sp = slow ? 1.3 : 2.6;
+  const A = G.A;
+  let sp = slow ? 1.3 : 2.6;
+  // wax puddles slow the heart down
+  if (G.bullets.some(b => b.slow && Math.abs(S.x - b.x) < b.r && Math.abs(S.y - b.y) < 12)) sp *= 0.45;
   const px = S.x, py = S.y;
-  if (held.has('left')) S.x -= sp;
-  if (held.has('right')) S.x += sp;
-  if (held.has('up')) S.y -= sp;
-  if (held.has('down')) S.y += sp;
-  S.x = clamp(S.x, B.x + 8, B.x + B.w - 8);
-  S.y = clamp(S.y, B.y + 8, B.y + B.h - 8);
+  let dx = (held.has('right') ? 1 : 0) - (held.has('left') ? 1 : 0), dy = (held.has('down') ? 1 : 0) - (held.has('up') ? 1 : 0);
+  if (A.invert) { dx = -dx; dy = -dy; }
+  S.x = clamp(S.x + dx * sp, B.x + 8, B.x + B.w - 8);
+  S.y = clamp(S.y + dy * sp, B.y + 8, B.y + B.h - 8);
+  // "moving" means the player moved the heart, not wind or strings
   S.moving = S.x !== px || S.y !== py;
+  if (A.push) { S.x += A.push.x; S.y += A.push.y; }
+  if (A.pull) {
+    const ddx = A.pull.x - S.x, ddy = A.pull.y - S.y, L = Math.hypot(ddx, ddy);
+    if (L > 1) { const k = Math.min(L, A.pull.sp); S.x += ddx / L * k; S.y += ddy / L * k; }
+  }
   if (S.iframes > 0) S.iframes--;
   if (S.graze > 0) S.graze--;
   if (S.blueSafe > 0) S.blueSafe--;
 
-  const A = G.A;
   if (A.t === 0 && G.atk.init) G.atk.init(A);
   G.atk.update(A);
   A.t++;
+  S.x = clamp(S.x, B.x + 8, B.x + B.w - 8);
+  S.y = clamp(S.y, B.y + 8, B.y + B.h - 8);
 
   for (const b of G.bullets) {
     b.age++;
@@ -838,7 +1149,7 @@ function updateDodge() {
     const d = bDist(b, S.x, S.y);
     if (d < SOUL_R) {
       // Blue bullets only hurt a moving soul.
-      if (b.blue && !S.moving) S.blueSafe = 8;
+      if ((b.blue && !S.moving) || (b.orange && S.moving)) S.blueSafe = 8;
       else if (S.iframes === 0 && G.gameOverAt === 0) { S.iframes = G.hard ? 40 : 50; G.shake = 6; hurtParty(b.dmg); }
     } else if (d < GRAZE_R && S.iframes === 0) {
       if (!b.grazed) { b.grazed = true; G.stats.grazes++; addExp(2.5); sfx('graze'); sparkle(S.x, S.y, COL.orange, 3, 1.2); }
@@ -849,7 +1160,7 @@ function updateDodge() {
   G.bullets = G.bullets.filter(b => !b.dead);
 
   if (G.gameOverAt && G.t >= G.gameOverAt) { gameOver(); return; }
-  if (A.t >= A.dur) { G.bullets = []; setState('boxOut'); }
+  if (A.t >= A.dur) { G.bullets = []; G.boxEnd = { ...G.box }; setState('boxOut'); }
 }
 
 function victory(spared = false) {
@@ -858,11 +1169,11 @@ function victory(spared = false) {
   setState('victory');
   sfx('win');
   if (spared) {
-    setMsg(`* MARIONETTE NEO was SPARED! It takes a happy bow as the curtain falls. YOU WON${hard}! Turns: ${G.turn + 1}   Correct ACTs: ${s.acts}   Damage: ${s.damage}`);
+    setMsg(`${G.boss.winSpare} YOU WON${hard}! Turns: ${G.turn + 1}   Correct ACTs: ${s.acts}   Damage: ${s.damage}`);
     return;
   }
   G.enemy.hp = 0;
-  setMsg(`* MARIONETTE NEO's last string snaps and it powers down. YOU WON${G.hard ? ' ON HARD' : ''}! Turns: ${G.turn + 1}   Damage: ${s.damage}   Grazes: ${s.grazes}   EXP earned: ${Math.round(s.expGained)}%`);
+  setMsg(`${G.boss.winFight} YOU WON${G.hard ? ' ON HARD' : ''}! Turns: ${G.turn + 1}   Damage: ${s.damage}   Grazes: ${s.grazes}   EXP earned: ${Math.round(s.expGained)}%`);
 }
 function gameOver() { G.bullets = []; setState('gameover'); sfx('lose'); }
 
@@ -885,8 +1196,14 @@ function step() {
 
   switch (G.state) {
     case 'title':
-      if (P('left') || P('right') || P('up') || P('down')) { const t = G.t; newGame('title', !G.hard); G.t = t; sfx('move'); }
-      if (P('ok')) { newGame('menu', G.hard); sfx('select'); startRound(); }
+      if (P('up') || P('down')) { G.titleRow = 1 - G.titleRow; sfx('move'); }
+      if (P('left') || P('right')) {
+        const t = G.t, row = G.titleRow;
+        if (row === 0) newGame('title', G.hard, BOSS_IDS[(BOSS_IDS.indexOf(G.bossId) + 1) % BOSS_IDS.length]);
+        else newGame('title', !G.hard, G.bossId);
+        G.t = t; G.titleRow = row; sfx('move');
+      }
+      if (P('ok')) { newGame('menu', G.hard, G.bossId); sfx('select'); startRound(); }
       break;
     case 'menu':
       G.msg.shown = Math.min(G.msg.text.length, G.msg.shown + 1.5);
@@ -903,7 +1220,7 @@ function step() {
     case 'dodge': updateDodge(); break;
     case 'boxOut': {
       const k = Math.min(1, G.stateT / 14), f = k * k;
-      for (const key of ['x', 'y', 'w', 'h']) G.box[key] = lerp(G.boxTo[key], TEXTBOX[key], f);
+      for (const key of ['x', 'y', 'w', 'h']) G.box[key] = lerp(G.boxEnd[key], TEXTBOX[key], f);
       if (k >= 1) { G.turn++; G.box = { ...TEXTBOX }; startRound(); }
       break;
     }
@@ -911,11 +1228,11 @@ function step() {
       e.fade = Math.min(1, e.fade + (e.spared ? 0.006 : 0.01));
       if (e.spared && e.fade < 1 && G.t % 5 === 0) sparkle(ENEMY_POS.x + rnd(-50, 50), ENEMY_POS.y + rnd(-90, 40), COL.gold, 2, 1);
       G.msg.shown = Math.min(G.msg.text.length, G.msg.shown + 1.5);
-      if (P('ok') && G.stateT > 60) { newGame('title', G.hard); sfx('select'); }
+      if (P('ok') && G.stateT > 60) { newGame('title', G.hard, G.bossId); sfx('select'); }
       break;
     case 'gameover':
-      if (P('ok') && G.stateT > 40) { newGame('menu', G.hard); startRound(); sfx('select'); }
-      else if (P('back') && G.stateT > 40) { newGame('title', G.hard); sfx('back'); }
+      if (P('ok') && G.stateT > 40) { newGame('menu', G.hard, G.bossId); startRound(); sfx('select'); }
+      else if (P('back') && G.stateT > 40) { newGame('title', G.hard, G.bossId); sfx('back'); }
       break;
   }
 }
@@ -1170,116 +1487,197 @@ const HERO_SPR = [bakeAstra(), bakeTerrestro(), bakeLune()].map((s, i) => ({
 
 // ---------------------------------------------------------------- MARIONETTE NEO parts
 const EN = (() => {
-  const P = PAL;
-  const E = {};
+  const P = PAL, E = {};
+  const porc = '#d6cbb6', porcD = '#a39580', porcDD = '#6e6252', crack = '#140a10';
+  const gm = '#4a4d63', gmD = '#2c2e40', gmL = '#6f7390', rust = '#7a3a22', rustL = '#a0522d';
+  const crim = '#6a0f28', crimD = '#3e0717', crimL = '#8e1a3a', dgold = '#8a7030', dgoldD = '#5a4820';
+  const tooth = '#e6dcc0', toothD = '#a89c80';
   E.rail = bake(70, 8, g => {
-    R(g, '#8a5f2e', 0, 2, 70, 4); R(g, '#c79552', 0, 2, 70, 1); R(g, '#553a1a', 0, 5, 70, 1);
-    for (const x of [1, 18, 49, 66]) { R(g, P.gmL, x, 1, 3, 6); R(g, '#ffffff', x, 1, 1, 1); R(g, P.gmD, x + 2, 5, 1, 2); }
-    oval(g, P.gm, 35, 4, 5, 4); R(g, P.gmL, 32, 1, 4, 1); R(g, P.dark, 34, 3, 2, 2);
-    for (let a = 0; a < 8; a++) R(g, P.gm, 35 + Math.round(Math.cos(a * Math.PI / 4) * 5) - 1, 4 + Math.round(Math.sin(a * Math.PI / 4) * 4) - 1, 2, 2);
+    R(g, '#4a3018', 0, 2, 70, 4); R(g, '#6a4a28', 0, 2, 70, 1); R(g, '#2a1a0c', 0, 5, 70, 1);
+    for (const x of [1, 18, 49, 66]) { R(g, gmL, x, 1, 3, 6); R(g, gmD, x + 2, 5, 1, 2); R(g, rust, x, 4); }
+    oval(g, gm, 35, 4, 5, 4); R(g, gmL, 32, 1, 4, 1); R(g, crack, 34, 3, 2, 2);
+    for (let a = 0; a < 8; a++) R(g, gm, 35 + Math.round(Math.cos(a * Math.PI / 4) * 5) - 1, 4 + Math.round(Math.sin(a * Math.PI / 4) * 4) - 1, 2, 2);
   });
   E.head = bake(32, 30, g => {
-    oval(g, P.porc, 16, 15, 15, 14);
+    oval(g, porc, 16, 15, 15, 14);
     g.save();
     g.beginPath(); g.ellipse(16, 15, 15, 14, 0, 0, Math.PI * 2); g.clip();
-    R(g, P.porcD, 0, 0, 4, 30); R(g, P.porcL, 6, 4, 5, 2); R(g, P.porcL, 5, 6, 2, 3);
-    const crack = [[17, 0], [15, 6], [19, 10], [16, 15], [20, 20], [17, 25], [19, 30]];
-    poly(g, P.gm, [...crack, [32, 30], [32, 0]]);
-    R(g, P.gmD, 27, 0, 5, 30); R(g, P.gmL, 21, 3, 2, 6); R(g, P.gmL, 22, 16, 1, 3);
-    R(g, P.gmD, 20, 18, 10, 1);
-    for (const [x, y] of [[23, 4], [28, 9], [25, 26], [29, 21]]) { R(g, P.gmL, x, y); R(g, P.gmD, x + 1, y + 1); }
+    R(g, porcD, 0, 0, 4, 30); R(g, porcDD, 0, 0, 2, 30); R(g, '#efe6d2', 6, 3, 5, 2);
+    for (const [x, y] of [[4, 5], [9, 25], [12, 3], [3, 12]]) R(g, porcD, x, y, 2, 1);
+    const crk = [[17, 0], [15, 6], [19, 10], [16, 15], [20, 20], [17, 25], [19, 30]];
+    poly(g, gm, [...crk, [32, 30], [32, 0]]);
+    R(g, gmD, 27, 0, 5, 30); R(g, gmL, 21, 3, 2, 5); R(g, gmD, 20, 18, 10, 1);
+    for (const [x, y, w, h] of [[22, 6, 3, 2], [26, 16, 2, 3], [21, 24, 4, 2]]) { R(g, rust, x, y, w, h); R(g, rustL, x, y, 1, 1); }
+    for (const [x, y] of [[23, 4], [28, 9], [25, 26], [29, 21]]) { R(g, gmL, x, y); R(g, gmD, x + 1, y + 1); }
     g.restore();
-    // crack edge
-    for (let i = 0; i < 6; i++) { const [x0, y0] = [[17, 0], [15, 6], [19, 10], [16, 15], [20, 20], [17, 25]][i], [x1, y1] = [[15, 6], [19, 10], [16, 15], [20, 20], [17, 25], [19, 30]][i];
-      for (let t = 0; t <= 1; t += 0.1) R(g, P.dark, Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t)); }
-    // porcelain eye: hollow and sad
-    R(g, P.dark, 6, 10, 5, 7); R(g, P.dark, 7, 9, 3, 1); R(g, P.dark, 7, 17, 3, 1); R(g, '#ffffff', 7, 11, 1, 2);
-    R(g, P.porcD, 5, 8, 7, 1);
-    // metal eye socket (the LED is drawn live)
-    R(g, P.dark, 20, 10, 8, 6); R(g, P.gmL, 20, 9, 8, 1); R(g, P.brass, 28, 10, 1, 6);
-    // cheek + painted smile
-    R(g, '#ff8fb0', 3, 18, 3, 2);
-    R(g, '#e0314b', 5, 22, 1, 1); R(g, '#e0314b', 6, 23, 8, 1); R(g, '#e0314b', 14, 22, 1, 1);
-    // speaker grille
-    R(g, P.dark, 21, 21, 7, 4); for (let x = 22; x < 28; x += 2) R(g, P.gmL, x, 22, 1, 2);
+    const seg = (pts) => { for (let i = 0; i < pts.length - 1; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[i + 1]; for (let t = 0; t <= 1; t += 0.1) R(g, crack, Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t)); } };
+    seg([[17, 0], [15, 6], [19, 10], [16, 15], [20, 20], [17, 25], [19, 30]]);
+    seg([[11, 1], [12, 5], [9, 8]]); seg([[15, 6], [13, 8]]); seg([[3, 19], [6, 22]]);
+    // hollow eye: black socket, red pinprick, black tears
+    R(g, crack, 5, 9, 7, 8); R(g, crack, 6, 8, 5, 1); R(g, crack, 6, 17, 5, 1);
+    R(g, '#ff2a3d', 8, 12, 2, 2); R(g, '#ffb0b8', 8, 12, 1, 1);
+    R(g, crack, 6, 18, 1, 6); R(g, crack, 7, 24, 1, 2); R(g, crack, 10, 18, 1, 4);
+    // metal socket (red LED drawn live)
+    R(g, crack, 20, 10, 8, 6); R(g, gmL, 20, 9, 8, 1); R(g, rust, 28, 10, 1, 6);
+    // wide stitched grin with jagged teeth
+    for (let x = 3; x <= 28; x++) {
+      const top = 21 - Math.round(Math.pow((x - 15.5) / 12.5, 2) * 4);
+      R(g, crack, x, top, 1, 4);
+      if (x % 2 === 0) R(g, tooth, x, top, 1, 2); else R(g, toothD, x, top + 3, 1, 1);
+    }
+    for (const x of [4, 7, 24, 27]) { const top = 21 - Math.round(Math.pow((x - 15.5) / 12.5, 2) * 4); R(g, crack, x, top - 2, 1, 1); R(g, crack, x, top + 5, 1, 1); }
   });
   E.jaw = bake(18, 7, g => {
-    R(g, P.porc, 0, 0, 9, 6); R(g, P.porcD, 0, 4, 9, 2); R(g, P.porcD, 0, 0, 1, 6);
-    R(g, P.gm, 9, 0, 9, 6); R(g, P.gmD, 9, 4, 9, 2); R(g, P.gmL, 10, 1, 3, 1);
-    for (let x = 1; x < 16; x += 2) R(g, '#ffffff', x, 0, 1, 2);
-    R(g, P.brass, 16, 1, 2, 2);
+    R(g, porcD, 0, 0, 9, 6); R(g, porcDD, 0, 4, 9, 2);
+    R(g, gmD, 9, 0, 9, 6); R(g, rust, 12, 3, 3, 2);
+    for (let x = 0; x < 18; x += 2) { R(g, tooth, x, 0, 1, 2); R(g, toothD, x, 2); }
+    R(g, dgoldD, 16, 1, 2, 2);
   });
-  E.hat = bake(38, 18, g => {
-    poly(g, P.pink, [[8, 14], [19, 13], [12, 5], [3, 1], [5, 8]]);
-    poly(g, P.pinkD, [[8, 14], [12, 14], [7, 7], [3, 1], [5, 8]]);
-    poly(g, P.yellow, [[18, 13], [30, 14], [34, 5], [29, 0], [24, 7]]);
-    poly(g, P.yellowD, [[26, 14], [30, 14], [34, 5], [32, 4]]);
-    R(g, '#ffffff', 27, 3, 1, 2); R(g, '#ffd6ee', 7, 5, 2, 1);
-    oval(g, P.gold, 3, 2, 2.5, 2.5); R(g, P.goldD, 3, 3, 2, 1);
-    oval(g, P.gold, 32, 1.5, 2.5, 2.5); R(g, P.goldD, 32, 2, 2, 1);
-    R(g, '#3a1f52', 5, 13, 28, 4); R(g, '#5a3a7a', 5, 13, 28, 1);
-    for (let x = 8; x < 32; x += 5) R(g, P.gold, x, 14, 2, 2);
+  E.hat = bake(38, 20, g => {
+    // limp, drooping points with torn edges and tarnished bells
+    poly(g, crim, [[9, 12], [19, 11], [10, 14], [3, 17], [1, 11], [5, 6]]);
+    poly(g, crimD, [[9, 12], [5, 6], [1, 11], [3, 17]]);
+    poly(g, '#3a3a4a', [[18, 11], [29, 12], [35, 18], [32, 11], [27, 6]]);
+    poly(g, '#23232e', [[29, 12], [35, 18], [33, 11]]);
+    for (const [x, y] of [[4, 9], [7, 13], [30, 10], [26, 8]]) R(g, crimL, x, y);
+    oval(g, dgold, 3, 17, 2.3, 2.3); R(g, dgoldD, 3, 18, 2, 1); R(g, rust, 2, 16);
+    oval(g, dgold, 35, 17.5, 2.3, 2.3); R(g, dgoldD, 35, 18, 2, 1);
+    R(g, '#1e1426', 5, 11, 28, 4); R(g, '#2e2238', 5, 11, 28, 1);
+    for (let x = 8; x < 32; x += 5) R(g, dgoldD, x, 12, 2, 2);
   });
   E.torso = bake(30, 32, g => {
     for (let y = 4; y < 30; y++) {
       const inset = Math.floor((y - 4) / 5), x0 = 2 + inset, x1 = 28 - inset;
-      R(g, P.gm, x0, y, x1 - x0, 1); R(g, P.gmL, x0, y, 2, 1); R(g, P.gmD, x1 - 3, y, 3, 1);
+      R(g, gm, x0, y, x1 - x0, 1); R(g, gmL, x0, y, 1, 1); R(g, gmD, x1 - 3, y, 3, 1);
     }
-    R(g, P.gmL, 0, 4, 6, 5); R(g, P.gm, 0, 7, 6, 2); R(g, '#ffffff', 1, 4, 2, 1);
-    R(g, P.gm, 24, 4, 6, 5); R(g, P.gmD, 24, 7, 6, 2);
-    oval(g, P.brass, 15, 15, 6.5, 6.5); R(g, '#ffe7a6', 11, 11, 3, 1);
-    oval(g, P.dark, 15, 15, 4.6, 4.6);
-    for (const [x, y] of [[5, 10], [24, 10], [7, 20], [22, 20], [9, 25], [20, 25]]) { R(g, P.brass, x, y); R(g, P.brassD, x, y + 1); }
-    R(g, P.brass, 7, 26, 16, 2); R(g, P.brassD, 7, 27, 16, 1); R(g, P.yellow, 14, 26, 2, 2);
-    R(g, P.gmD, 15, 22, 1, 4);
-    // bowtie
-    poly(g, P.pink, [[15, 2], [8, -1], [8, 6]]); poly(g, P.yellow, [[15, 2], [22, -1], [22, 6]]);
-    R(g, P.yellow, 10, 1, 1, 4); R(g, P.pink, 19, 1, 1, 4); R(g, P.pinkD, 14, 1, 3, 3);
+    R(g, gmL, 0, 4, 6, 5); R(g, gm, 0, 7, 6, 2);
+    R(g, gm, 24, 4, 6, 5); R(g, gmD, 24, 7, 6, 2);
+    for (const [x, y, h] of [[6, 8, 9], [22, 12, 12], [11, 22, 7], [18, 23, 5]]) { R(g, rust, x, y, 1, h); R(g, rustL, x, y, 1, 1); }
+    oval(g, dgoldD, 15, 15, 6.5, 6.5);
+    oval(g, '#120810', 15, 15, 4.6, 4.6);
+    R(g, '#9aa0b0', 12, 12, 1, 1); R(g, '#9aa0b0', 13, 13, 1, 1); R(g, '#9aa0b0', 17, 17, 1, 1); R(g, '#9aa0b0', 18, 18, 1, 1);
+    for (const [x, y] of [[5, 10], [24, 10], [7, 20], [22, 20]]) { R(g, dgoldD, x, y); R(g, crack, x, y + 1); }
+    R(g, dgoldD, 7, 26, 16, 2); R(g, crack, 7, 27, 16, 1);
+    R(g, crack, 9, 24, 3, 2); R(g, crack, 19, 24, 3, 2);
+    // torn bowtie hanging askew
+    poly(g, crim, [[15, 2], [8, 0], [9, 7]]); poly(g, '#3a3a4a', [[15, 2], [21, -1], [20, 4], [22, 6]]);
+    R(g, crimD, 14, 1, 3, 3);
   });
   E.wing = bake(30, 48, g => {
-    const cols = [P.pink, P.yellow], shade = [P.pinkD, P.yellowD];
+    const cols = [crim, '#3a3a4a'], shade = [crimD, '#23232e'];
     for (let k = 0; k < 6; k++) {
-      const t = 0.12 + k * 0.155, sx = 28 - t * 25, sy = 46 - t * 43, len = 24 - k * 2.2;
-      poly(g, cols[k % 2], [[sx + 1, sy], [sx - 5, sy + 1], [sx - 7 - len * 0.35, sy + len], [sx - 2 - len * 0.2, sy + len + 1]]);
+      const t = 0.12 + k * 0.155, sx = 28 - t * 25, sy = 46 - t * 43, len = 22 - k * 2.2 + (k % 2 ? -3 : 2);
+      poly(g, cols[k % 2], [[sx + 1, sy], [sx - 5, sy + 1], [sx - 7 - len * 0.35, sy + len], [sx - 4 - len * 0.3, sy + len - 3], [sx - 2 - len * 0.2, sy + len + 1]]);
       poly(g, shade[k % 2], [[sx + 1, sy], [sx - 1, sy + 1], [sx - 2 - len * 0.2, sy + len + 1], [sx - 4 - len * 0.26, sy + len + 0.5]]);
     }
+    g.globalCompositeOperation = 'destination-out';
+    for (const [x, y, w, h] of [[8, 14, 2, 2], [13, 24, 2, 3], [4, 20, 1, 3], [18, 32, 2, 2], [10, 30, 1, 2]]) R(g, '#000', x, y, w, h);
+    g.globalCompositeOperation = 'source-over';
     for (let i = 0; i <= 44; i++) {
       const x = Math.round(28 - i * 25 / 44), y = Math.round(46 - i * 43 / 44);
-      R(g, P.gm, x - 1, y - 1, 3, 3); R(g, P.gmL, x - 1, y - 1, 1, 1);
+      R(g, gmD, x - 1, y - 1, 3, 3); R(g, gm, x - 1, y - 1, 1, 1);
     }
-    for (const t of [0.3, 0.6, 0.9]) R(g, P.brass, Math.round(28 - t * 25) - 1, Math.round(46 - t * 43) - 1, 2, 2);
+    for (const t of [0.3, 0.6, 0.9]) R(g, rust, Math.round(28 - t * 25) - 1, Math.round(46 - t * 43) - 1, 2, 2);
   });
-  const limb = stripe => bake(8, 16, g => {
-    R(g, P.brass, 1, 0, 6, 4); R(g, P.yellow, 2, 0, 2, 1); R(g, P.brassD, 1, 3, 6, 1);
-    R(g, P.gm, 2, 4, 4, 12); R(g, P.gmL, 2, 4, 1, 12); R(g, P.gmD, 5, 4, 1, 12);
-    R(g, stripe, 2, 9, 4, 2);
+  const limb = () => bake(8, 16, g => {
+    R(g, dgoldD, 1, 0, 6, 4); R(g, dgold, 2, 0, 2, 1); R(g, crack, 1, 3, 6, 1);
+    R(g, gm, 2, 4, 4, 12); R(g, gmL, 2, 4, 1, 12); R(g, gmD, 5, 4, 1, 12);
+    R(g, rust, 2, 9, 4, 2); R(g, rustL, 2, 9, 1, 1);
   });
-  E.upper = limb(P.pink);
-  E.fore = limb(P.yellow);
+  E.upper = limb();
+  E.fore = limb();
   E.cannon = bake(21, 12, g => {
-    R(g, P.gm, 5, 1, 16, 10); R(g, P.gmL, 5, 1, 16, 2); R(g, P.gmD, 5, 9, 16, 2);
-    R(g, P.pink, 12, 1, 2, 10); R(g, P.pinkD, 12, 9, 2, 2); R(g, P.yellow, 16, 1, 1, 10);
-    R(g, P.brass, 0, 0, 5, 12); R(g, P.yellow, 0, 0, 5, 1); R(g, P.brassD, 0, 11, 5, 1);
-    R(g, P.dark, 0, 3, 2, 6);
+    R(g, gm, 5, 1, 16, 10); R(g, gmL, 5, 1, 16, 1); R(g, gmD, 5, 9, 16, 2);
+    R(g, rust, 12, 1, 2, 10); R(g, rustL, 12, 1, 1, 3); R(g, crack, 16, 2, 1, 8);
+    R(g, dgoldD, 0, 0, 5, 12); R(g, dgold, 0, 0, 5, 1); R(g, crack, 0, 3, 2, 6);
   });
-  E.glove = bake(12, 13, g => {
-    R(g, P.pink, 2, 0, 8, 3); R(g, P.yellow, 2, 1, 8, 1);
-    R(g, '#ffffff', 2, 3, 8, 6); R(g, '#d9d3e8', 7, 3, 3, 6);
-    R(g, '#ffffff', 2, 9, 2, 4); R(g, '#ffffff', 5, 9, 2, 4); R(g, '#d9d3e8', 8, 9, 2, 3);
-    R(g, '#ffffff', 0, 4, 2, 3); R(g, '#b8aecb', 4, 9, 1, 2); R(g, '#b8aecb', 7, 9, 1, 2);
+  // long metal claw replaces the puppet glove
+  E.glove = bake(12, 16, g => {
+    R(g, crimD, 2, 0, 8, 3); R(g, crim, 2, 1, 8, 1);
+    R(g, gm, 2, 3, 8, 5); R(g, gmL, 2, 3, 2, 1); R(g, gmD, 8, 3, 2, 5);
+    for (const [x, len] of [[2, 7], [5, 8], [8, 6]]) { R(g, gmL, x, 8, 2, len - 2); R(g, gmD, x + 1, 8, 1, len - 2); R(g, '#c9ccdf', x, 8 + len - 2, 1, 2); R(g, '#8a1020', x, 8 + len - 1, 1, 1); }
+    R(g, gmL, 0, 4, 2, 4); R(g, '#8a1020', 0, 8, 1, 1);
   });
   E.leg = bake(6, 24, g => {
-    R(g, P.gm, 1, 0, 4, 24); R(g, P.gmL, 1, 0, 1, 24); R(g, P.gmD, 4, 0, 1, 24);
-    R(g, P.brass, 0, 10, 6, 4); R(g, P.yellow, 1, 10, 2, 1);
+    R(g, gm, 1, 0, 4, 24); R(g, gmL, 1, 0, 1, 24); R(g, gmD, 4, 0, 1, 24);
+    R(g, dgoldD, 0, 10, 6, 4); R(g, rust, 1, 11, 2, 1);
   });
   E.shoe = bake(12, 6, g => {
-    R(g, '#3a1f52', 2, 1, 10, 4); R(g, '#5a3a7a', 3, 1, 8, 1); R(g, '#3a1f52', 0, 0, 3, 2); R(g, P.gold, 0, 0, 1, 1);
-    R(g, P.dark, 2, 5, 10, 1);
+    R(g, '#1e1426', 2, 1, 10, 4); R(g, '#2e2238', 3, 1, 8, 1); R(g, '#1e1426', 0, 0, 3, 2); R(g, dgoldD, 0, 0, 1, 1);
+    R(g, crack, 2, 5, 10, 1);
   });
-  E.neck = bake(8, 8, g => { for (let y = 0; y < 8; y += 2) { R(g, P.gmL, 1, y, 6, 1); R(g, P.gmD, 1, y + 1, 6, 1); } });
-  E.core = fromMap(['.p.p.', 'ppppp', 'ppwpp', '.ppp.', '..p..'], { p: P.pink, w: '#ffffff' }, null);
+  E.neck = bake(8, 8, g => { for (let y = 0; y < 8; y += 2) { R(g, gmL, 1, y, 6, 1); R(g, gmD, 1, y + 1, 6, 1); } R(g, rust, 2, 2, 2, 1); });
+  E.core = fromMap(['.p.p.', 'ppppp', 'ppwpp', '.ppp.', '..p..'], { p: '#c0102a', w: '#ff8090' }, null);
   E.coreRed = fromMap(['.p.p.', 'ppppp', 'ppwpp', '.ppp.', '..p..'], { p: '#ff2a3d', w: '#ffffff' }, null);
   return E;
+})();
+
+// ---------------------------------------------------------------- CANDLEMAW parts
+const CM = (() => {
+  const C = {};
+  const wax = '#e6dcc2', waxD = '#b9a988', waxDD = '#857556', waxL = '#fff7e6', dark = '#1a0e0a';
+  const iron = '#2a2430', ironL = '#4a4058', ironD = '#16121c';
+  C.body = bake(32, 46, g => {
+    R(g, wax, 4, 8, 24, 36);
+    for (let x = 4; x < 28; x++) { const top = 6 + Math.round(Math.sin(x * 0.9) * 1.5) + (x % 5 === 0 ? 2 : 0); R(g, wax, x, top, 1, 9 - top + 1); }
+    for (const [x, y, h] of [[2, 12, 11], [1, 22, 6], [28, 16, 14], [29, 28, 8], [26, 9, 20]]) { R(g, wax, x, y, 2, h); R(g, waxD, x + 1, y, 1, h); oval(g, wax, x + 1, y + h, 1.4, 1.6); }
+    R(g, waxL, 5, 10, 2, 30); R(g, waxD, 23, 8, 5, 36); R(g, waxDD, 27, 10, 1, 34);
+    for (const [x, y, h] of [[9, 9, 7], [14, 8, 4], [19, 9, 6]]) { R(g, waxL, x, y, 1, h); R(g, waxD, x + 1, y + 1, 1, h - 1); }
+    // hollow eye sockets
+    oval(g, dark, 11, 18, 3.6, 4.6); oval(g, dark, 21, 17, 3.2, 4.2);
+    R(g, waxDD, 7, 13, 8, 1); R(g, waxDD, 18, 12, 7, 1);
+    for (const [x, y] of [[10, 23], [10, 25], [21, 22]]) R(g, waxDD, x, y, 1, 2);
+    // the maw: jagged wax teeth around an ember-lit mouth
+    oval(g, dark, 16, 33, 9.5, 7.5);
+    for (let x = 8; x <= 23; x += 3) { poly(g, wax, [[x, 26], [x + 3, 26], [x + 1.5, 30.5]]); poly(g, waxD, [[x + 1.5, 26], [x + 3, 26], [x + 1.5, 30.5]]); }
+    for (let x = 9; x <= 22; x += 3) poly(g, waxD, [[x, 40], [x + 3, 40], [x + 1.5, 36]]);
+    R(g, waxDD, 6, 31, 2, 5); R(g, waxDD, 25, 30, 2, 6);
+    // pooled base
+    R(g, wax, 1, 43, 30, 3); R(g, waxD, 20, 44, 11, 2); R(g, waxL, 3, 43, 8, 1);
+  });
+  C.base = bake(46, 12, g => {
+    R(g, iron, 2, 0, 42, 4); R(g, ironL, 3, 0, 40, 1); R(g, ironD, 2, 3, 42, 1);
+    R(g, iron, 19, 4, 8, 3); R(g, ironL, 19, 4, 2, 3);
+    for (const [x0, x1] of [[20, 4], [23, 23], [26, 42]]) { const n = 6; for (let i = 0; i <= n; i++) R(g, iron, Math.round(x0 + (x1 - x0) * i / n), 6 + i, 2, 1); }
+    R(g, ironL, 3, 11, 3, 1); R(g, ironL, 22, 11, 3, 1); R(g, ironL, 41, 11, 3, 1);
+  });
+  // curled wrought-iron arm: anchors bottom-right, cup at top-left
+  C.arm = bake(26, 20, g => {
+    const pts = [[25, 18], [20, 18], [15, 16], [11, 12], [8, 8], [5, 5]];
+    for (let i = 0; i < pts.length - 1; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[i + 1]; for (let t = 0; t <= 1; t += 0.1) R(g, iron, Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), 2, 2); }
+    for (let a = 0; a < 5.5; a += 0.3) R(g, iron, Math.round(17 + Math.cos(a) * 3), Math.round(12 + Math.sin(a) * 3), 1, 1);
+    R(g, ironL, 15, 15, 3, 1); R(g, ironL, 9, 9, 1, 2);
+    R(g, iron, 0, 2, 9, 3); R(g, ironL, 1, 2, 7, 1); R(g, iron, 3, 5, 3, 2);
+  });
+  C.candle = bake(7, 13, g => {
+    R(g, wax, 1, 1, 5, 12); R(g, waxL, 1, 2, 1, 10); R(g, waxD, 5, 1, 1, 12); R(g, wax, 0, 4, 1, 3); R(g, waxD, 6, 7, 1, 3);
+    R(g, dark, 3, 0, 1, 2);
+  });
+  C.wick = bake(2, 5, g => { R(g, '#2a1a10', 0, 0, 2, 5); R(g, '#ff8a1f', 0, 0, 1, 1); }, null);
+  return C;
+})();
+
+// ---------------------------------------------------------------- extra bullet sprites
+const SPR2 = (() => {
+  const S = {};
+  S.bomb = fromMap(['....yy...', '...y..y..', '..kkkk...', '.kkkkkk..', 'kkwkkkkk.', 'kkkkkkkk.', 'kkkkkkkk.', '.kkkkkk..', '..kkkk...'],
+    { k: '#3a3a4a', w: '#9aa0b0', y: '#c9a052' }, '#ff4a5a');
+  S.saw = bake(13, 13, g => {
+    for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; poly(g, '#c9ccdf', [[6.5 + Math.cos(a) * 6.5, 6.5 + Math.sin(a) * 6.5], [6.5 + Math.cos(a + 0.35) * 4.5, 6.5 + Math.sin(a + 0.35) * 4.5], [6.5 + Math.cos(a - 0.2) * 4.5, 6.5 + Math.sin(a - 0.2) * 4.5]]); }
+    oval(g, '#9aa0b0', 6.5, 6.5, 4.6, 4.6); oval(g, '#6f7390', 6.5, 6.5, 2, 2); R(g, '#ffffff', 4, 4, 2, 1);
+  }, null);
+  S.eye = fromMap(['rr...rr', 'rwr.rwr', 'rr...rr'], { r: '#ff2a3d', w: '#ffffff' }, null);
+  S.wax = fromMap(['..w..', '.www.', 'wwwwd', 'wwwwd', '.wdd.'], { w: '#f3ead6', d: '#b9a988' }, null);
+  S.ember = [fromMap(['.o.', 'oyo', '.o.'], { o: '#ff8a1f', y: '#fff3b0' }, null), fromMap(['o.o', '.y.', 'o.o'], { o: '#ff5a1f', y: '#ffd23f' }, null)];
+  S.fire = [
+    fromMap(['...o...', '..ooo..', '.ooyoo.', '.oyyyo.', 'ooywyoo', 'ooywyoo', '.oyyyo.', '..ooo..'], { o: '#ff5a1f', y: '#ffc23f', w: '#fff6d0' }, null),
+    fromMap(['..o....', '..ooo..', '.oooyo.', '.oyyyo.', 'ooyyyoo', 'ooywyoo', '.oyyyo.', '..ooo..'], { o: '#ff3a1f', y: '#ffa21f', w: '#fff6d0' }, null),
+  ];
+  S.soot = fromMap(['.ggg.', 'gGGgg', 'gGggg', 'ggggd', '.gdd.'], { g: '#8a8494', G: '#c4bfcc', d: '#5a5464' }, null);
+  S.note = fromMap(['...ww', '...w.w', '...w..', '...w..', '.www..', 'wwww..', '.ww...'], { w: '#ffe6a0' }, null);
+  S.stub = fromMap(['..o..', '..y..', '.www.', '.wwd.', '.wwd.', '.wwd.'], { o: '#ff8a1f', y: '#fff3b0', w: '#e6dcc2', d: '#b9a988' }, null);
+  S.hub = fromMap(['..kkk..', '.kLLLk.', 'kLkkkLk', 'kLkokLk', 'kLkkkLk', '.kLLLk.', '..kkk..'], { k: '#2a2430', L: '#4a4058', o: '#ff8a1f' }, null);
+  return S;
 })();
 
 // ---------------------------------------------------------------- bullets, icons, stage
@@ -1467,7 +1865,7 @@ function drawBackground() {
   for (let x = W - b; x > -32; x -= 32) ctx.fillRect(x, 30, 2, 250);
   for (let y = 280 - b; y > 30; y -= 32) ctx.fillRect(0, y, W, 2);
   // spotlight pools on the floor
-  ctx.fillStyle = 'rgba(255,225,160,0.05)';
+  ctx.fillStyle = G.boss.light;
   ctx.beginPath(); ctx.moveTo(ENEMY_POS.x - 30, 30); ctx.lineTo(ENEMY_POS.x + 30, 30); ctx.lineTo(ENEMY_POS.x + 100, 282); ctx.lineTo(ENEMY_POS.x - 100, 282); ctx.fill();
   // floor boards
   for (let x = 0; x < W; x += 64) spr(SPR.floor, x, 280, { ox: 1, oy: 1 });
@@ -1520,7 +1918,7 @@ function drawArm(shoulder, a1, a2, hand, handOpts, white) {
   spr(hand, snap(wrist.x), snap(wrist.y), Object.assign({ white }, handOpts(a2)));
   return wrist;
 }
-function drawEnemy() {
+function drawNeo() {
   const e = G.enemy;
   if (e.fade >= 1) return;
   const t = G.t, p2 = G.phase2;
@@ -1534,12 +1932,12 @@ function drawEnemy() {
   // wings (behind everything)
   const flap = Math.sin(t * 0.08) * 0.08 * (p2 ? 1.8 : 1);
   spr(EN.wing, ex - 12, ey - 20, { ox: EN.wing.w - 3, oy: EN.wing.h - 3, ang: -flap, white });
-  spr(EN.wing, ex + 12, ey - 20, { ox: EN.wing.w - 3, oy: EN.wing.h - 3, ang: flap + (p2 ? 0.45 : 0), flip: true, white });
+  spr(EN.wing, ex + 12, ey - 20, { ox: EN.wing.w - 3, oy: EN.wing.h - 3, ang: flap + (p2 ? 0.45 : 0.12), flip: true, white });
 
-  // legs + shoes
+  // legs + shoes, dangling limp
   const legSw = Math.sin(t * 0.05) * 0.15 * (p2 ? 1.6 : 1);
   for (const s of [-1, 1]) {
-    const hx = ex + s * 10, hy = ey + 24, ang = s * legSw + (s > 0 ? 0.05 : -0.05);
+    const hx = ex + s * 10, hy = ey + 24, ang = s * legSw + (s > 0 ? 0.12 : -0.05);
     spr(EN.leg, snap(hx), snap(hy), { ox: EN.leg.w / 2, oy: 1, ang, white });
     const len = (EN.leg.h - 3) * PX;
     spr(EN.shoe, snap(hx - Math.sin(ang) * len), snap(hy + Math.cos(ang) * len), { ox: EN.shoe.w - 4, oy: 2, white });
@@ -1550,26 +1948,48 @@ function drawEnemy() {
   const pulse = 0.5 + 0.5 * Math.sin(t * (p2 ? 0.3 : 0.12));
   ctx.globalAlpha = (1 - e.fade) * (0.55 + 0.45 * pulse);
   spr(p2 ? EN.coreRed : EN.core, ex, ey - 36 + 15 * PX, { ox: EN.core.w / 2, oy: EN.core.h / 2 });
+  ctx.fillStyle = `rgba(255,30,60,${0.12 + 0.12 * pulse})`; ctx.fillRect(ex - 14, ey - 20, 28, 28);
   ctx.globalAlpha = 1 - e.fade;
 
-  // neck spring, jaw, head, hat
-  const hx = ex + (p2 ? snap(Math.sin(t * 0.5) * 2) : 0), hy = ey - 66;
-  spr(EN.neck, ex, ey - 34, { ox: EN.neck.w / 2, oy: EN.neck.h - 1, white });
-  const chatter = Math.max(0, Math.sin(t * (p2 ? 0.45 : 0.22))) * (G.state === 'dodge' ? 6 : 3);
-  spr(EN.jaw, hx - 2, hy + 22 + snap(chatter), { white });
-  spr(EN.head, hx, hy, { white });
-  spr(EN.hat, hx + 2, hy - 34, { white });
-  // LED eye
-  const [lx, ly] = at(EN.head, hx, hy, 21, 11);
-  const blink = (t % 180) < 6;
-  if (!white && !blink) {
-    const on = (t >> 3) % 2;
-    ctx.fillStyle = p2 ? '#ff2a3d' : '#ff4fb8'; ctx.fillRect(lx, ly, 12, 8);
-    ctx.fillStyle = p2 ? '#ffb3bb' : '#ffd6ee'; ctx.fillRect(lx + 4, ly + 2, 4, 4);
-    ctx.fillStyle = `rgba(255,${p2 ? 42 : 79},${p2 ? 61 : 184},${0.25 + on * 0.15})`; ctx.fillRect(lx - 4, ly - 4, 20, 16);
+  // cut wires hanging from the chassis, spitting sparks
+  for (const [ox, len, ph] of [[-12, 26, 0], [6, 34, 2], [14, 20, 4]]) {
+    const x0 = ex + ox, y0 = ey + 18;
+    for (let i = 0; i <= len; i += 2) {
+      const sw = Math.sin(t * 0.06 + ph + i * 0.08) * i * 0.18;
+      ctx.fillStyle = i % 6 < 3 ? '#2c2e40' : '#7a3a22'; ctx.fillRect(snap(x0 + sw), snap(y0 + i), 2, 2);
+    }
+    if ((t + ph * 17) % 50 < 3) { const sw = Math.sin(t * 0.06 + ph + len * 0.08) * len * 0.18; sparkle(x0 + sw, y0 + len, '#ffe14a', 2, 1.4); }
   }
 
-  // arms: cannon on the side facing the party, puppet glove on the other
+  // neck spring
+  spr(EN.neck, ex, ey - 34, { ox: EN.neck.w / 2, oy: EN.neck.h - 1, white });
+
+  // head group: permanently tilted, with sudden twitches
+  const twitch = (t % 170) < 6 || (p2 && (t % 70) < 4);
+  const tilt = 0.16 + (twitch ? rnd(-0.35, 0.35) : Math.sin(t * 0.03) * 0.04);
+  const hx = ex + (p2 ? snap(Math.sin(t * 0.5) * 2) : 0), hy = ey - 66;
+  ctx.save();
+  ctx.translate(ex, ey - 36); ctx.rotate(tilt); ctx.translate(-ex, -(ey - 36));
+  const chatter = Math.max(0, Math.sin(t * (p2 ? 0.45 : 0.22))) * (G.state === 'dodge' ? 8 : 4);
+  spr(EN.jaw, hx - 2, hy + 24 + snap(chatter), { white });
+  spr(EN.head, hx, hy, { white });
+  spr(EN.hat, hx + 2, hy - 34, { white });
+  if (!white) {
+    // red pinprick in the hollow eye
+    const [px, py] = at(EN.head, hx, hy, 8, 12);
+    ctx.fillStyle = `rgba(255,42,61,${0.2 + 0.2 * pulse})`; ctx.fillRect(px - 4, py - 4, 12, 12);
+    // LED eye
+    const [lx, ly] = at(EN.head, hx, hy, 21, 11);
+    if ((t % 180) >= 6) {
+      ctx.fillStyle = '#ff2a3d'; ctx.fillRect(lx, ly, 12, 8);
+      ctx.fillStyle = '#ffd0d4'; ctx.fillRect(lx + 4, ly + 2, 4, 4);
+      ctx.fillStyle = `rgba(255,42,61,${p2 ? 0.45 : 0.28})`; ctx.fillRect(lx - 6, ly - 6, 24, 20);
+    }
+  }
+  ctx.restore();
+  const hxT = ex + Math.cos(tilt - Math.PI / 2) * 64, hyT = ey - 36 + Math.sin(tilt - Math.PI / 2) * 64;
+
+  // arms: cannon toward the party, metal claw on the other side
   const SL = { x: ex - 26, y: ey - 26 }, SR = { x: ex + 26, y: ey - 26 };
   const aim = G.state === 'dodge' ? 0.03 * Math.sin(t * 0.3) : 0;
   const lw = drawArm(SL, Math.PI * 0.62 + Math.sin(t * 0.05) * 0.1, Math.PI * 0.96 + Math.sin(t * 0.07) * 0.08 + aim,
@@ -1577,15 +1997,14 @@ function drawEnemy() {
   const limp = p2 ? Math.sin(t * 0.1) * 0.3 : Math.sin(t * 0.06) * 0.12;
   const rw = drawArm(SR, Math.PI * (p2 ? 0.5 : 0.36) + limp, Math.PI * (p2 ? 0.52 : 0.42) + limp * 1.3,
     EN.glove, a2 => ({ ox: EN.glove.w / 2, oy: 1, ang: a2 - Math.PI / 2 }), white);
-  // cannon muzzle glow while it attacks
   if (G.state === 'dodge' && !white) {
     const mx = lw.x - (EN.cannon.w - 2) * PX, my = lw.y;
-    ctx.fillStyle = `rgba(255,79,184,${0.35 + 0.35 * Math.sin(t * 0.4)})`; ctx.fillRect(snap(mx) - 6, snap(my) - 6, 12, 12);
+    ctx.fillStyle = `rgba(255,42,61,${0.35 + 0.35 * Math.sin(t * 0.4)})`; ctx.fillRect(snap(mx) - 6, snap(my) - 6, 12, 12);
   }
 
-  // control rail + strings (drawn last so they cross in front)
+  // control rail + strings
   const railSway = Math.sin(t * 0.04) * 0.05;
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillStyle = 'rgba(220,210,230,0.5)';
   const string = (x0, y0, x1, y1) => {
     const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 2));
     for (let i = 0; i <= n; i++) ctx.fillRect(snap(x0 + (x1 - x0) * i / n), snap(y0 + (y1 - y0) * i / n), 2, 2);
@@ -1594,17 +2013,108 @@ function drawEnemy() {
   string(...railEnd(-1), lw.x, lw.y);
   if (p2) { const [rx, ry] = railEnd(1); string(rx, ry, rx + 6 + Math.sin(t * 0.07) * 8, ry + 60); }
   else string(...railEnd(1), rw.x, rw.y);
-  string(railX, railY + 6, hx + 2, hy - 50);
+  string(railX, railY + 6, hxT, hyT);
   string(railX - 30, railY + 2, ex - 58, ey - 90);
   string(railX + 30, railY + 2, ex + 58, ey - 90);
   spr(EN.rail, railX, railY, { ang: railSway });
-  ctx.fillStyle = '#8a5f2e'; ctx.fillRect(railX - 3, 16, 6, 14); ctx.fillStyle = '#c79552'; ctx.fillRect(railX - 3, 16, 2, 14);
+  ctx.fillStyle = '#4a3018'; ctx.fillRect(railX - 3, 16, 6, 14); ctx.fillStyle = '#6a4a28'; ctx.fillRect(railX - 3, 16, 2, 14);
   ctx.restore();
 
-  // stray sparks when damaged
   if (p2 && t % 14 === 0 && e.fade === 0) sparkle(ex + 26 + rnd(-6, 6), ey - 26, '#ffe14a', 3, 1.6);
+}
+// Horizontal "signal tear" glitch across the puppet every few seconds.
+function neoGlitch() {
+  const e = G.enemy, t = G.t;
+  if (e.fade > 0 || !((t % (G.phase2 ? 90 : 160)) < 5)) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (let i = 0; i < 4; i++) {
+    const y = randInt(200) + 30, h = 4 + randInt(10), off = (Math.random() < 0.5 ? -1 : 1) * (4 + randInt(10));
+    ctx.drawImage(cv, 420 * SCALE, y * SCALE, 210 * SCALE, h * SCALE, (420 + off) * SCALE, y * SCALE, 210 * SCALE, h * SCALE);
+  }
+  ctx.fillStyle = 'rgba(255,0,60,0.08)'; ctx.fillRect(420 * SCALE, 30 * SCALE, 210 * SCALE, 210 * SCALE);
+  ctx.restore();
+}
 
-  // HP and MERCY bars under the enemy; the name turns yellow once it can be spared
+// pixel flame: base at (x, y); blue once the boss is burning down
+function drawFlame(x, y, s, blue, seed) {
+  const t = G.t, f = Math.sin(t * 0.31 + seed) * 0.5 + 0.5 + Math.sin(t * 0.77 + seed * 2) * 0.2;
+  const h = (11 + f * 4) * s, w = 7 * s;
+  const cols = blue ? ['#2a6bff', '#6fd0ff', '#e8fbff'] : ['#ff3a1f', '#ffa21f', '#fff3b0'];
+  ctx.fillStyle = blue ? 'rgba(80,160,255,0.07)' : 'rgba(255,160,60,0.07)';
+  ctx.fillRect(snap(x - w), snap(y - h * 1.3), snap(w * 2), snap(h * 1.4));
+  for (let k = 0; k < 3; k++) {
+    const ww = w * (1 - k * 0.3), hh = h * (1 - k * 0.3);
+    ctx.fillStyle = cols[k];
+    for (let yy = 0; yy < hh; yy += 2) {
+      const q = yy / hh, wid = ww * (q < 0.35 ? 0.75 + q * 0.7 : (1 - q) * 1.55);
+      const sway = Math.sin(t * 0.2 + seed + yy * 0.12) * q * 3 * s;
+      if (wid >= 1) ctx.fillRect(snap(x - wid / 2 + sway), snap(y - yy - 2), Math.max(2, snap(wid)), 2);
+    }
+  }
+}
+const spAt = (s, x, y, ox, oy, sx, sy) => [x + (sx + 1 - ox) * PX, y + (sy + 1 - oy) * PX];
+function drawCandle() {
+  const e = G.enemy;
+  if (e.fade >= 1) return;
+  const t = G.t, blue = G.phase2;
+  const shx = e.shake > 0 ? rnd(-e.shake, e.shake) * 0.5 : 0;
+  const ex = snap(ENEMY_POS.x + shx), ey = snap(ENEMY_POS.y + Math.sin(t * 0.03) * 3 + (e.spared ? 0 : e.fade * 60));
+  const white = e.flash > 0 && (e.flash >> 1) % 2;
+  ctx.save();
+  ctx.globalAlpha = 1 - e.fade;
+  // wax pool on the floor
+  ctx.fillStyle = '#b9a988'; ctx.fillRect(ex - 70, ey + 70, 140, 6); ctx.fillStyle = '#e6dcc2'; ctx.fillRect(ex - 62, ey + 70, 100, 2);
+  spr(CM.base, ex, ey + 50, { oy: 1, white });
+  // candelabra arms and their candles
+  const sway = Math.sin(t * 0.04) * 0.07;
+  for (const s of [-1, 1]) {
+    spr(CM.arm, ex + s * 20, ey + 6, { ox: CM.arm.w - 2, oy: CM.arm.h - 2, ang: s * -sway, flip: s > 0, white });
+    const cx = ex + s * 58 + s * sway * -30, cy = ey - 24;
+    spr(CM.candle, snap(cx), snap(cy), { ox: CM.candle.w / 2, oy: CM.candle.h - 1, white });
+    if (!white) drawFlame(cx, cy - CM.candle.h * PX + 4, 0.9, blue, s * 3);
+  }
+  // body
+  spr(CM.body, ex, ey + 50, { ox: CM.body.w / 2, oy: CM.body.h - 1, white });
+  const O = [CM.body.w / 2, CM.body.h - 1];
+  if (!white) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * (blue ? 0.3 : 0.14));
+    // maw glow
+    const [mx, my] = spAt(CM.body, ex, ey + 50, ...O, 16, 33);
+    ctx.fillStyle = blue ? `rgba(80,160,255,${0.35 + 0.3 * pulse})` : `rgba(255,120,30,${0.35 + 0.3 * pulse})`;
+    ctx.fillRect(mx - 12, my - 4, 24, 10);
+    ctx.fillStyle = blue ? '#e8fbff' : '#ffd23f'; ctx.fillRect(mx - 4, my, 8, 4);
+    // eyes
+    for (const [sx, sy] of [[11, 18], [21, 17]]) {
+      const [px, py] = spAt(CM.body, ex, ey + 50, ...O, sx, sy);
+      ctx.fillStyle = blue ? 'rgba(111,208,255,0.2)' : 'rgba(255,162,31,0.2)'; ctx.fillRect(px - 4, py - 4, 8, 10);
+      ctx.fillStyle = blue ? '#bff0ff' : '#ffd23f'; ctx.fillRect(px - 2, py - 2, 4, 6);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(px - 2, py - 2, 2, 2);
+    }
+    // crown of wicks
+    for (const [sx, s, seed] of [[9, 1.1, 1], [16, 1.5, 2], [23, 1.1, 5]]) {
+      const [wx, wy] = spAt(CM.body, ex, ey + 50, ...O, sx, 5);
+      spr(CM.wick, wx, wy, { ox: 1, oy: 5 });
+      drawFlame(wx + 1, wy - 8, s, blue, seed);
+      // smoke curling up
+      for (let k = 0; k < 3; k++) {
+        const ph = (t * 0.6 + k * 20 + seed * 13) % 60;
+        ctx.fillStyle = `rgba(150,140,160,${0.35 * (1 - ph / 60)})`;
+        ctx.fillRect(snap(wx + Math.sin((t + k * 30) * 0.05 + seed) * 6), snap(wy - 34 - ph), 4, 4);
+      }
+    }
+    // wax drips falling from the sides
+    for (const [ox, oy, ph] of [[-30, -6, 0], [30, 2, 37], [-26, 22, 71]]) {
+      const p = (t * 0.9 + ph) % 90;
+      ctx.fillStyle = `rgba(243,234,214,${1 - p / 90})`; ctx.fillRect(snap(ex + ox), snap(ey + oy + p * 0.7), 4, 6);
+    }
+  }
+  ctx.restore();
+}
+
+// HP and MERCY bars under the enemy; the name turns yellow once it can be spared
+function drawEnemyPanel() {
+  const e = G.enemy;
   const bx = 432, bw = 184, barX = 482, barW = 104;
   const spareable = e.mercy >= 100;
   txt(e.name, bx, 244, { size: 10, font: HEAD_FONT, color: spareable ? COL.gold : COL.dim });
@@ -1619,6 +2129,70 @@ function drawEnemy() {
   pixelBar(barX, 270, barW, 6, e.shownMercy / 100, spareable ? COL.gold : COL.orange, '#3a1a08');
   txt(Math.round(e.mercy) + '%', bx + bw, 268, { size: 11, align: 'right', color: spareable ? COL.gold : COL.white });
 }
+
+// ---- new bullet art
+function drawBeam(b) {
+  const k = b.age < 40 ? 1 : Math.max(0, 1 - (b.age - 40) / 18), horiz = b.w >= b.h;
+  const L = horiz ? b.w : b.h, T = (horiz ? b.h : b.w) * k;
+  const R2 = (th, c) => { ctx.fillStyle = c; th = Math.max(2, snap(th)); horiz ? ctx.fillRect(-L / 2, -th / 2, L, th) : ctx.fillRect(-th / 2, -L / 2, th, L); };
+  R2(T + 8, 'rgba(255,40,90,0.35)'); R2(T, '#ff4f8f'); R2(T * 0.6, '#ffc2da'); R2(T * 0.25, '#ffffff');
+}
+function drawWall(b) {
+  const c = b.orange ? ['#ff9a1f', '#ffd9a0'] : ['#2ea8ff', '#bfe6ff'];
+  ctx.fillStyle = c[0]; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+  ctx.fillStyle = c[1]; b.w < b.h ? ctx.fillRect(-1, -b.h / 2, 2, b.h) : ctx.fillRect(-b.w / 2, -1, b.w, 2);
+}
+function drawEye(b) { ctx.rotate(-b.ang); ctx.fillStyle = 'rgba(255,42,61,0.25)'; ctx.fillRect(-10, -6, 20, 12); blit(SPR2.eye); }
+function drawBomb(b) {
+  ctx.rotate(-b.ang);
+  if (b.age > 58 && (b.age >> 2) % 2) blit(SPR2.bomb, true); else blit(SPR2.bomb);
+  if ((b.age >> 1) % 2) { ctx.fillStyle = '#ffe14a'; ctx.fillRect(4, -12, 4, 4); }
+  txt(String(3 - Math.min(2, Math.floor(b.age / 30))), 0, -26, { size: 10, font: HEAD_FONT, align: 'center', color: COL.red, outline: 3 });
+}
+function drawBlast(b) {
+  const horiz = b.w >= b.h, k = Math.max(0, 1 - (b.age - 32) / 16);
+  const L = horiz ? b.w : b.h, T = Math.max(2, snap((horiz ? b.h : b.w) * k));
+  ctx.fillStyle = '#ff8a1f'; horiz ? ctx.fillRect(-L / 2, -T / 2, L, T) : ctx.fillRect(-T / 2, -L / 2, T, L);
+  ctx.fillStyle = '#fff3b0'; const t2 = Math.max(2, snap(T / 2)); horiz ? ctx.fillRect(-L / 2, -t2 / 2, L, t2) : ctx.fillRect(-t2 / 2, -L / 2, t2, L);
+}
+function drawSaw(b) { ctx.rotate(b.age * 0.35); blit(SPR2.saw); }
+function drawSpring(b) {
+  const k = Math.min(1, (b.age - 34) / 6), h = snap(b.h * k), y0 = b.h / 2;
+  for (let y = 0; y < h - 12; y += 4) { ctx.fillStyle = (y / 4) % 2 ? '#9aa0b0' : '#c9ccdf'; ctx.fillRect(-b.w / 2, y0 - y - 4, b.w, 4); }
+  ctx.save(); ctx.translate(0, y0 - h + 6); blit(SPR.miniHead); ctx.restore();
+}
+function drawRing(b) {
+  ctx.rotate(-b.ang);
+  ctx.strokeStyle = b.orange ? '#ff9a1f' : '#2ea8ff'; ctx.lineWidth = b.thick;
+  ctx.beginPath(); ctx.arc(0, 0, b.R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = b.orange ? '#ffd9a0' : '#bfe6ff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, b.R, 0, Math.PI * 2); ctx.stroke();
+}
+function drawWax() { blit(SPR2.wax); }
+function drawPuddle(b) {
+  ctx.globalAlpha = Math.min(1, (b.life - b.age) / 40) * 0.9;
+  ctx.fillStyle = '#b9a988'; ctx.fillRect(-b.r, -3, b.r * 2, 6);
+  ctx.fillStyle = '#e6dcc2'; ctx.fillRect(-b.r + 4, -3, b.r * 2 - 10, 2);
+}
+function drawEmber(b) { blit(SPR2.ember[(b.age >> 3) % 2]); }
+function drawFireball(b) { ctx.rotate(-b.ang); blit(SPR2.fire[(G.t >> 3) % 2]); }
+function drawPillar(b) {
+  const k = (b.age - 44) / 14, x0 = -b.w / 2, y0 = -b.h / 2;
+  ctx.fillStyle = `rgba(255,90,30,${0.85 - k * 0.5})`; ctx.fillRect(x0, y0, b.w, b.h);
+  ctx.fillStyle = `rgba(255,200,60,${0.9 - k * 0.5})`; ctx.fillRect(x0 + 4, y0, b.w - 8, b.h);
+  ctx.fillStyle = `rgba(255,246,208,${0.9 - k * 0.5})`;
+  for (let y = y0; y < b.h / 2; y += 6) ctx.fillRect(snap(Math.sin(y * 0.2 + G.t * 0.5) * 4) - 3, y, 6, 4);
+}
+function drawNote() { blit(SPR2.note); }
+function drawWick(b) {
+  ctx.fillStyle = '#2a1a10'; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+  ctx.fillStyle = '#5a3a22'; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, 2);
+  ctx.fillStyle = '#ff8a1f'; for (let x = -b.w / 2 + 10; x < b.w / 2; x += 22) ctx.fillRect(x, -1, 2, 2);
+  ctx.fillStyle = (G.t >> 2) % 2 ? '#ffd23f' : '#ff5a1f'; ctx.fillRect(b.w / 2 - 6, -5, 8, 10);
+}
+function drawStub() { blit(SPR2.stub); }
+function drawSoot() { blit(SPR2.soot); }
+function drawHub() { blit(SPR2.hub); }
 
 function drawExpGauge() {
   const x = 18, y = 70, w = 16, h = 186;
@@ -1706,14 +2280,15 @@ function drawSubMenu() {
   const descX = 360;
   if (m.sub === 'act') {
     const revealed = revealedAct();
-    ACTS.forEach((act, i) => {
+    const acts = curActs();
+    acts.forEach((act, i) => {
       const x = T.x + 36 + (i % 2) * 150, y = rowY(Math.floor(i / 2));
       if (i === m.subSel) heart(x - 16, y + 9, 1.4, 'red');
       const shown = act === revealed;
       txt(act.name, x, y, { size: 17, color: i === m.subSel ? COL.gold : shown ? '#8ff3ff' : COL.white });
       if (shown) { ctx.font = `400 17px ${TEXT_FONT}`; spr(ORBIT_STARS[0], x + ctx.measureText(act.name).width + 10, y + 9); }
     });
-    wrap(ACTS[m.subSel].desc, 252, 15).slice(0, 2).forEach((l, i) => txt(l, descX, T.y + 10 + i * 19, { size: 15, color: COL.dim }));
+    wrap(acts[m.subSel].desc, 252, 15).slice(0, 2).forEach((l, i) => txt(l, descX, T.y + 10 + i * 19, { size: 15, color: COL.dim }));
     const e = G.enemy, mercy = e.mercy >= 100 ? 'MERCY 100%. It can be SPARED!' : `MERCY ${Math.round(e.mercy)}%`;
     if (revealed && e.mercy < 100) txt(`Answer: ${revealed.name}   ${mercy}`, descX, T.y + 54, { size: 14, color: '#8ff3ff' });
     else txt(mercy, descX, T.y + 54, { size: 14, color: COL.gold });
@@ -1779,15 +2354,38 @@ function drawLanes() {
 }
 
 function drawBattleBox() {
-  const B = G.box;
+  const B = G.box, A = G.A, dodge = G.state === 'dodge';
+  // space the box has lost (closing curtains, rising wax)
+  if (dodge && G.atk.fill) {
+    const T = G.boxTo;
+    ctx.fillStyle = G.atk.fill; ctx.fillRect(T.x, T.y, T.w, T.h);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; for (let x = T.x; x < T.x + T.w; x += 8) ctx.fillRect(x, T.y, 2, T.h);
+  }
   ctx.fillStyle = '#000'; ctx.fillRect(B.x, B.y, B.w, B.h);
-  if (G.state === 'dodge') {
+  if (dodge) {
     ctx.save();
     ctx.beginPath(); ctx.rect(B.x, B.y, B.w, B.h); ctx.clip();
     G.bullets.forEach(drawBullet);
+    if (A.push) {
+      ctx.fillStyle = 'rgba(200,220,255,0.25)';
+      for (let k = 0; k < 8; k++) { const y = B.y + ((k * 37) % B.h), x = B.x + ((G.t * 5 * Math.sign(A.push.x) + k * 61) % B.w + B.w) % B.w; ctx.fillRect(snap(x), snap(y), 16, 2); }
+    }
+    if (A.dark) {
+      // darkness everywhere except a pool of light around the heart; glowing bullets show through
+      ctx.fillStyle = 'rgba(0,0,0,0.97)';
+      ctx.beginPath(); ctx.rect(B.x, B.y, B.w, B.h); ctx.arc(G.soul.x, G.soul.y, A.dark, 0, Math.PI * 2, true); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(G.soul.x, G.soul.y, A.dark, 0, Math.PI * 2); ctx.stroke();
+      G.bullets.filter(b => b.glow).forEach(drawBullet);
+    }
+    if (A.pull) {
+      ctx.fillStyle = 'rgba(230,220,240,0.8)';
+      const n = Math.round(Math.hypot(G.soul.x - A.pull.x, G.soul.y - A.pull.y) / 3);
+      for (let i = 0; i <= n; i++) ctx.fillRect(snap(A.pull.x + (G.soul.x - A.pull.x) * i / n), snap(A.pull.y + (G.soul.y - A.pull.y) * i / n), 2, 2);
+      ctx.fillStyle = '#8a7030'; ctx.fillRect(snap(A.pull.x) - 10, snap(A.pull.y) - 2, 20, 4); ctx.fillRect(snap(A.pull.x) - 2, snap(A.pull.y) - 8, 4, 16);
+    }
     ctx.restore();
   }
-  ctx.fillStyle = COL.boxLine;
+  ctx.fillStyle = dodge && A.invert ? '#c77dff' : COL.boxLine;
   const x = Math.round(B.x), y = Math.round(B.y), w = Math.round(B.w), h = Math.round(B.h);
   ctx.fillRect(x - 4, y - 4, w + 8, 4); ctx.fillRect(x - 4, y + h, w + 8, 4);
   ctx.fillRect(x - 4, y, 4, h); ctx.fillRect(x + w, y, 4, h);
@@ -1804,8 +2402,8 @@ function drawBattleBox() {
       ctx.strokeRect(Math.round(S.x) - 14, Math.round(S.y) - 14, 28, 28);
     }
     if (!(S.iframes > 0 && (S.iframes >> 2) % 2)) heart(S.x, S.y, 2, 'red');
-    const blue = G.atk.blue;
-    txt(G.atk.name, B.x + B.w / 2, B.y - 24, { size: 12, font: HEAD_FONT, align: 'center', color: blue ? '#2ea8ff' : G.phase2 ? COL.red : COL.gold, outline: 3 });
+    const tc = G.atk.blue ? '#2ea8ff' : G.atk.tipColor || (G.phase2 ? COL.red : COL.gold);
+    txt(G.atk.name, B.x + B.w / 2, G.boxTo.y - 24, { size: 12, font: HEAD_FONT, align: 'center', color: tc, outline: 3 });
   }
 }
 
@@ -1835,31 +2433,29 @@ function drawPopups() {
 function drawTitle() {
   ctx.fillStyle = 'rgba(7,4,13,0.88)'; ctx.fillRect(0, 0, W, H);
   txt('CURTAIN CALL', W / 2, 52, { size: 44, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 6 });
-  txt('Three heroes against MARIONETTE NEO. Twelve acts.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
+  txt('Three heroes. Two monsters. One stage.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
   G.party.forEach((c, i) => {
     const x = 170 + i * 150;
     drawHeroSprite(i, x, 222);
     txt(c.name, x, 228, { size: 14, font: HEAD_FONT, align: 'center', color: c.color });
     txt(`${c.maxHp} HP`, x, 246, { size: 14, align: 'center', color: COL.dim });
   });
-  const lines = [
-    'Choose an action for each hero, then dodge with the heart.',
-    'ASTRA can ACT to raise MERCY. At 100%, anyone can SPARE.',
-    'BLUE attacks only hurt you while you are moving.',
-  ];
-  lines.forEach((l, i) => txt(l, W / 2, 270 + i * 20, { size: 15, align: 'center', color: i === 2 ? '#2ea8ff' : COL.white }));
-  // difficulty picker
-  const opts = [['NORMAL', false], ['HARD', true]];
-  opts.forEach(([label, hard], i) => {
-    const x = 196 + i * 136, y = 336, sel = G.hard === hard;
-    frameBox(x, y, 112, 34, sel ? (hard ? COL.red : COL.gold) : COL.panelLine, 2);
-    if (sel) heart(x + 16, y + 17, 2, 'red');
-    txt(label, x + 64, y + 10, { size: 14, font: HEAD_FONT, align: 'center', color: sel ? (hard ? COL.red : COL.gold) : COL.dim });
-  });
-  const desc = G.hard ? ['4400 HP, harder hits and full fury from turn one.', 'Fewer items and shorter recovery after a hit.']
-                      : ['The standard fight.', 'The enemy gets frantic below half HP.'];
-  desc.forEach((l, i) => txt(l, W / 2, 378 + i * 18, { size: 14, align: 'center', color: COL.dim }));
-  if ((G.t >> 5) % 2 === 0) txt('ARROWS TO CHOOSE, Z TO BEGIN', W / 2, 432, { size: 16, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 4 });
+  txt('ASTRA can ACT to raise MERCY. At 100%, anyone can SPARE.', W / 2, 268, { size: 14, align: 'center', color: COL.white });
+  txt('BLUE hurts only while you move. ORANGE hurts only while you stand still.', W / 2, 286, { size: 14, align: 'center', color: '#8ccfff' });
+  const row = (y, label, opts, sel, focus) => {
+    txt(label, 120, y + 11, { size: 11, font: HEAD_FONT, align: 'right', color: focus ? COL.gold : COL.dim });
+    opts.forEach(([name, color], i) => {
+      const x = 134 + i * 196, on = sel === i;
+      frameBox(x, y, 184, 32, on ? color : COL.panelLine, 2);
+      if (on && focus) heart(x + 16, y + 16, 2, 'red');
+      txt(name, x + 100, y + 10, { size: 12, font: HEAD_FONT, align: 'center', color: on ? color : COL.dim });
+    });
+  };
+  row(306, 'ENEMY', BOSS_IDS.map(id => [BOSSES[id].name, COL.gold]), BOSS_IDS.indexOf(G.bossId), G.titleRow === 0);
+  row(346, 'MODE', [['NORMAL', COL.gold], ['HARD', COL.red]], G.hard ? 1 : 0, G.titleRow === 1);
+  txt(G.boss.blurb, W / 2, 388, { size: 14, align: 'center', color: COL.dim });
+  txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. It gets frantic below half HP.`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
+  if ((G.t >> 5) % 2 === 0) txt('UP/DOWN PICK A ROW   LEFT/RIGHT CHOOSE   Z BEGIN', W / 2, 440, { size: 12, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 4 });
 }
 function drawGameOver() {
   ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, W, H);
@@ -1867,7 +2463,7 @@ function drawGameOver() {
   heart(W / 2 - 12, 250, 6, 'red');
   ctx.fillStyle = '#000';
   for (let k = 0; k < 6; k++) ctx.fillRect(W / 2 - 16 + (k % 2) * 4, 226 + k * 8, 4, 8);
-  txt(`MARIONETTE NEO had ${G.enemy.hp} HP left.`, W / 2, 300, { size: 18, align: 'center', color: COL.dim });
+  txt(`${G.enemy.name} had ${G.enemy.hp} HP left.`, W / 2, 300, { size: 18, align: 'center', color: COL.dim });
   if (G.stateT > 40) {
     txt('Z: TRY AGAIN', W / 2, 346, { size: 18, font: HEAD_FONT, align: 'center', color: COL.gold });
     txt('X: TITLE SCREEN', W / 2, 376, { size: 14, font: HEAD_FONT, align: 'center', color: COL.dim });
@@ -1880,7 +2476,9 @@ function draw() {
   ctx.save();
   if (G.shake > 0) ctx.translate(snap(rnd(-G.shake, G.shake) * 0.5), snap(rnd(-G.shake, G.shake) * 0.5));
   drawBackground();
-  drawEnemy();
+  G.boss.draw();
+  if (G.bossId === 'neo') neoGlitch();
+  drawEnemyPanel();
   G.party.forEach(drawHero);
   drawExpGauge();
   drawCards();
@@ -1889,8 +2487,8 @@ function draw() {
   if (G.state === 'menu') drawActionRow();
   if (inBox) {
     drawBattleBox();
-    if (G.state === 'dodge' && G.atk.blue) {
-      txt('BLUE attacks pass through you while you stand still.', W / 2, 420, { size: 15, align: 'center', color: '#2ea8ff' });
+    if (G.state === 'dodge' && G.atk.tip) {
+      txt(G.atk.tip, W / 2, 420, { size: 15, align: 'center', color: G.atk.tipColor || (G.atk.blue ? '#2ea8ff' : COL.gold) });
     }
     if (G.state === 'dodge' && G.turn < 3) {
       txt('Move with the arrows. Hold X to slow down. Brush past bullets to earn EXP.', W / 2, 452, { size: 14, align: 'center', color: COL.dim });
@@ -1906,6 +2504,7 @@ function draw() {
 }
 
 // ---------------------------------------------------------------- loop
+newGame();
 let last = performance.now(), acc = 0;
 const STEP = 1000 / 60;
 function frame(now) {

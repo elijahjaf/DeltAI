@@ -1,6 +1,6 @@
 # Curtain Call
 
-A Deltarune-style turn-based battle that runs in the browser. Three heroes fight Marionette NEO, a half-puppet, half-robot boss. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
+A Deltarune-style turn-based battle that runs in the browser. Three heroes fight one of two bosses: Marionette NEO, a half-puppet, half-robot horror, or Candlemaw, a haunted candle. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
 
 All art is 16-bit style pixel art. Each sprite is drawn in code at low resolution, given a dark outline, and scaled up 2x. There are no image files.
 
@@ -52,28 +52,32 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 
 A hero at 0 HP is **downed**. They skip turns and regain 1/8 of their max HP each round until they are back up. Healing revives them sooner. If all three heroes are downed, it's game over.
 
-## Marionette NEO
+## The bosses
 
-A porcelain-and-steel marionette that hangs from a control rail. It has striped wings, a cannon arm, a puppet glove and a pulsing heart core. It has 3200 HP and 12 attacks. It uses them in order, one per turn, and the menu text hints at the next one:
+Pick the enemy on the title screen: Up/Down picks a row, Left/Right picks an option.
 
-1. Needle Rain
-2. Puppet Strings
-3. Card Fan (slow-moving cards)
-4. Loose Buttons
-5. Curtain Fall
-6. Paper Bloom
-7. Spare Heads
-8. Stage Lights
-9. Tangled Thread
-10. Chandelier
-11. Scissor Dance (blue: stand still to let the blades pass)
-12. Grand Finale
+Attacks run in a fixed order, one per turn, and the flavor text before each one hints at the enemy's mood. Below half HP every boss turns frantic: attacks get denser and faster and deal 25% more damage.
 
-Below half HP a string snaps and Marionette NEO gets frantic. Its eye and core turn red, one arm and wing go limp, and every attack becomes denser and faster and deals 25% more damage.
+Some attacks bend the rules:
+- **Blue** bullets only hurt while you move. **Orange** bullets only hurt while you stand still.
+- **Darkness**: only a pool of light around the heart shows what's coming. Glowing bullets show through the dark.
+- **Reversed controls**, **strings that drag the heart**, **wind that pushes it**, **wax puddles that slow it**, and **boxes that shrink** during the attack.
+
+### Marionette NEO (3200 HP)
+
+A scrap-metal marionette with a cracked porcelain grin, black-tear eyes, a red LED eye, torn wings, a cannon arm and a steel claw. It glitches and twitches as it fights. Its ACTs are Applaud, Dance, Oil Joints and Untangle.
+
+Its 21 attacks: Needle Rain, Puppet Strings, Card Fan (slow cards), Loose Buttons, Cannon Beam, Curtain Fall, Puppeteer's Pull, Paper Bloom, Spare Heads, Lights Out, Blue & Orange, Stage Lights, Tangled Thread, Mirror Mirror, Chandelier, Time Bombs, String Cage, Closing Curtains, Buzzsaws, Scissor Dance and Grand Finale.
+
+### Candlemaw (3400 HP)
+
+A towering chapel candle with a fanged, ember-lit maw, held in a wrought-iron candelabra. Below half HP its flames burn blue. Its ACTs are Relight (its wicks gutter), Trim Wick (it's choking on smoke), Sing (it hums a hymn) and Fan (it's melting).
+
+Its 12 attacks: Wax Drip, Ember Rise, Flame Pillars, Fire Wheel, Cold Draft, Candle Volley, Smoke Screen, Chord of Fire, Hymn, Meltdown, Wick Whips and Last Vigil.
 
 ## Hard Mode
 
-- The enemy has 4400 HP.
+- Marionette NEO has 4400 HP and Candlemaw has 4600.
 - Every attack runs at its frantic level from turn one and deals about 15% more damage.
 - Bullets are 10% faster, rising to 20% once the enemy is below half HP.
 - MERCY rises 20% per correct ACT instead of 25%.
