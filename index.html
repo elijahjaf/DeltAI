@@ -128,6 +128,8 @@
   .card { border: 2px solid var(--plum); padding: 12px; display: flex; flex-direction: column; gap: 6px; background: #0d0718; }
   .card h3 { color: var(--gold); }
   .card p { font-size: 14px; }
+  .attack-guide { display: flex; flex-direction: column; gap: 18px; }
+  .attack-guide td:first-child { font: 400 11px/1.6 "Silkscreen", "Courier New", monospace; letter-spacing: 0.03em; }
   .tag { display: inline-block; font: 400 10px/1 "Silkscreen", "Courier New", monospace; padding: 3px 5px; border-radius: 2px; margin-right: 4px; }
   .tag.blue { background: #0f3a66; color: #bfe6ff; }
   .tag.orange { background: #663a0f; color: #ffd9a0; }
@@ -244,13 +246,13 @@
 
     <section>
       <h2>Dodging</h2>
-      <p>Your heart is the red icon inside the green box. Anything white hurts it. Some attacks change the rules:</p>
+      <p>Your heart is the red icon inside the green box. Anything white hurts it. Hold <b>X</b> to move slowly for precise dodging, and brush past bullets without touching them to earn EXP. Some attacks change the rules:</p>
       <ul>
         <li><span class="tag blue">BLUE</span> bullets only hurt while you move. Stand still and let them pass.</li>
         <li><span class="tag orange">ORANGE</span> bullets only hurt while you stand still. Keep moving through them.</li>
         <li><span class="tag yellow">YELLOW HEART</span> The heart flips upside down and <b>Z fires shots upward</b>. Yellow objects break when shot. Yellow <b>TNT</b> freezes in place, flashes a warning cross, then blasts its whole row and column. The blast only hurts you, so stay out of the lines!</li>
         <li><span class="tag blue">BLUE HEART</span> Gravity pulls the heart down. <b>Tap Z</b> for a short hop and <b>hold Z</b> for a full jump. You can land on platforms.</li>
-        <li><span class="tag red">HAZARDS</span> Some attacks add darkness, reversed controls, strings that drag you, wind, slowing wax puddles, or a shrinking box. The line under the box explains each one.</li>
+        <li><span class="tag red">HAZARDS</span> Some attacks add darkness, reversed controls, strings that drag you, wind, slowing wax puddles, or a shrinking box. The <b>Attack guide</b> below explains each one.</li>
       </ul>
     </section>
 
@@ -261,6 +263,12 @@
         <div class="card"><h3>CANDLEMAW</h3><p>A haunted candle with 12 attacks built on <span class="tag blue">BLUE</span> and <span class="tag orange">ORANGE</span> fire.</p><p><b>ACT:</b> <b>Keep Vigil</b> always works: +8% MERCY every time.</p></div>
         <div class="card"><h3>DEADEYE</h3><p>A ghost gunslinger. The first half uses the <span class="tag yellow">YELLOW HEART</span>. At half HP or half MERCY it switches to the <span class="tag blue">BLUE HEART</span>.</p><p><b>ACT:</b> <b>Accept Duel</b> gives +7% MERCY, but each use makes its attacks hit 5% harder.</p></div>
       </div>
+    </section>
+
+    <section>
+      <h2>Attack guide</h2>
+      <p>Tips for every attack, boss by boss. The attack's name appears above the box while it happens.</p>
+      <div id="attack-guide" class="attack-guide"></div>
     </section>
 
     <section>
@@ -1108,6 +1116,22 @@ const NEO_ATTACKS = (() => {
   return NEO_ORDER.map(n => all[n]);
 })();
 NEO_ATTACKS.find(a => a.blue).tip = 'BLUE attacks pass through you while you stand still.';
+const NEO_TIPS = {
+  'NEEDLE RAIN': 'Needles fall from above. Weave between them, and hold X for fine moves.',
+  'PUPPET STRINGS': 'A red line warns where a string will snap taut. Step off the line.',
+  'CARD FAN': 'A red arrow marks where a fan of cards will fire. Slip between the cards.',
+  'LOOSE BUTTONS': 'Buttons bounce off the walls. Read their angles and keep to open space.',
+  'CANNON BEAM': 'A red band warns where the beam will fire, usually right at you. Get out of the band.',
+  'CURTAIN FALL': 'Each falling curtain has one gap. Line up under it early.',
+  'PAPER BLOOM': 'Rings of petals spread from the flower. Slip through the spaces between petals.',
+  'SPARE HEADS': 'The heads chase you, then burst into pieces when they flash. Keep your distance.',
+  'STAGE LIGHTS': 'Red columns show where lightning strikes next. Move to an unmarked column.',
+  'TANGLED THREAD': 'Short lines of beads cross from the edges. Step aside as they pass.',
+  'CHANDELIER': 'Crystals burst into a fountain of shards when they land. Do not stand below them.',
+  'BUZZSAWS': 'Saws run around the edges while springs pop up from the floor. Stay near the middle.',
+  'GRAND FINALE': 'Needles, heads and strings all at once. Keep moving.',
+};
+NEO_ATTACKS.forEach(a => { if (!a.tip && NEO_TIPS[a.name]) a.tip = NEO_TIPS[a.name]; });
 
 // ---------------------------------------------------------------- CANDLEMAW
 // Candlemaw's fire comes in two colors: BLUE flames only hurt a moving heart,
@@ -3327,12 +3351,6 @@ function draw() {
   if (G.state === 'menu') drawActionRow();
   if (inBox) {
     drawBattleBox();
-    if (G.state === 'dodge' && G.atk.tip) {
-      txt(G.atk.tip, W / 2, 420, { size: 15, align: 'center', color: G.atk.tipColor || (G.atk.blue ? '#2ea8ff' : COL.gold) });
-    }
-    if (G.state === 'dodge' && G.turn < 3) {
-      txt(`Move with the ${controlMode === 'joystick' ? 'joystick' : 'arrows'}. Hold X to slow down. Brush past bullets to earn EXP.`, W / 2, 444, { size: 14, align: 'center', color: COL.dim });
-    }
   } else if (G.state !== 'title' && G.state !== 'gameover') drawTextBox();
   drawPopups();
   if (G.hard && G.state !== 'title') txt('HARD', W - 10, 40, { size: 11, font: HEAD_FONT, align: 'right', color: COL.red, outline: 3 });
@@ -3343,6 +3361,20 @@ function draw() {
   if (Music.song && !muted && G.state !== 'title') txt('♪ ' + Music.song.name, 8, H - 4, { size: 11, base: 'bottom', color: COL.dim });
   if (muted) txt('MUTED', W - 8, H - 4, { size: 10, font: HEAD_FONT, align: 'right', base: 'bottom', color: COL.dim });
 }
+
+// ---------------------------------------------------------------- attack guide (How to Play tab)
+(function buildAttackGuide() {
+  const host = document.getElementById('attack-guide');
+  if (!host) return;
+  const esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const table = list => `<div class="table-wrap"><table><thead><tr><th>Attack</th><th>Tip</th></tr></thead><tbody>${
+    list.map(a => `<tr><td>${esc(a.name)}</td><td>${esc(a.tip || '')}</td></tr>`).join('')}</tbody></table></div>`;
+  host.innerHTML = BOSS_IDS.map(id => {
+    const b = BOSSES[id];
+    if (b.attacks2) return `<h3>${b.name}: YELLOW HEART HALF</h3>${table(b.attacks)}<h3>${b.name}: BLUE HEART HALF</h3>${table(b.attacks2)}`;
+    return `<h3>${b.name}</h3>${table(b.attacks)}`;
+  }).join('');
+})();
 
 // ---------------------------------------------------------------- loop
 newGame();
