@@ -833,15 +833,22 @@ const CANDLE_ATTACKS = [
 // Second half: BLUE SOUL (gravity; Z jumps, holding Z jumps higher).
 const YELLOW_TIP = '#ffe14a', BLUE_SOUL_TIP = '#2ea8ff';
 // TNT: shooting it sets off a small cross-shaped blast that also clears rocks (and other TNT)
+// Shooting TNT lights it: it keeps moving with its row, flashes a warning cross, then blows.
+const FUSE = 22;
 function tnt(o) {
-  return spawn(Object.assign({ r: 7, yellow: true, draw: drawTNT, onShot: b => explode(b) }, o));
+  const inner = o.upd;
+  return spawn(Object.assign({ r: 7, yellow: true, draw: drawTNT }, o, {
+    onShot: b => { if (!b.lit) { b.lit = G.t; sfx('crack'); } },
+    upd: b => { if (inner) inner(b); if (b.lit && G.t - b.lit >= FUSE) explode(b); },
+  }));
 }
 function explode(b) {
   if (b.dead) return;
   b.dead = true;
-  sfx('zap'); G.shake = 5;
   sparkle(b.x, b.y, '#ffe14a', 10, 2.2);
-  for (const [w, h] of [[72, 14], [14, 72]]) spawn({ kind: 'rect', x: b.x, y: b.y, w, h, life: 18, cull: false, clears: true, draw: drawYBlast });
+  const B = G.box;
+  spawn({ kind: 'rect', x: B.x + B.w / 2, y: b.y, w: B.w + 30, h: 14, life: 18, cull: false, clears: true, draw: drawYBlast });
+  spawn({ kind: 'rect', x: b.x, y: B.y + B.h / 2, w: 14, h: B.h + 30, life: 18, cull: false, clears: true, draw: drawYBlast });
 }
 const bottle = o => spawn(Object.assign({ r: 6, yellow: true, draw: drawBottle }, o));
 const floorY = () => G.box.y + G.box.h;
@@ -867,7 +874,7 @@ const DEADEYE_YELLOW = [
       if (A.t % 50 === 25 && A.t < A.dur - 40) { const left = Math.random() < 0.5; spawn({ x: left ? B.x - 8 : B.x + B.w + 8, y: rnd(B.y + 20, B.y + B.h * 0.6), vx: left ? 2 : -2, r: 4, draw: drawSlug }); }
     } },
   { name: 'TNT WALL', soul: 'yellow', hint: '* DEADEYE rolls out a crate of TNT. All that hauling left it parched.', mood: 'water', w: 240, h: 200, dur: 440, dmg: 26,
-    tip: 'Shoot the TNT to blast a hole through the rocks!', tipColor: YELLOW_TIP,
+    tip: 'Shoot the TNT, then step aside: it blasts the whole row and column!', tipColor: YELLOW_TIP,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 90 : 110;
       if (A.t % every !== 10 || A.t > A.dur - 150) return;
@@ -902,7 +909,7 @@ const DEADEYE_YELLOW = [
       }
     } },
   { name: 'OUTLAW GANG', soul: 'yellow', hint: '* A gang of paper outlaws marches in. DEADEYE sizes you up for a duel.', mood: 'duel', w: 260, h: 200, dur: 460, dmg: 24,
-    tip: 'Shoot the outlaws. The TNT among them takes out its neighbors.', tipColor: YELLOW_TIP,
+    tip: 'Shoot the outlaws. TNT blasts its whole row and column.', tipColor: YELLOW_TIP,
     init(A) {
       const B = G.box, cols = 6, rows = 3;
       A.d = { ox: B.x + 24, oy: B.y + 16, dir: 1 };
@@ -1040,7 +1047,9 @@ const BOSSES = {
   },
 };
 BOSSES.deadeye = {
-  id: 'deadeye', name: 'DEADEYE', hp: 3000, hpHard: 4200, attacks: DEADEYE_YELLOW, attacks2: DEADEYE_BLUE, mercySwitch: true, draw: () => drawDeadeye(),
+  id: 'deadeye', name: 'DEADEYE', hp: 3000, hpHard: 4200, attacks: DEADEYE_YELLOW, attacks2: DEADEYE_BLUE, mercySwitch: true,
+  // One ACT: steady MERCY, but every use makes its attacks stronger.
+  simpleAct: true, actStep: 7, actStepHard: 5, draw: () => drawDeadeye(),
   blurb: 'A ghost gunslinger. YELLOW SOUL, then BLUE SOUL. 12 acts.',
   light: 'rgba(255,220,120,0.08)',
   check: '* DEADEYE - AT 26 DF 14. A gunslinger who never left the saloon. It just wants one fair fight.',
@@ -1049,14 +1058,12 @@ BOSSES.deadeye = {
   winFight: '* DEADEYE fades into the dust, tipping its hat one last time.',
   winSpare: '* DEADEYE was SPARED! It rides off into the sunset.',
   acts: [
-    { id: 'tip', name: 'Tip Hat', verb: 'tip a hat', desc: 'Return its greeting. It wants this when it is being polite.',
-      ok: '* ASTRA tipped her halo like a hat. DEADEYE chuckled and tipped its hat back.' },
-    { id: 'duel', name: 'Stare Down', verb: 'stare it down', desc: 'Meet its gaze. It wants this when it itches for a duel.',
-      ok: '* ASTRA stared DEADEYE down without blinking. It nodded with respect.' },
-    { id: 'water', name: 'Share Water', verb: 'share water', desc: 'Offer your canteen. It wants this when it is parched.',
-      ok: "* ASTRA shared her canteen. DEADEYE's bones rattled gratefully." },
-    { id: 'song', name: 'Harmonica', verb: 'play harmonica', desc: 'Play along. It wants this when it hums a lonesome tune.',
-      ok: "* ASTRA played harmonica along with its song. DEADEYE's eyes softened." },
+    { id: 'duel', name: 'Accept Duel', dmgUp: 5, desc: 'Take its challenge. Raises MERCY, but DEADEYE hits harder each time.', lines: [
+      '* ASTRA accepted the duel. DEADEYE grinned and spun its revolver.',
+      '* ASTRA stood her ground at ten paces. DEADEYE respects that.',
+      '* ASTRA matched DEADEYE stare for stare. Its aim got sharper.',
+      "* ASTRA tipped her halo and called the draw. DEADEYE's eyes blazed.",
+    ] },
   ],
 };
 const BOSS_IDS = ['neo', 'candle', 'deadeye'];
@@ -1218,7 +1225,12 @@ function beginResolve() {
         sfx('mercy');
         if (gain > 0) popup(ENEMY_POS.x, ENEMY_POS.y - 80, `+${gain}% MERCY`, COL.gold, 16);
         sparkle(ENEMY_POS.x, ENEMY_POS.y - 40, COL.gold, 12, 2);
-        const text = act.lines ? act.lines[(G.stats.acts - 1) % act.lines.length] : act.ok;
+        let text = act.lines ? act.lines[(G.stats.acts - 1) % act.lines.length] : act.ok;
+        if (act.dmgUp) {
+          G.dmgBonus = (G.dmgBonus || 0) + act.dmgUp;
+          popup(ENEMY_POS.x, ENEMY_POS.y - 100, `ATK +${G.dmgBonus}%`, COL.red, 14);
+          text += ` Its attacks now deal +${G.dmgBonus}% damage.`;
+        }
         return text + (e.mercy >= 100 ? ' Its name turned YELLOW. It can be SPARED!' : ` MERCY +${gain}%.`);
       });
     } else if (a.type === 'spare') {
@@ -1311,7 +1323,7 @@ function startEnemyTurn() {
   const lvl = frantic || G.hard ? 2 : 1;
   const spd = G.hard ? (frantic ? 1.2 : 1.1) : 1;
   G.atk = atk;
-  G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1)) };
+  G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1) * (1 + (G.dmgBonus || 0) / 100)) };
   G.boxFrom = { ...TEXTBOX };
   G.boxTo = { x: 320 - atk.w / 2, y: BOX_CY - atk.h / 2, w: atk.w, h: atk.h };
   G.bullets = [];
@@ -1407,7 +1419,10 @@ function updateDodge() {
   G.shots = G.shots.filter(sh => !sh.dead);
   // blasts clear rocks and set off other TNT
   for (const bl of G.bullets) {
-    if (!bl.clears || bl.dead || bl.age > 6) continue;
+    if (!bl.clears || bl.dead) continue;
+    bl.activeT = (bl.activeT || 0) + 1;
+    if (bl.activeT === 1 && bl.w > bl.h) { sfx('zap'); G.shake = 5; }
+    if (bl.activeT > 6) continue;
     for (const o of G.bullets) {
       if (o === bl || o.clears || o.dead || o.platform || bDist(bl, o.x, o.y) > (o.r || 6)) continue;
       if (o.onShot) o.onShot(o); else { o.dead = true; sparkle(o.x, o.y, '#ffffff', 4, 1.4); }
@@ -2004,14 +2019,23 @@ const SPR3 = (() => {
 })();
 
 function drawBottle() { blit(SPR3.bottle); }
-function drawTNT(b) { ctx.rotate(-b.ang); blit(SPR3.tnt); if ((G.t >> 2) % 2) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, -10, 2, 2); } }
+function drawTNT(b) {
+  ctx.rotate(-b.ang);
+  if (b.lit) {
+    // warning cross across the whole box
+    const B = G.box, on = (G.t >> 2) % 2;
+    ctx.fillStyle = `rgba(255,80,60,${on ? 0.4 : 0.2})`;
+    ctx.fillRect(B.x - b.x, -7, B.w, 14); ctx.fillRect(-7, B.y - b.y, 14, B.h);
+    if (on) { blit(SPR3.tnt, true); return; }
+  }
+  blit(SPR3.tnt); if ((G.t >> 2) % 2) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, -10, 2, 2); } }
 function drawSlug(b) { blit(b.yellow ? SPR3.slugY : SPR3.slug); }
 function drawWeed(b) { blit(b.yellow ? SPR3.weedY : SPR3.weed); }
 function drawOutlaw(b) { ctx.rotate(-b.ang); blit(SPR3.outlaw); }
 function drawRock() { blit(SPR3.rock); }
 function drawPellet() { blit(SPR3.pellet); }
 function drawYBlast(b) {
-  const k = Math.max(0, 1 - b.age / 18), horiz = b.w >= b.h;
+  const k = Math.max(0, 1 - (b.activeT || 0) / 18), horiz = b.w >= b.h;
   const L = horiz ? b.w : b.h, T = Math.max(2, snap((horiz ? b.h : b.w) * k));
   ctx.fillStyle = '#ffb347'; horiz ? ctx.fillRect(-L / 2, -T / 2, L, T) : ctx.fillRect(-T / 2, -L / 2, T, L);
   ctx.fillStyle = '#fff6b0'; const t2 = Math.max(2, snap(T / 2)); horiz ? ctx.fillRect(-L / 2, -t2 / 2, L, t2) : ctx.fillRect(-t2 / 2, -L / 2, t2, L);
