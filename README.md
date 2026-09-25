@@ -1,6 +1,6 @@
 # Last Wish
 
-A Deltarune-style turn-based battle that runs in the browser. Three heroes fight one of two bosses: Marionette NEO, a half-puppet, half-robot horror, or Candlemaw, a haunted candle. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
+A Deltarune-style turn-based battle that runs in the browser. Three heroes fight one of three bosses: Marionette NEO, a half-puppet, half-robot horror; Candlemaw, a haunted candle; or Deadeye, a ghost gunslinger. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
 
 All art is 16-bit style pixel art. Each sprite is drawn in code at low resolution, given a dark outline, and scaled up 2x. There are no image files.
 
@@ -90,9 +90,37 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 | Wick Whips | one blue and one orange wick sweep like pendulums |
 | Last Vigil | orange ember rain plus blue rings |
 
+### Deadeye (3000 HP)
+
+A skeletal ghost gunslinger in a wide-brim hat and striped poncho, trailing smoke where its legs should be. Deadeye changes how your heart works, the way Undertale's colored SOULs do.
+
+**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Yellow objects break when shot. **Yellow TNT explodes** in a small cross that also hurts you if you're in line, clears rocks, and sets off other TNT.
+
+| Attack | What happens |
+| --- | --- |
+| Target Practice | rows of yellow bottles drift down; stray white bullets cross the box |
+| TNT Wall | walls of rocks descend; shoot the TNT in each wall to blast a gap |
+| Six Shooter | aimed volleys of yellow slugs to shoot down or dodge |
+| Tumbleweeds | bouncing yellow tumbleweeds |
+| Outlaw Gang | a Space Invaders-style gang of yellow outlaws (some are TNT) that fires back |
+| High Noon | bottles, TNT and slugs together |
+
+**Second half: BLUE SOUL.** When Deadeye drops to half HP *or* its MERCY reaches 50%, your heart turns blue and the moveset switches for the rest of the fight. Gravity pulls the heart to the floor, left/right move it, and **Z (or Up) jumps**. Tap for a short hop and hold for a full jump (about 24 px vs. 61 px). You can land on platforms.
+
+| Attack | What happens |
+| --- | --- |
+| Cactus Run | short and tall cacti slide along the floor |
+| Dust Devil | rolling tumbleweeds to hop over and bouncing ones to walk under |
+| Mine Carts | the floor fills with spikes; ride the moving carts |
+| Low Ceiling | spikes hang from the ceiling over each cactus, so only a short hop fits |
+| Gravity Slam | you're slammed to the floor, then floor spikes rise |
+| Sundown | everything together |
+
+Its ACTs read its mood like Marionette NEO's: Tip Hat, Stare Down, Share Water and Harmonica (plus Check and Reveal).
+
 ## Hard Mode
 
-- Marionette NEO has 4400 HP and Candlemaw has 4600.
+- Marionette NEO has 4400 HP, Candlemaw 4600 and Deadeye 4200.
 - Every attack runs at its frantic level from turn one and deals about 15% more damage.
 - Bullets are 10% faster, rising to 20% once the enemy is below half HP.
 - MERCY rises more slowly: 15% per correct ACT against Marionette NEO (instead of 18%) and 6% per Keep Vigil against Candlemaw (instead of 8%).

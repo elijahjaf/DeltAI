@@ -73,7 +73,7 @@
 <div class="wrap">
   <header>
     <h1>LAST WISH</h1>
-    <p>A three-hero battle against Marionette NEO or Candlemaw</p>
+    <p>Three heroes against Marionette NEO, Candlemaw or Deadeye</p>
   </header>
 
   <div class="stage">
@@ -108,7 +108,9 @@
     <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including a downed one.</span></div>
     <div class="rule"><b>DEFEND</b><span>Take half damage this turn and gain 16% EXP. Grazing bullets also earns EXP.</span></div>
     <div class="rule"><b>BLUE &amp; ORANGE</b><span>Blue bullets only hurt while you move, so stand still. Orange bullets only hurt while you stand still, so keep moving.</span></div>
-    <div class="rule"><b>TWO BOSSES</b><span>Pick Marionette NEO (21 attacks) or Candlemaw (12 attacks) on the title screen. Each has its own ACTs.</span></div>
+    <div class="rule"><b>THREE BOSSES</b><span>Pick Marionette NEO, Candlemaw or Deadeye on the title screen. Each has its own attacks and ACTs.</span></div>
+    <div class="rule"><b>YELLOW SOUL</b><span>Against Deadeye your heart flips and turns yellow. Press Z to shoot: yellow objects break, and yellow TNT explodes.</span></div>
+    <div class="rule"><b>BLUE SOUL</b><span>At half HP or half MERCY, Deadeye turns your heart blue. Gravity pulls it down: press Z to jump, hold Z to jump higher.</span></div>
     <div class="rule"><b>HARD MODE</b><span>Pick it on the title screen. The enemy has more HP, hits harder and attacks at full fury from the start.</span></div>
   </div>
 </div>
@@ -207,6 +209,8 @@ const SFX = {
   defend: () => tone(392, 0.16, 'triangle', 0.05, 220),
   magic: () => [880, 660, 1100].forEach((f, i) => tone(f, 0.1, 'sine', 0.05, 0, i * 0.05)),
   zap: () => tone(90, 0.2, 'sawtooth', 0.05, 60),
+  shot: () => tone(1200, 0.05, 'square', 0.025, -600),
+  crack: () => tone(700, 0.08, 'triangle', 0.04, -400),
   down: () => tone(220, 0.5, 'sawtooth', 0.06, -170),
   mercy: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.1, 'triangle', 0.045, 0, i * 0.05)),
   win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'square', 0.04, 0, i * 0.12)),
@@ -824,6 +828,168 @@ const CANDLE_ATTACKS = [
     } },
 ];
 
+// ---------------------------------------------------------------- DEADEYE
+// First half: YELLOW SOUL (Z fires shots upward; yellow objects break, yellow TNT explodes).
+// Second half: BLUE SOUL (gravity; Z jumps, holding Z jumps higher).
+const YELLOW_TIP = '#ffe14a', BLUE_SOUL_TIP = '#2ea8ff';
+// TNT: shooting it sets off a small cross-shaped blast that also clears rocks (and other TNT)
+function tnt(o) {
+  return spawn(Object.assign({ r: 7, yellow: true, draw: drawTNT, onShot: b => explode(b) }, o));
+}
+function explode(b) {
+  if (b.dead) return;
+  b.dead = true;
+  sfx('zap'); G.shake = 5;
+  sparkle(b.x, b.y, '#ffe14a', 10, 2.2);
+  for (const [w, h] of [[72, 14], [14, 72]]) spawn({ kind: 'rect', x: b.x, y: b.y, w, h, life: 18, cull: false, clears: true, draw: drawYBlast });
+}
+const bottle = o => spawn(Object.assign({ r: 6, yellow: true, draw: drawBottle }, o));
+const floorY = () => G.box.y + G.box.h;
+function cactus(A, h, dir = -1, sp = 2.6) {
+  const B = G.box;
+  return spawn({ kind: 'rect', x: dir < 0 ? B.x + B.w + 10 : B.x - 10, y: floorY() - h / 2, w: 12, h, vx: dir * sp, draw: drawCactus });
+}
+function slam(A) {
+  const S = G.soul;
+  S.vy = 12; S.slammed = true;
+  sfx('hurt');
+}
+
+const DEADEYE_YELLOW = [
+  { name: 'TARGET PRACTICE', soul: 'yellow', hint: '* DEADEYE lines bottles up along the fence and tips its hat to you.', mood: 'tip', w: 240, h: 200, dur: 400, dmg: 22,
+    tip: 'YELLOW SOUL: press Z to shoot. Break the bottles!', tipColor: YELLOW_TIP,
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 30 : 40) === 0 && A.t < A.dur - 60) {
+        const n = 3 + randInt(A.lvl > 1 ? 3 : 2), xs = shuffle([0, 1, 2, 3, 4, 5, 6]).slice(0, n);
+        for (const k of xs) bottle({ x: B.x + 18 + k * (B.w - 36) / 6, y: B.y - 10, vy: 0.9 });
+      }
+      if (A.t % 50 === 25 && A.t < A.dur - 40) { const left = Math.random() < 0.5; spawn({ x: left ? B.x - 8 : B.x + B.w + 8, y: rnd(B.y + 20, B.y + B.h * 0.6), vx: left ? 2 : -2, r: 4, draw: drawSlug }); }
+    } },
+  { name: 'TNT WALL', soul: 'yellow', hint: '* DEADEYE rolls out a crate of TNT. All that hauling left it parched.', mood: 'water', w: 240, h: 200, dur: 440, dmg: 26,
+    tip: 'Shoot the TNT to blast a hole through the rocks!', tipColor: YELLOW_TIP,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 90 : 110;
+      if (A.t % every !== 10 || A.t > A.dur - 150) return;
+      const n = 14, gap = (B.w - 8) / (n - 1), bombs = new Set([2 + randInt(4), 8 + randInt(4)]);
+      for (let k = 0; k < n; k++) {
+        const o = { x: B.x + 4 + k * gap, y: B.y - 10, vy: A.lvl > 1 ? 0.85 : 0.7 };
+        if (bombs.has(k)) tnt(o); else spawn(Object.assign(o, { r: 8, draw: drawRock }));
+      }
+    } },
+  { name: 'SIX SHOOTER', soul: 'yellow', hint: "* DEADEYE's hand hovers over its revolver. It wants a showdown.", mood: 'duel', w: 220, h: 200, dur: 400, dmg: 24,
+    tip: 'Shoot the yellow slugs out of the air, or dodge them.', tipColor: YELLOW_TIP,
+    update(A) {
+      const B = G.box, t = A.t % 70;
+      if (A.t > A.dur - 50 || t % 8 !== 0 || t > 40) return;
+      const x = rnd(B.x + 10, B.x + B.w - 10), a = Math.atan2(G.soul.y - B.y, G.soul.x - x);
+      const white = A.lvl > 1 && Math.random() < 0.33;
+      spawn({ x, y: B.y - 6, vx: Math.cos(a) * 2.4, vy: Math.sin(a) * 2.4, r: 4, yellow: !white, ang: a - Math.PI / 2, draw: drawSlug });
+    } },
+  { name: 'TUMBLEWEEDS', soul: 'yellow', hint: '* Tumbleweeds roll down the empty street. DEADEYE hums a lonesome tune.', mood: 'song', w: 240, h: 200, dur: 400, dmg: 22,
+    tip: 'Shoot the tumbleweeds before they bounce into you.', tipColor: YELLOW_TIP,
+    update(A) {
+      const B = G.box, alive = G.bullets.filter(b => b.weed).length;
+      if (A.t % 40 === 0 && alive < (A.lvl > 1 ? 6 : 4) && A.t < A.dur - 60) {
+        const left = Math.random() < 0.5;
+        spawn({ x: left ? B.x + 12 : B.x + B.w - 12, y: B.y + 12, vx: (left ? 1 : -1) * rnd(1.4, 2.2), vy: 0, ay: 0.12, r: 9, yellow: true, weed: true, warn: 20, cull: false, life: 600, draw: drawWeed,
+          upd: b => {
+            const B = G.box;
+            if (b.y > B.y + B.h - b.r) { b.y = B.y + B.h - b.r; b.vy = -rnd(3.6, 4.6); }
+            if (b.x < B.x + b.r || b.x > B.x + B.w - b.r) { b.vx = -b.vx; b.x = clamp(b.x, B.x + b.r, B.x + B.w - b.r); }
+            b.ang += b.vx * 0.06;
+          } });
+      }
+    } },
+  { name: 'OUTLAW GANG', soul: 'yellow', hint: '* A gang of paper outlaws marches in. DEADEYE sizes you up for a duel.', mood: 'duel', w: 260, h: 200, dur: 460, dmg: 24,
+    tip: 'Shoot the outlaws. The TNT among them takes out its neighbors.', tipColor: YELLOW_TIP,
+    init(A) {
+      const B = G.box, cols = 6, rows = 3;
+      A.d = { ox: B.x + 24, oy: B.y + 16, dir: 1 };
+      for (let gy = 0; gy < rows; gy++) for (let gx = 0; gx < cols; gx++) {
+        const d = { gx, gy }, o = { x: 0, y: 0, cull: false, life: A.dur, bandit: true, d, upd: b => { b.x = G.A.d.ox + b.d.gx * 30; b.y = G.A.d.oy + b.d.gy * 24; } };
+        const b = Math.random() < 0.18 ? tnt(o) : spawn(Object.assign(o, { r: 8, yellow: true, draw: drawOutlaw }));
+        b.upd(b);
+      }
+    },
+    update(A) {
+      const B = G.box, gang = G.bullets.filter(b => b.bandit && !b.dead);
+      if (!gang.length) return;
+      const sp = (A.lvl > 1 ? 0.8 : 0.6) * A.spd;
+      A.d.ox += A.d.dir * sp;
+      const minX = Math.min(...gang.map(b => b.x)), maxX = Math.max(...gang.map(b => b.x));
+      if ((A.d.dir > 0 && maxX > B.x + B.w - 12) || (A.d.dir < 0 && minX < B.x + 12)) { A.d.dir = -A.d.dir; A.d.oy += 10; }
+      if (A.t % (A.lvl > 1 ? 22 : 30) === 0 && A.t < A.dur - 40) { const s = choice(gang); spawn({ x: s.x, y: s.y + 8, vy: 2.2, r: 3, draw: drawPellet }); }
+    } },
+  { name: 'HIGH NOON', soul: 'yellow', hint: '* The sun hangs at high noon. DEADEYE tips its hat, then draws.', mood: 'tip', w: 240, h: 200, dur: 460, dmg: 24,
+    tip: 'Everything at once. Shoot fast!', tipColor: YELLOW_TIP,
+    update(A) {
+      const B = G.box;
+      if (A.t > A.dur - 60) return;
+      if (A.t % 45 === 0) for (let k = 0; k < 3; k++) bottle({ x: rnd(B.x + 14, B.x + B.w - 14), y: B.y - 10 - k * 14, vy: 1 });
+      if (A.t % 90 === 30) tnt({ x: rnd(B.x + 30, B.x + B.w - 30), y: B.y - 10, vy: 0.8 });
+      if (A.t % 70 < 24 && A.t % 8 === 0) { const x = rnd(B.x + 10, B.x + B.w - 10), a = Math.atan2(G.soul.y - B.y, G.soul.x - x); spawn({ x, y: B.y - 6, vx: Math.cos(a) * 2.2, vy: Math.sin(a) * 2.2, r: 4, yellow: true, ang: a - Math.PI / 2, draw: drawSlug }); }
+    } },
+];
+
+const DEADEYE_BLUE = [
+  { name: 'CACTUS RUN', soul: 'blue', hint: '* The desert stretches on forever. DEADEYE looks parched.', mood: 'water', w: 300, h: 140, dur: 400, dmg: 24,
+    tip: 'BLUE SOUL: gravity! Press Z to jump, hold Z to jump higher.', tipColor: BLUE_SOUL_TIP,
+    update(A) {
+      if (A.t % (A.lvl > 1 ? 38 : 50) !== 20 || A.t > A.dur - 60) return;
+      cactus(A, Math.random() < 0.5 ? 20 : rnd(34, 46), Math.random() < 0.8 ? -1 : 1, A.lvl > 1 ? 3 : 2.6);
+    } },
+  { name: 'DUST DEVIL', soul: 'blue', hint: '* A dust storm kicks up tumbleweeds. DEADEYE hums a trail song.', mood: 'song', w: 300, h: 140, dur: 400, dmg: 22,
+    tip: 'Hop over the rollers. Walk under the bouncers.', tipColor: BLUE_SOUL_TIP,
+    update(A) {
+      if (A.t % (A.lvl > 1 ? 36 : 46) !== 10 || A.t > A.dur - 60) return;
+      const B = G.box, left = Math.random() < 0.5, bouncy = Math.random() < 0.5;
+      spawn({ x: left ? B.x - 10 : B.x + B.w + 10, y: floorY() - 9, vx: (left ? 1 : -1) * rnd(2, 2.6), ay: bouncy ? 0.2 : 0, vy: bouncy ? -5.2 : 0, r: 9, draw: drawWeed,
+        upd: b => { if (b.y > floorY() - 9) { b.y = floorY() - 9; if (b.ay) b.vy = -5.2; } b.ang += b.vx * 0.06; } });
+    } },
+  { name: 'MINE CARTS', soul: 'blue', hint: '* A mine cart rattles past. DEADEYE tips its hat as it goes by.', mood: 'tip', w: 300, h: 150, dur: 440, dmg: 26,
+    tip: 'The floor is spiked! Jump onto the carts.', tipColor: BLUE_SOUL_TIP,
+    init(A) {
+      const B = G.box;
+      spawn({ kind: 'rect', x: B.x + B.w / 2, y: floorY() - 6, w: B.w + 20, h: 12, warn: 70, life: A.dur, cull: false, draw: drawSpikes });
+      const lanes = [[floorY() - 30, 1.1], [floorY() - 62, -1.3], [floorY() - 94, 1.5]];
+      lanes.forEach(([y, vx], i) => { for (let k = 0; k < 2; k++) spawn({ kind: 'rect', platform: true, solid: false, x: B.x + (k + 0.3 * i) * B.w / 2 + 30, y, w: 46, h: 8, vx: vx * (A.lvl > 1 ? 1.25 : 1), cull: false, life: A.dur, draw: drawCart,
+        upd: b => { const B = G.box; if (b.x > B.x + B.w + 30) b.x = B.x - 30; if (b.x < B.x - 30) b.x = B.x + B.w + 30; } }); });
+    },
+    update(A) {
+      const B = G.box;
+      if (A.lvl > 1 && A.t % 50 === 0 && A.t > 80 && A.t < A.dur - 40) { const left = Math.random() < 0.5; spawn({ x: left ? B.x - 8 : B.x + B.w + 8, y: rnd(B.y + 10, floorY() - 40), vx: left ? 2 : -2, r: 4, draw: drawSlug }); }
+    } },
+  { name: 'LOW CEILING', soul: 'blue', hint: '* Gunsmoke hangs low. DEADEYE narrows its eyes for a showdown.', mood: 'duel', w: 300, h: 140, dur: 420, dmg: 24,
+    tip: 'Tap Z for a short hop. A full jump hits the spikes!', tipColor: BLUE_SOUL_TIP,
+    update(A) {
+      if (A.t % (A.lvl > 1 ? 48 : 60) !== 10 || A.t > A.dur - 70) return;
+      const B = G.box, sp = A.lvl > 1 ? 2.6 : 2.2;
+      cactus(A, 18, -1, sp);
+      const h = B.h - 58;
+      spawn({ kind: 'rect', x: B.x + B.w + 10, y: B.y + h / 2, w: 40, h, vx: -sp, draw: drawStalactite });
+    } },
+  { name: 'GRAVITY SLAM', soul: 'blue', hint: '* DEADEYE slams its fist on the bar. It is itching for a duel!', mood: 'duel', w: 300, h: 140, dur: 420, dmg: 26,
+    tip: 'Slammed down! Jump before the spikes rise.', tipColor: BLUE_SOUL_TIP,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 80 : 100;
+      if (A.t % every === 10 && A.t < A.dur - 70) {
+        slam(A);
+        spawn({ kind: 'rect', x: B.x + B.w / 2, y: floorY() - 9, w: B.w + 20, h: 18, warn: 34, life: 56, cull: false, draw: drawSpikes, onArm: () => sfx('zap') });
+      }
+      if (A.t % 30 === 0 && A.t < A.dur - 40) spawn({ x: rnd(B.x + 10, B.x + B.w - 10), y: B.y - 6, vy: 1.6, r: 4, draw: drawPellet });
+    } },
+  { name: 'SUNDOWN', soul: 'blue', hint: '* The sun sets over the canyon. DEADEYE plays one last song.', mood: 'song', w: 300, h: 140, dur: 460, dmg: 24,
+    tip: 'Last ride. Jump, hop and dodge!', tipColor: BLUE_SOUL_TIP,
+    update(A) {
+      const B = G.box;
+      if (A.t > A.dur - 60) return;
+      if (A.t % 56 === 20) cactus(A, Math.random() < 0.5 ? 20 : 40);
+      if (A.t % 70 === 45) spawn({ x: B.x - 10, y: floorY() - 9, vx: 2.3, ay: 0.2, vy: -5.2, r: 9, draw: drawWeed, upd: b => { if (b.y > floorY() - 9) { b.y = floorY() - 9; b.vy = -5.2; } b.ang += 0.14; } });
+      if (A.t === 200 || A.t === 330) { slam(A); spawn({ kind: 'rect', x: B.x + B.w / 2, y: floorY() - 9, w: B.w + 20, h: 18, warn: 34, life: 56, cull: false, draw: drawSpikes }); }
+    } },
+];
+
 // ---------------------------------------------------------------- bosses and their ACTs
 // Every boss shares Check and Reveal; the other four ACTs match its moods.
 const BASE_ACTS = [
@@ -873,8 +1039,33 @@ const BOSSES = {
     ],
   },
 };
-const BOSS_IDS = ['neo', 'candle'];
-const curAttack = () => G.boss.attacks[G.turn % G.boss.attacks.length];
+BOSSES.deadeye = {
+  id: 'deadeye', name: 'DEADEYE', hp: 3000, hpHard: 4200, attacks: DEADEYE_YELLOW, attacks2: DEADEYE_BLUE, mercySwitch: true, draw: () => drawDeadeye(),
+  blurb: 'A ghost gunslinger. YELLOW SOUL, then BLUE SOUL. 12 acts.',
+  light: 'rgba(255,220,120,0.08)',
+  check: '* DEADEYE - AT 26 DF 14. A gunslinger who never left the saloon. It just wants one fair fight.',
+  intro: '* DEADEYE drifts in on a cold desert wind. Your SOUL turns YELLOW!',
+  phase2: '* DEADEYE holsters its gun and the ground tilts. Your SOUL turns BLUE!',
+  winFight: '* DEADEYE fades into the dust, tipping its hat one last time.',
+  winSpare: '* DEADEYE was SPARED! It rides off into the sunset.',
+  acts: [
+    { id: 'tip', name: 'Tip Hat', verb: 'tip a hat', desc: 'Return its greeting. It wants this when it is being polite.',
+      ok: '* ASTRA tipped her halo like a hat. DEADEYE chuckled and tipped its hat back.' },
+    { id: 'duel', name: 'Stare Down', verb: 'stare it down', desc: 'Meet its gaze. It wants this when it itches for a duel.',
+      ok: '* ASTRA stared DEADEYE down without blinking. It nodded with respect.' },
+    { id: 'water', name: 'Share Water', verb: 'share water', desc: 'Offer your canteen. It wants this when it is parched.',
+      ok: "* ASTRA shared her canteen. DEADEYE's bones rattled gratefully." },
+    { id: 'song', name: 'Harmonica', verb: 'play harmonica', desc: 'Play along. It wants this when it hums a lonesome tune.',
+      ok: "* ASTRA played harmonica along with its song. DEADEYE's eyes softened." },
+  ],
+};
+const BOSS_IDS = ['neo', 'candle', 'deadeye'];
+// Bosses with a second moveset (attacks2) switch to it for the rest of the fight at the halfway point.
+const curAttack = () => {
+  const b = G.boss;
+  if (b.attacks2 && G.phase2) return b.attacks2[(G.turn - G.phaseTurn) % b.attacks2.length];
+  return b.attacks[G.turn % b.attacks.length];
+};
 const curActs = () => G.boss.simpleAct ? [BASE_ACTS[0], ...G.boss.acts] : [...BASE_ACTS, ...G.boss.acts];
 
 // ---------------------------------------------------------------- round flow
@@ -890,11 +1081,14 @@ function startRound() {
   const first = G.party.findIndex(isUp);
   if (first < 0) { gameOver(); return; }
   G.menu = { ci: first, sub: 'action', sel: 0, subSel: 0, tSel: 0, pending: null };
+  let prefix = '';
+  if (!G.phase2 && (G.enemy.hp <= G.enemy.maxHp / 2 || (G.boss.mercySwitch && G.enemy.mercy >= 50))) {
+    G.phase2 = true; G.phaseTurn = G.turn;
+    prefix = G.boss.phase2 + ' ';
+  }
   let text = curAttack().hint;
-  if (!G.phase2 && G.enemy.hp <= G.enemy.maxHp / 2) {
-    G.phase2 = true;
-    text = G.boss.phase2 + ' ' + text.slice(2);
-  } else if (G.turn === 0) {
+  if (prefix) text = prefix + text.slice(2);
+  else if (G.turn === 0) {
     text = G.boss.intro + ' ' + text.slice(2);
   }
   const r = revealedAct();
@@ -1113,14 +1307,16 @@ function updateFight() {
 // ENEMY TURN: dodge inside the box
 function startEnemyTurn() {
   const atk = curAttack();
-  const lvl = G.phase2 || G.hard ? 2 : 1;
-  const spd = G.hard ? (G.phase2 ? 1.2 : 1.1) : 1;
+  const frantic = G.phase2 && !G.boss.attacks2;
+  const lvl = frantic || G.hard ? 2 : 1;
+  const spd = G.hard ? (frantic ? 1.2 : 1.1) : 1;
   G.atk = atk;
   G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1)) };
   G.boxFrom = { ...TEXTBOX };
   G.boxTo = { x: 320 - atk.w / 2, y: BOX_CY - atk.h / 2, w: atk.w, h: atk.h };
   G.bullets = [];
-  G.soul = { x: 320, y: G.boxTo.y + atk.h - 18, iframes: 0, graze: 0, moving: false, blueSafe: 0 };
+  G.soul = { x: 320, y: G.boxTo.y + atk.h - (atk.soul === 'blue' ? 8 : 18), iframes: 0, graze: 0, moving: false, blueSafe: 0, mode: atk.soul || 'red', vy: 0, ground: true, cool: 0 };
+  G.shots = [];
   setState('boxIn');
 }
 function updateDodge() {
@@ -1134,7 +1330,28 @@ function updateDodge() {
   let dx = (held.has('right') ? 1 : 0) - (held.has('left') ? 1 : 0), dy = (held.has('down') ? 1 : 0) - (held.has('up') ? 1 : 0);
   if (A.invert) { dx = -dx; dy = -dy; }
   S.x = clamp(S.x + dx * sp, B.x + 8, B.x + B.w - 8);
-  S.y = clamp(S.y + dy * sp, B.y + 8, B.y + B.h - 8);
+  if (S.mode === 'blue') {
+    // BLUE SOUL: gravity. Z (or Up) jumps; letting go early cuts the jump short.
+    const jump = held.has('ok') || held.has('up');
+    if (S.ground && jump) { S.vy = -6.4; S.ground = false; }
+    if (!jump && S.vy < -3) S.vy = -3;
+    S.vy = Math.min(S.vy + 0.32, S.slammed ? 12 : 7.5);
+    const prevY = S.y;
+    S.y += S.vy;
+    S.ground = false;
+    if (S.vy >= 0) for (const b of G.bullets) {
+      if (!b.platform || b.warn > 0) continue;
+      const top = b.y - b.h / 2;
+      if (prevY + 8 <= top + 1 && S.y + 8 >= top && Math.abs(S.x - b.x) < b.w / 2 + 4) { S.y = top - 8; S.vy = 0; S.ground = true; S.x += b.vx; }
+    }
+    if (S.y >= B.y + B.h - 8) { S.y = B.y + B.h - 8; S.vy = 0; S.ground = true; if (S.slammed) { S.slammed = false; G.shake = 8; } }
+    if (S.y < B.y + 8) { S.y = B.y + 8; S.vy = Math.max(S.vy, 0); }
+  } else S.y = clamp(S.y + dy * sp, B.y + 8, B.y + B.h - 8);
+  // YELLOW SOUL: Z fires a shot straight up
+  if (S.mode === 'yellow') {
+    if (S.cool > 0) S.cool--;
+    if (P('ok') && S.cool === 0 && G.shots.length < 5) { G.shots.push({ x: S.x, y: S.y - 10 }); S.cool = 6; sfx('shot'); }
+  }
   // "moving" means the player moved the heart, not wind or strings
   S.moving = S.x !== px || S.y !== py;
   if (A.push) { S.x += A.push.x; S.y += A.push.y; }
@@ -1173,6 +1390,27 @@ function updateDodge() {
       if (!b.grazed) { b.grazed = true; G.stats.grazes++; addExp(2.5); sfx('graze'); sparkle(S.x, S.y, COL.orange, 3, 1.2); }
       else addExp(0.07);
       S.graze = 6;
+    }
+  }
+  // shots break yellow objects (TNT explodes instead)
+  for (const sh of G.shots) {
+    sh.y -= 7;
+    if (sh.y < B.y - 4) { sh.dead = true; continue; }
+    for (const b of G.bullets) {
+      if (!b.yellow || b.dead || b.warn > 0 || bDist(b, sh.x, sh.y) > 3) continue;
+      sh.dead = true;
+      if (b.onShot) b.onShot(b);
+      else { b.dead = true; sparkle(b.x, b.y, '#ffe14a', 6, 1.6); sfx('crack'); }
+      break;
+    }
+  }
+  G.shots = G.shots.filter(sh => !sh.dead);
+  // blasts clear rocks and set off other TNT
+  for (const bl of G.bullets) {
+    if (!bl.clears || bl.dead || bl.age > 6) continue;
+    for (const o of G.bullets) {
+      if (o === bl || o.clears || o.dead || o.platform || bDist(bl, o.x, o.y) > (o.r || 6)) continue;
+      if (o.onShot) o.onShot(o); else { o.dead = true; sparkle(o.x, o.y, '#ffffff', 4, 1.4); }
     }
   }
   G.bullets = G.bullets.filter(b => !b.dead);
@@ -1707,6 +1945,138 @@ const SPR2 = (() => {
   return S;
 })();
 
+// ---------------------------------------------------------------- DEADEYE parts + bullet art
+const DE = (() => {
+  const D = {};
+  const bone = '#e8e0c8', boneD = '#b0a88c', boneDD = '#7a7258', dark = '#140a10';
+  const hat = '#6a4a2a', hatL = '#8a6a3a', hatD = '#3a2814';
+  D.hat = bake(46, 16, g => {
+    R(g, hat, 13, 1, 20, 10); R(g, hatL, 14, 1, 6, 2); R(g, hatD, 28, 2, 5, 9); R(g, hatD, 21, 0, 4, 2);
+    R(g, '#8a1a1a', 13, 8, 20, 2); R(g, '#c0302a', 13, 8, 6, 1);
+    R(g, hat, 0, 11, 46, 3); R(g, hatL, 2, 11, 16, 1); R(g, hatD, 0, 13, 46, 1);
+    R(g, hat, 0, 9, 3, 2); R(g, hat, 43, 9, 3, 2);
+  });
+  D.skull = bake(20, 20, g => {
+    oval(g, bone, 10, 8.5, 9, 8.5); R(g, bone, 4, 12, 12, 6);
+    R(g, boneD, 1, 5, 2, 8); R(g, boneD, 15, 4, 3, 10); R(g, '#fffaf0', 5, 2, 5, 2);
+    R(g, dark, 3, 7, 5, 5); R(g, dark, 11, 7, 5, 5);
+    poly(g, dark, [[9, 12], [11, 12], [10, 14.5]]);
+    R(g, dark, 4, 15, 12, 1); for (let x = 5; x < 16; x += 2) R(g, dark, x, 16, 1, 2);
+    R(g, boneDD, 4, 18, 12, 1);
+    R(g, dark, 13, 2, 1, 3); R(g, dark, 14, 4, 1, 2);
+  });
+  const stripes = ['#b8402a', '#e0a030', '#2a8a8a', '#e8e0c8', '#6a2a4a'];
+  D.poncho = bake(42, 32, g => {
+    for (let y = 4; y < 30; y++) {
+      const hw = 8 + (y - 4) * 0.5, col = stripes[Math.floor((y - 4) / 3) % stripes.length];
+      R(g, col, Math.round(21 - hw), y, Math.round(hw * 2), 1);
+      R(g, 'rgba(0,0,0,0.25)', Math.round(21 + hw - 5), y, 5, 1);
+    }
+    for (let x = 6; x < 36; x += 3) R(g, '#e0a030', x, 30, 1, 2);
+    poly(g, '#8a1a1a', [[13, 0], [29, 0], [21, 9]]); R(g, '#c0302a', 15, 0, 6, 1);
+  });
+  D.arm = bake(8, 18, g => {
+    R(g, '#5a3a22', 1, 0, 6, 11); R(g, '#7a5a32', 1, 0, 2, 11); R(g, '#3a2814', 6, 0, 1, 11);
+    R(g, bone, 2, 11, 4, 5); R(g, boneD, 5, 11, 1, 5); R(g, bone, 2, 16, 1, 2); R(g, bone, 4, 16, 1, 2);
+  });
+  D.gun = bake(18, 9, g => {
+    R(g, '#c9ccdf', 0, 1, 11, 3); R(g, '#ffffff', 0, 1, 11, 1); R(g, '#8a8fb3', 0, 3, 11, 1);
+    R(g, '#9aa0b0', 9, 0, 5, 5); R(g, '#6f7390', 10, 2, 3, 1);
+    R(g, '#6a4a2a', 13, 3, 4, 6); R(g, '#8a6a3a', 13, 3, 1, 5); R(g, '#3a2814', 11, 5, 2, 1);
+  });
+  return D;
+})();
+const SPR3 = (() => {
+  const S = {}, Y = '#ffe14a', YD = '#c9a21c', YL = '#fff6b0';
+  S.bottle = fromMap(['..yy..', '..yy..', '..ll..', '.yyyy.', 'yylyyd', 'yylyyd', 'yyyyyd', 'yyyyyd', '.yddd.'], { y: Y, d: YD, l: YL }, null);
+  S.tnt = fromMap(['....w..', '...r...', 'yyyyyyy', 'ykkkkky', 'yyykyyy', 'yyykyyy', 'yyykyyy', 'ydddddy', 'yyyyyyy'], { y: Y, d: YD, k: '#3a2a10', r: '#ff5a1f', w: '#ffffff' }, null);
+  S.slugY = fromMap(['.y.', 'yly', 'yly', 'yyy', 'ddd'], { y: Y, l: YL, d: YD }, null);
+  S.slug = fromMap(['.w.', 'www', 'www', 'www', 'ggg'], { w: '#ffffff', g: '#b8aecb' }, null);
+  const WEED = ['..y.y.y..', '.y.yyy.y.', 'yyy.y.yyy', '.yy.y.yy.', 'yyyyyyyyy', '.yy.y.yy.', 'yyy.y.yyy', '.y.yyy.y.', '..y.y.y..'];
+  S.weedY = fromMap(WEED, { y: Y }, null);
+  S.weed = fromMap(WEED, { y: '#e8e0c8' }, null);
+  S.outlaw = fromMap(['yyyyyyy', 'ykkkkky', 'yyyyyyy', 'yykykyy', 'yyyyyyy', 'yykkkyy', 'yyyyyyy', 'ydddddy'], { y: Y, d: YD, k: '#3a2a10' }, null);
+  S.rock = fromMap(['..wwww..', '.wwwwwg.', 'wwlwwwgg', 'wwwwwwgg', 'wwwwwggg', '.wggggg.', '..gggg..'], { w: '#ffffff', l: '#ffffff', g: '#b8aecb' }, null);
+  S.pellet = fromMap(['.w.', 'www', '.w.'], { w: '#ffffff' }, null);
+  S.heartY = fromMap(['.rr...rr.', 'rlrr.rrrr', 'rlrrrrrrr', 'rrrrrrrrd', '.rrrrrrd.', '..rrrrd..', '...rrd...', '....d....'],
+    { r: '#ffe14a', l: '#fff6c0', d: '#c9a21c' }, null);
+  return S;
+})();
+
+function drawBottle() { blit(SPR3.bottle); }
+function drawTNT(b) { ctx.rotate(-b.ang); blit(SPR3.tnt); if ((G.t >> 2) % 2) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, -10, 2, 2); } }
+function drawSlug(b) { blit(b.yellow ? SPR3.slugY : SPR3.slug); }
+function drawWeed(b) { blit(b.yellow ? SPR3.weedY : SPR3.weed); }
+function drawOutlaw(b) { ctx.rotate(-b.ang); blit(SPR3.outlaw); }
+function drawRock() { blit(SPR3.rock); }
+function drawPellet() { blit(SPR3.pellet); }
+function drawYBlast(b) {
+  const k = Math.max(0, 1 - b.age / 18), horiz = b.w >= b.h;
+  const L = horiz ? b.w : b.h, T = Math.max(2, snap((horiz ? b.h : b.w) * k));
+  ctx.fillStyle = '#ffb347'; horiz ? ctx.fillRect(-L / 2, -T / 2, L, T) : ctx.fillRect(-T / 2, -L / 2, T, L);
+  ctx.fillStyle = '#fff6b0'; const t2 = Math.max(2, snap(T / 2)); horiz ? ctx.fillRect(-L / 2, -t2 / 2, L, t2) : ctx.fillRect(-t2 / 2, -L / 2, t2, L);
+}
+function drawCactus(b) {
+  const x0 = -b.w / 2, y0 = -b.h / 2;
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x0 + 2, y0, b.w - 4, b.h);
+  ctx.fillStyle = '#b8e0b0'; ctx.fillRect(x0 + 6, y0 + 2, 2, b.h - 2);
+  if (b.h > 26) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x0 - 4, y0 + 10, 6, 4); ctx.fillRect(x0 - 4, y0 + 4, 4, 8); ctx.fillRect(b.w / 2 - 2, y0 + 16, 6, 4); ctx.fillRect(b.w / 2 + 2, y0 + 10, 4, 8); }
+}
+function drawStalactite(b) {
+  const x0 = -b.w / 2, y0 = -b.h / 2;
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, y0, b.w, b.h - 8);
+  for (let x = x0; x < b.w / 2; x += 8) { ctx.fillRect(x + 1, b.h / 2 - 8, 6, 4); ctx.fillRect(x + 3, b.h / 2 - 4, 2, 4); }
+  ctx.fillStyle = '#b8aecb'; ctx.fillRect(b.w / 2 - 6, y0, 6, b.h - 8);
+}
+function drawSpikes(b) {
+  for (let x = -b.w / 2; x < b.w / 2; x += 8) {
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, b.h / 2 - 6, 6, 6); ctx.fillRect(x + 2, -b.h / 2 + 2, 4, b.h - 8); ctx.fillRect(x + 3, -b.h / 2, 2, 2);
+  }
+}
+function drawCart(b) {
+  const x0 = -b.w / 2, y0 = -b.h / 2;
+  ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x0, y0, b.w, b.h + 4);
+  ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x0, y0, b.w, 2);
+  ctx.fillStyle = '#3a2814'; for (let x = x0 + 8; x < b.w / 2; x += 10) ctx.fillRect(x, y0 + 2, 2, b.h + 2);
+  ctx.fillStyle = '#9aa0b0'; ctx.fillRect(x0 + 4, b.h / 2 + 4, 6, 4); ctx.fillRect(b.w / 2 - 10, b.h / 2 + 4, 6, 4);
+}
+
+function drawDeadeye() {
+  const e = G.enemy;
+  if (e.fade >= 1) return;
+  const t = G.t, blue = G.phase2;
+  const shx = e.shake > 0 ? rnd(-e.shake, e.shake) * 0.5 : 0;
+  const ex = snap(ENEMY_POS.x + shx), ey = snap(ENEMY_POS.y - 4 + Math.sin(t * 0.045) * 6 - (e.spared ? 0 : e.fade * 40));
+  const white = e.flash > 0 && (e.flash >> 1) % 2;
+  ctx.save();
+  ctx.globalAlpha = 1 - e.fade;
+  // ghostly tail trailing into smoke
+  for (let i = 0; i < 26; i++) {
+    const y = ey + 22 + i * 2, w = 64 - i * 2.2, sw = Math.sin(t * 0.07 + i * 0.25) * i * 0.35;
+    ctx.fillStyle = blue ? `rgba(120,180,255,${0.55 - i * 0.02})` : `rgba(200,210,230,${0.55 - i * 0.02})`;
+    ctx.fillRect(snap(ex - w / 2 + sw), snap(y), snap(Math.max(2, w)), 2);
+  }
+  // back arm hanging
+  spr(DE.arm, ex + 26, ey - 30, { ox: DE.arm.w / 2, oy: 1, ang: -0.25 + Math.sin(t * 0.05) * 0.1, white });
+  spr(DE.poncho, ex, ey - 42, { ox: DE.poncho.w / 2, oy: 1, white });
+  // gun arm aimed at the party, twirling the revolver now and then
+  const aim = Math.PI * 0.92 + Math.sin(t * 0.04) * 0.08, twirl = (t % 240) < 30 ? (t % 240) / 30 * Math.PI * 2 : 0;
+  const sx = ex - 24, sy = ey - 32, hx = sx + Math.cos(aim) * 30, hy = sy + Math.sin(aim) * 30;
+  spr(DE.arm, snap(sx), snap(sy), { ox: DE.arm.w / 2, oy: 1, ang: aim - Math.PI / 2, white });
+  spr(DE.gun, snap(hx), snap(hy), { ox: DE.gun.w - 3, oy: 4, ang: aim - Math.PI + twirl, white });
+  // skull and hat
+  const hy2 = ey - 62;
+  spr(DE.skull, ex, hy2, { white });
+  spr(DE.hat, ex - 2, hy2 - 22, { white, ang: Math.sin(t * 0.03) * 0.04 });
+  if (!white) {
+    const [lx, ly] = at(DE.skull, ex, hy2, 4, 8), [rx, ry] = at(DE.skull, ex, hy2, 12, 8);
+    const c = blue ? ['#2ea8ff', 'rgba(46,168,255,0.3)'] : ['#ffe14a', 'rgba(255,225,74,0.3)'];
+    for (const [x, y] of [[lx, ly], [rx, ry]]) { ctx.fillStyle = c[1]; ctx.fillRect(x - 4, y - 4, 14, 14); ctx.fillStyle = c[0]; ctx.fillRect(x, y, 6, 6); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 2, y + 2, 2, 2); }
+    if (G.state === 'dodge' && (t % 30) < 4) { ctx.fillStyle = '#fff6b0'; ctx.fillRect(snap(hx - (DE.gun.w - 3) * PX) - 6, snap(hy) - 6, 12, 12); }
+  }
+  ctx.restore();
+}
+
 // ---------------------------------------------------------------- bullets, icons, stage
 const SPR = (() => {
   const P = PAL, S = {};
@@ -1800,8 +2170,15 @@ function wrap(s, maxW, size = 17) {
   return lines;
 }
 function heart(x, y, px, color) {
-  const s = color === 'blue' ? SPR.heartBlue : SPR.heart;
+  const s = color === 'blue' ? SPR.heartBlue : color === 'yellow' ? SPR3.heartY : SPR.heart;
   const k = px / 2;
+  if (color === 'yellow') {
+    // the yellow SOUL is drawn upside down, pointing where it shoots
+    ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.scale(1, -1);
+    ctx.drawImage(s.img, -s.w * k, -s.h * k, s.w * px, s.h * px);
+    ctx.restore();
+    return;
+  }
   ctx.drawImage(s.img, Math.round(x - s.w * k), Math.round(y - s.h * k), s.w * px, s.h * px);
 }
 // Deltarune-style panel: black fill, chunky border with notched corners
@@ -2435,7 +2812,9 @@ function drawBattleBox() {
       ctx.strokeStyle = `rgba(46,168,255,${S.blueSafe / 8})`; ctx.lineWidth = 2;
       ctx.strokeRect(Math.round(S.x) - 14, Math.round(S.y) - 14, 28, 28);
     }
-    if (!(S.iframes > 0 && (S.iframes >> 2) % 2)) heart(S.x, S.y, 2, 'red');
+    ctx.fillStyle = '#ffe14a';
+    for (const sh of G.shots || []) ctx.fillRect(Math.round(sh.x) - 1, Math.round(sh.y) - 4, 2, 8);
+    if (!(S.iframes > 0 && (S.iframes >> 2) % 2)) heart(S.x, S.y, 2, S.mode === 'yellow' ? 'yellow' : S.mode === 'blue' ? 'blue' : 'red');
     const tc = G.atk.blue ? '#2ea8ff' : G.atk.tipColor || (G.phase2 ? COL.red : COL.gold);
     txt(G.atk.name, B.x + B.w / 2, G.boxTo.y - 24, { size: 12, font: HEAD_FONT, align: 'center', color: tc, outline: 3 });
   }
@@ -2467,7 +2846,7 @@ function drawPopups() {
 function drawTitle() {
   ctx.fillStyle = 'rgba(7,4,13,0.88)'; ctx.fillRect(0, 0, W, H);
   txt('LAST WISH', W / 2, 52, { size: 44, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 6 });
-  txt('Three heroes. Two monsters. One stage.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
+  txt('Three heroes. Three monsters. One stage.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
   G.party.forEach((c, i) => {
     const x = 170 + i * 150;
     drawHeroSprite(i, x, 222);
@@ -2477,18 +2856,18 @@ function drawTitle() {
   txt('ASTRA can ACT to raise MERCY. At 100%, anyone can SPARE.', W / 2, 268, { size: 14, align: 'center', color: COL.white });
   txt('BLUE hurts only while you move. ORANGE hurts only while you stand still.', W / 2, 286, { size: 14, align: 'center', color: '#8ccfff' });
   const row = (y, label, opts, sel, focus) => {
+    if (focus) heart(42, y + 16, 2, 'red');
     txt(label, 120, y + 11, { size: 11, font: HEAD_FONT, align: 'right', color: focus ? COL.gold : COL.dim });
     opts.forEach(([name, color], i) => {
-      const x = 134 + i * 196, on = sel === i;
-      frameBox(x, y, 184, 32, on ? color : COL.panelLine, 2);
-      if (on && focus) heart(x + 16, y + 16, 2, 'red');
-      txt(name, x + 100, y + 10, { size: 12, font: HEAD_FONT, align: 'center', color: on ? color : COL.dim });
+      const x = 130 + i * 164, on = sel === i;
+      frameBox(x, y, 156, 32, on ? color : COL.panelLine, 2);
+      txt(name, x + 78, y + 11, { size: 10, font: HEAD_FONT, align: 'center', color: on ? color : COL.dim });
     });
   };
   row(306, 'ENEMY', BOSS_IDS.map(id => [BOSSES[id].name, COL.gold]), BOSS_IDS.indexOf(G.bossId), G.titleRow === 0);
   row(346, 'MODE', [['NORMAL', COL.gold], ['HARD', COL.red]], G.hard ? 1 : 0, G.titleRow === 1);
   txt(G.boss.blurb, W / 2, 388, { size: 14, align: 'center', color: COL.dim });
-  txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. It gets frantic below half HP.`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
+  txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. ${G.boss.attacks2 ? 'Your SOUL turns BLUE at half HP or half MERCY.' : 'It gets frantic below half HP.'}`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
   if ((G.t >> 5) % 2 === 0) txt('UP/DOWN PICK A ROW   LEFT/RIGHT CHOOSE   Z BEGIN', W / 2, 440, { size: 12, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 4 });
 }
 function drawGameOver() {
