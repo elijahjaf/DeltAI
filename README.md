@@ -29,7 +29,7 @@ Every screen has its own original chiptune track, synthesized live with the Web 
 
 On the title screen, use the arrow keys to pick **Normal** or **Hard**.
 
-Touch devices get an on-screen d-pad with Z and X buttons.
+A **MOVE WITH** switch above the game chooses **Arrow keys** or an on-screen **Joystick**. The joystick is digital: drag it with the mouse or a finger to hold up/down/left/right, including diagonals. In joystick mode the arrow and WASD keys stop moving, but Z, X and M still work, and the choice is remembered. On touch devices in arrow-keys mode, an on-screen d-pad with Z and X buttons appears.
 
 ## The party
 

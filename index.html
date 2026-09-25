@@ -50,12 +50,12 @@
   .rule span { color: var(--muted); font-size: 14px; }
   .pad { display: none; justify-content: space-between; align-items: center; gap: 16px; user-select: none; -webkit-user-select: none; touch-action: none; }
   .dpad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); gap: 4px; }
-  .pad button {
+  .pad button, .stick-pad button {
     font: 400 18px/1 "Silkscreen", "Courier New", monospace;
     background: var(--key); color: var(--text);
     border: 2px solid #3d2a57; border-radius: 8px; touch-action: none;
   }
-  .pad button:active, .pad button.on { background: var(--plum); border-color: var(--gold); }
+  .pad button:active, .pad button.on, .stick-pad button:active, .stick-pad button.on { background: var(--plum); border-color: var(--gold); }
   .dpad [data-k="up"] { grid-column: 2; grid-row: 1; }
   .dpad [data-k="left"] { grid-column: 1; grid-row: 2; }
   .dpad [data-k="right"] { grid-column: 3; grid-row: 2; }
@@ -67,6 +67,37 @@
     .pad { display: flex; }
     .keys { display: none; }
   }
+  /* movement switch + joystick */
+  .control-bar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .switch { display: inline-flex; align-items: center; gap: 0; border: 2px solid var(--plum); border-radius: 4px; overflow: hidden; }
+  .switch-label { font: 400 11px/1 "Silkscreen", "Courier New", monospace; color: var(--muted); letter-spacing: 0.05em; margin-right: 8px; }
+  .switch button {
+    font: 400 12px/1 "Silkscreen", "Courier New", monospace; letter-spacing: 0.04em;
+    background: var(--key); color: var(--muted); border: 0; padding: 9px 12px; cursor: pointer;
+  }
+  .switch button + button { border-left: 2px solid var(--plum); }
+  .switch button[aria-checked="true"] { background: var(--gold); color: var(--ink); }
+  .switch button:focus-visible { outline: 2px solid var(--gold); outline-offset: -4px; }
+  .stick-pad { display: none; justify-content: space-between; align-items: center; gap: 16px; user-select: none; -webkit-user-select: none; touch-action: none; }
+  .stick {
+    position: relative; width: 148px; height: 148px; border-radius: 50%; touch-action: none; cursor: grab;
+    background: radial-gradient(circle, #1a1027 0 55%, #120a1d 56% 100%); border: 3px solid #3d2a57;
+  }
+  .stick.on { border-color: var(--gold); cursor: grabbing; }
+  .stick::before, .stick::after { content: ""; position: absolute; inset: 10px; border-radius: 50%; border: 2px dashed #2a1d3d; pointer-events: none; }
+  .stick::after { inset: 44px; border-style: solid; }
+  .stick-arrow { position: absolute; color: #4a3a5a; font-size: 12px; pointer-events: none; }
+  .knob {
+    position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;
+    background: var(--plum); border: 3px solid var(--gold); box-shadow: inset -4px -6px 0 #1a1027; pointer-events: none;
+    transition: transform 0.12s ease-out;
+  }
+  .stick.on .knob { transition: none; }
+  body[data-controls="joystick"] .stick-pad { display: flex; }
+  body[data-controls="joystick"] .pad { display: none !important; }
+  .keys .k-stick { display: none; }
+  body[data-controls="joystick"] .keys .k-arrows { display: none; }
+  body[data-controls="joystick"] .keys .k-stick { display: inline-flex; }
   /* tabs */
   .tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--plum); }
   .tab {
@@ -117,6 +148,13 @@
   </div>
 
   <div class="panel" role="tabpanel" id="panel-play" aria-labelledby="tab-play">
+    <div class="control-bar">
+      <span class="switch-label" id="move-label">MOVE WITH</span>
+      <div class="switch" role="radiogroup" aria-labelledby="move-label">
+        <button role="radio" aria-checked="true" data-mode="arrows">ARROW KEYS</button>
+        <button role="radio" aria-checked="false" data-mode="joystick">JOYSTICK</button>
+      </div>
+    </div>
     <div class="stage">
       <canvas id="game" width="1280" height="960" tabindex="0" aria-label="Battle screen"></canvas>
     </div>
@@ -134,8 +172,23 @@
       </div>
     </div>
 
+    <div class="stick-pad" id="stick-pad" aria-label="Joystick controls">
+      <div class="stick" id="stick" role="application" aria-label="Joystick: drag to move">
+        <span class="stick-arrow" style="left:50%;top:6px;transform:translateX(-50%)">&#9650;</span>
+        <span class="stick-arrow" style="left:50%;bottom:6px;transform:translateX(-50%)">&#9660;</span>
+        <span class="stick-arrow" style="top:50%;left:8px;transform:translateY(-50%)">&#9664;</span>
+        <span class="stick-arrow" style="top:50%;right:8px;transform:translateY(-50%)">&#9654;</span>
+        <div class="knob" id="knob"></div>
+      </div>
+      <div class="ab">
+        <button data-k="back" aria-label="Back or focus">X</button>
+        <button data-k="ok" aria-label="Confirm">Z</button>
+      </div>
+    </div>
+
     <div class="keys">
-      <span><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> or <kbd>WASD</kbd> move</span>
+      <span class="k-stick">Drag the joystick to move</span>
+      <span class="k-arrows"><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> or <kbd>WASD</kbd> move</span>
       <span><kbd>Z</kbd> / <kbd>Enter</kbd> confirm, strike, shoot, jump</span>
       <span><kbd>X</kbd> / <kbd>Shift</kbd> back, hold to focus while dodging</span>
       <span><kbd>M</kbd> music and sound on or off</span>
@@ -164,7 +217,7 @@
           <tr><td><kbd>M</kbd></td><td colspan="2">Music and sound effects on or off</td></tr>
         </tbody>
       </table></div>
-      <p>On a phone or tablet, an on-screen d-pad with Z and X buttons appears under the game.</p>
+      <p>Use the <b>MOVE WITH</b> switch above the game to choose <b>ARROW KEYS</b> or an on-screen <b>JOYSTICK</b>. Drag the joystick with the mouse or a finger to move. In joystick mode the arrow keys stop moving, but Z, X and M still work. On a phone or tablet in arrow-keys mode, an on-screen d-pad with Z and X buttons appears under the game.</p>
     </section>
 
     <section>
@@ -287,11 +340,13 @@ window.addEventListener('keydown', e => {
   const a = KEYMAP[e.code];
   if (!a) return;
   e.preventDefault();
+  // in joystick mode the arrow/WASD keys don't move; Z, X and M still work
+  if (controlMode === 'joystick' && DIRS.includes(a)) return;
   if (!e.repeat) press(a);
 });
 window.addEventListener('keyup', e => { const a = KEYMAP[e.code]; if (a) release(a); });
 window.addEventListener('blur', () => held.clear());
-document.querySelectorAll('#pad button').forEach(btn => {
+document.querySelectorAll('#pad button, #stick-pad button').forEach(btn => {
   const k = btn.dataset.k;
   const down = e => { e.preventDefault(); btn.classList.add('on'); press(k); };
   const up = e => { e.preventDefault(); btn.classList.remove('on'); release(k); };
@@ -301,6 +356,51 @@ document.querySelectorAll('#pad button').forEach(btn => {
   btn.addEventListener('pointercancel', up);
   btn.addEventListener('contextmenu', e => e.preventDefault());
 });
+
+// ---- movement mode: arrow keys (keyboard / d-pad) or the on-screen joystick
+const DIRS = ['up', 'down', 'left', 'right'];
+let controlMode = 'arrows';
+function setControls(mode, focusGame) {
+  controlMode = mode === 'joystick' ? 'joystick' : 'arrows';
+  document.body.dataset.controls = controlMode;
+  document.querySelectorAll('.switch [data-mode]').forEach(b => b.setAttribute('aria-checked', b.dataset.mode === controlMode));
+  DIRS.forEach(d => release(d));
+  try { localStorage.setItem('lastwish-controls', controlMode); } catch (e) {}
+  if (focusGame) cv.focus({ preventScroll: true });
+}
+document.querySelectorAll('.switch [data-mode]').forEach(b => b.addEventListener('click', () => setControls(b.dataset.mode, true)));
+try { setControls(localStorage.getItem('lastwish-controls') || 'arrows'); } catch (e) { setControls('arrows'); }
+
+// digital joystick: past a small dead zone it holds up/down/left/right (and diagonals)
+const stick = document.getElementById('stick'), knob = document.getElementById('knob');
+let stickId = null;
+const stickDirs = new Set();
+function stickMove(e) {
+  const r = stick.getBoundingClientRect(), R = r.width / 2;
+  let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+  const L = Math.hypot(dx, dy), max = R * 0.6;
+  if (L > max) { dx *= max / L; dy *= max / L; }
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  const dead = R * 0.25, want = new Set();
+  if (dx < -dead) want.add('left');
+  if (dx > dead) want.add('right');
+  if (dy < -dead) want.add('up');
+  if (dy > dead) want.add('down');
+  for (const d of [...stickDirs]) if (!want.has(d)) { stickDirs.delete(d); release(d); }
+  for (const d of want) if (!stickDirs.has(d)) { stickDirs.add(d); press(d); }
+}
+function stickEnd() {
+  stickId = null;
+  knob.style.transform = '';
+  stick.classList.remove('on');
+  for (const d of stickDirs) release(d);
+  stickDirs.clear();
+}
+stick.addEventListener('pointerdown', e => { e.preventDefault(); stickId = e.pointerId; stick.setPointerCapture(e.pointerId); stick.classList.add('on'); stickMove(e); });
+stick.addEventListener('pointermove', e => { if (e.pointerId === stickId) stickMove(e); });
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) stick.addEventListener(ev, e => { if (e.pointerId === stickId) stickEnd(); });
+stick.addEventListener('contextmenu', e => e.preventDefault());
+
 const P = k => pressed.has(k);
 
 // ---------------------------------------------------------------- audio
@@ -3231,7 +3331,7 @@ function draw() {
       txt(G.atk.tip, W / 2, 420, { size: 15, align: 'center', color: G.atk.tipColor || (G.atk.blue ? '#2ea8ff' : COL.gold) });
     }
     if (G.state === 'dodge' && G.turn < 3) {
-      txt('Move with the arrows. Hold X to slow down. Brush past bullets to earn EXP.', W / 2, 452, { size: 14, align: 'center', color: COL.dim });
+      txt(`Move with the ${controlMode === 'joystick' ? 'joystick' : 'arrows'}. Hold X to slow down. Brush past bullets to earn EXP.`, W / 2, 444, { size: 14, align: 'center', color: COL.dim });
     }
   } else if (G.state !== 'title' && G.state !== 'gameover') drawTextBox();
   drawPopups();
