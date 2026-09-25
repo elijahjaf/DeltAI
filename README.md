@@ -24,8 +24,8 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 | Hero | HP | Fight power | Spells (EXP cost) |
 | --- | --- | --- | --- |
 | ASTRA, star knight | 150 | 64 | None. Astra has **ACT** instead of MAGIC |
-| TERRESTRO, cave dweller | 200 | 80 | Quake (55%, big damage), Iron Gut (20%, heals self) |
-| LUNE, moon seer | 110 | 36 | Mend (25%, heals one hero and can revive), Starfall (40%, damage), Aurora (65%, heals everyone) |
+| TERRESTRO, cave dweller | 200 | 80 | Crystal Spike (25%, damage), Quake (55%, big damage) |
+| LUNE, moon seer | 110 | 36 | Moonbeam (15%, small heal on one hero), Mend (25%, heals one hero and can revive), Aurora (65%, heals everyone) |
 
 - **Astra**: a knight with galaxy-colored skin and silver hair. Stars orbit her and a blue halo floats above her head.
 - **Terrestro**: a hulking, dark blue cave monster with glowing crystals along his spine, dragging a stone club.
@@ -34,7 +34,7 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 ## Actions
 
 - **FIGHT**: a timing bar slides toward a mark. Press Z as it crosses. The closer you are, the more damage you deal, and a dead-center hit is a 1.5x critical.
-- **MAGIC** (Terrestro and Lune): spends shared EXP, which works like Deltarune's TP. Each has their own damage and healing spells.
+- **MAGIC** (Terrestro and Lune): spends shared EXP, which works like Deltarune's TP. Terrestro only has damage spells and Lune only has healing spells.
 - **ACT** (Astra): the peaceful way to progress. Against Marionette NEO, the flavor text hints each turn at what it wants. Pick the matching ACT to raise its **MERCY** by 18% (15% on Hard). A wrong ACT does nothing.
   - *Applaud*: it's playing to the crowd or waiting for applause.
   - *Dance*: it holds out a hand or looks for a partner.

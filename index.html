@@ -102,7 +102,7 @@
 
   <div class="rules">
     <div class="rule"><b>FIGHT</b><span>Press Z as the bar crosses the mark. A dead-center hit is a critical.</span></div>
-    <div class="rule"><b>MAGIC</b><span>Terrestro and Lune have their own spells. They cost EXP and either deal damage or heal.</span></div>
+    <div class="rule"><b>MAGIC</b><span>Terrestro's spells deal damage and Lune's spells heal. Both cost EXP.</span></div>
     <div class="rule"><b>ACT</b><span>Astra acts instead of casting. Against Marionette NEO, read the flavor text and pick the matching ACT. Against Candlemaw, Keep Vigil always raises MERCY a little.</span></div>
     <div class="rule"><b>SPARE</b><span>Any hero can SPARE. Once MERCY reaches 100% and the enemy's name turns yellow, sparing it ends the battle.</span></div>
     <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including a downed one.</span></div>
@@ -219,13 +219,13 @@ const PARTY_DEF = [
   { name: 'ASTRA', role: 'knight', maxHp: 150, atk: 64, color: '#a893ff', dark: '#2c2170', acts: true, spells: [] },
   { name: 'TERRESTRO', role: 'brute', maxHp: 200, atk: 80, color: '#4fd6e8', dark: '#16254d',
     spells: [
+      { name: 'Crystal Spike', cost: 25, type: 'dmg', power: 130, desc: 'Rips a crystal from its back and hurls it.' },
       { name: 'Quake', cost: 55, type: 'dmg', power: 260, desc: 'Splits the stage floor. Huge damage.' },
-      { name: 'Iron Gut', cost: 20, type: 'healSelf', power: 75, desc: 'Terrestro shrugs it off. Heals 75 HP.' },
     ] },
   { name: 'LUNE', role: 'seer', maxHp: 110, atk: 36, color: '#78f59a', dark: '#2a7a44',
     spells: [
+      { name: 'Moonbeam', cost: 15, type: 'heal', power: 45, desc: 'A soft ray of moonlight. Heals one hero 45 HP.' },
       { name: 'Mend', cost: 25, type: 'heal', power: 85, desc: 'Heals one hero 85 HP. Can revive.' },
-      { name: 'Starfall', cost: 40, type: 'dmg', power: 175, desc: 'Calls stars down on the foe.' },
       { name: 'Aurora', cost: 65, type: 'healAll', power: 70, desc: 'Heals every hero for 70 HP.' },
     ] },
 ];
@@ -1046,7 +1046,7 @@ function beginResolve() {
         }
         sfx('heal');
         if (s.type === 'healAll') { G.party.forEach(p => healChar(p, s.power)); return `* ${c.name} cast ${s.name}! Everyone recovered HP.`; }
-        const t = s.type === 'healSelf' ? c : a.target;
+        const t = a.target;
         const n = healChar(t, s.power);
         return `* ${c.name} cast ${s.name}! ${t.name} recovered ${n} HP.`;
       });
