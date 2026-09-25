@@ -23,9 +23,13 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 
 | Hero | HP | Fight power | Spells (EXP cost) |
 | --- | --- | --- | --- |
-| ASTRA, knight | 150 | 64 | None. Astra has **ACT** instead of MAGIC |
-| TERRESTRO, brute | 200 | 80 | Quake (55%, big damage), Iron Gut (20%, heals self) |
-| LUNE, seer | 110 | 36 | Mend (25%, heals one hero and can revive), Starfall (40%, damage), Aurora (65%, heals everyone) |
+| ASTRA, star knight | 150 | 64 | None. Astra has **ACT** instead of MAGIC |
+| TERRESTRO, cave dweller | 200 | 80 | Quake (55%, big damage), Iron Gut (20%, heals self) |
+| LUNE, moon seer | 110 | 36 | Mend (25%, heals one hero and can revive), Starfall (40%, damage), Aurora (65%, heals everyone) |
+
+- **Astra**: a knight with galaxy-colored skin and silver hair. Stars orbit her and a blue halo floats above her head.
+- **Terrestro**: a hulking, dark blue cave monster with glowing crystals along his spine, dragging a stone club.
+- **Lune**: a hooded seer with pale, cratered moon skin and a crescent-moon staff.
 
 ## Actions
 

@@ -132,7 +132,7 @@ const COL = {
 
 const TEXTBOX = { x: 8, y: 390, w: 624, h: 82 };
 const BOX_CY = 172;
-const HERO_POS = [{ x: 134, y: 112 }, { x: 98, y: 190 }, { x: 134, y: 268 }];
+const HERO_POS = [{ x: 142, y: 126 }, { x: 94, y: 204 }, { x: 148, y: 278 }];
 const ENEMY_POS = { x: 522, y: 156 };
 const SOUL_R = 4, GRAZE_R = 20;
 
@@ -215,8 +215,8 @@ const sfx = n => { if (SFX[n]) SFX[n](); };
 
 // ---------------------------------------------------------------- data
 const PARTY_DEF = [
-  { name: 'ASTRA', role: 'knight', maxHp: 150, atk: 64, color: '#58c6ff', dark: '#1f5c8a', acts: true, spells: [] },
-  { name: 'TERRESTRO', role: 'brute', maxHp: 200, atk: 80, color: '#ff6bd0', dark: '#8a2470',
+  { name: 'ASTRA', role: 'knight', maxHp: 150, atk: 64, color: '#a893ff', dark: '#2c2170', acts: true, spells: [] },
+  { name: 'TERRESTRO', role: 'brute', maxHp: 200, atk: 80, color: '#4fd6e8', dark: '#16254d',
     spells: [
       { name: 'Quake', cost: 55, type: 'dmg', power: 260, desc: 'Splits the stage floor. Huge damage.' },
       { name: 'Iron Gut', cost: 20, type: 'healSelf', power: 75, desc: 'Terrestro shrugs it off. Heals 75 HP.' },
@@ -993,124 +993,153 @@ const PAL = {
 };
 
 // ---------------------------------------------------------------- heroes
+// Heroes use adult proportions (head about 1/6 of the body) with 3-4 tone shading.
+const line = (g, c, x0, y0, x1, y1, w = 1) => {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let i = 0; i <= n; i++) R(g, c, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), w, w);
+};
 function bakeAstra() {
-  const P = PAL, main = '#4aa8ff', mainD = '#2a64b8', mainL = '#9fd6ff', hair = '#2b3f8f', hairD = '#18245a', hairL = '#5670c8';
-  const cape = '#243a7a', capeD = '#141f4a', red = '#e8364f', redD = '#9e1f36';
-  return bake(26, 34, g => {
-    // cape behind
-    R(g, cape, 6, 14, 4, 15); R(g, capeD, 6, 14, 1, 15); R(g, capeD, 7, 28, 1, 2); R(g, cape, 8, 29, 2, 1);
+  // galaxy-skinned knight: indigo skin speckled with stars, silver armor, silver hair
+  const sk = '#2c2170', skD = '#1a1348', skL = '#4a3ab0', neb = '#c05ae0', st = '#ffffff', st2 = '#ffd6f5';
+  const ar = '#c7d3ea', arD = '#8594b8', arDD = '#4d5a80', arL = '#ffffff';
+  const cl = '#1d3a8a', clD = '#10214f', clL = '#3558b0', gold = '#e8c15a', goldD = '#a37d2a';
+  const hr = '#e8ecff', hrD = '#a9b2d9', hrDD = '#6f78a8', eye = '#8ff3ff';
+  return bake(28, 42, g => {
+    // cape
+    poly(g, clD, [[9, 13], [14, 13], [13, 39], [5, 40], [4, 37]]);
+    poly(g, cl, [[10, 13], [14, 13], [13, 38], [8, 39]]);
+    R(g, clL, 11, 15, 1, 18); R(g, clD, 9, 30, 1, 8);
+    // long hair behind
+    poly(g, hrD, [[9, 3], [14, 3], [13, 20], [8, 22], [7, 11]]);
+    R(g, hrDD, 8, 13, 2, 8); R(g, hr, 10, 5, 1, 11); R(g, hrDD, 11, 18, 1, 3);
+    // back leg + boot
+    R(g, arDD, 11, 26, 3, 12); R(g, arD, 11, 26, 1, 11);
+    R(g, arDD, 10, 38, 4, 3); R(g, arD, 10, 38, 2, 1);
+    // front leg, knee, boot
+    R(g, ar, 14, 26, 3, 12); R(g, arL, 14, 27, 1, 4); R(g, arD, 16, 26, 1, 12);
+    R(g, ar, 14, 31, 4, 2); R(g, arL, 15, 31, 1, 1); R(g, arD, 14, 33, 4, 1);
+    R(g, ar, 14, 38, 5, 3); R(g, arD, 14, 40, 5, 1); R(g, arL, 15, 38, 2, 1); R(g, arD, 18, 39, 1, 1);
+    // faulds and tabard tail
+    R(g, arD, 10, 23, 8, 4); for (const x of [10, 12, 14, 16]) R(g, ar, x, 23, 1, 3);
+    R(g, cl, 12, 23, 4, 7); R(g, clD, 15, 23, 1, 7); R(g, gold, 12, 29, 4, 1);
+    // breastplate + tabard with star emblem
+    R(g, ar, 10, 13, 8, 10); R(g, arL, 11, 14, 2, 4); R(g, arD, 16, 13, 2, 10); R(g, arD, 10, 21, 8, 1);
+    R(g, cl, 12, 15, 4, 7); R(g, clD, 15, 15, 1, 7); R(g, clL, 12, 15, 1, 6);
+    R(g, gold, 13, 17, 2, 1); R(g, gold, 12, 18, 4, 1); R(g, gold, 13, 19, 2, 1); R(g, '#fff6c0', 13, 18, 1, 1);
+    R(g, goldD, 10, 22, 8, 1); R(g, gold, 13, 22, 2, 1);
     // back arm
-    R(g, mainD, 8, 17, 2, 6); R(g, P.skinD, 8, 23, 2, 2);
-    // legs + boots
-    R(g, P.pants, 11, 26, 3, 4); R(g, P.pants, 15, 26, 3, 4); R(g, P.pantsD, 13, 26, 1, 4); R(g, P.pantsD, 17, 26, 1, 4);
-    R(g, P.metal, 10, 30, 5, 3); R(g, P.metal, 15, 30, 5, 3); R(g, P.metalD, 10, 32, 5, 1); R(g, P.metalD, 15, 32, 5, 1);
-    R(g, P.metalL, 11, 30, 2, 1); R(g, P.metalL, 16, 30, 2, 1); R(g, P.metalD, 14, 30, 1, 2);
-    // tunic
-    R(g, main, 10, 16, 9, 10); R(g, mainD, 17, 16, 2, 10); R(g, mainL, 11, 19, 1, 3);
-    R(g, mainD, 10, 23, 9, 3); R(g, main, 11, 23, 2, 2); R(g, main, 14, 23, 2, 2); R(g, mainD, 13, 23, 1, 3);
-    // chestplate
-    R(g, P.metal, 11, 15, 7, 5); R(g, P.metalL, 12, 15, 3, 1); R(g, P.metalL, 12, 16, 1, 2); R(g, P.metalD, 11, 19, 7, 1); R(g, P.metalD, 17, 15, 1, 5);
-    R(g, red, 14, 17, 2, 1);
-    // belt
-    R(g, P.brown, 10, 21, 9, 1); R(g, P.brownD, 10, 22, 9, 1); R(g, P.gold, 13, 21, 2, 2);
-    // pauldron + front arm + hand on sword
-    R(g, P.metal, 16, 14, 5, 3); R(g, P.metalL, 17, 14, 2, 1); R(g, P.metalD, 16, 16, 5, 1);
-    R(g, main, 18, 17, 2, 3); R(g, mainD, 19, 17, 1, 3);
-    // neck + head
-    R(g, P.skinD, 13, 13, 3, 2);
-    R(g, P.skin, 11, 5, 9, 8); R(g, P.skinL, 12, 6, 2, 2); R(g, P.skinD, 12, 12, 7, 1); R(g, P.skinD, 19, 7, 1, 5);
-    // hair
-    R(g, hair, 10, 2, 11, 4); R(g, hair, 9, 4, 3, 10); R(g, hair, 12, 1, 3, 1); R(g, hair, 16, 1, 3, 1); R(g, hair, 20, 3, 1, 3);
-    R(g, hairD, 9, 9, 2, 5); R(g, hairD, 10, 13, 1, 1); R(g, hairL, 13, 2, 3, 1); R(g, hairL, 12, 3, 1, 1);
-    R(g, hair, 13, 6, 1, 1); R(g, hair, 16, 6, 2, 1); R(g, hair, 19, 6, 1, 2);
-    // headband + ribbon tails
-    R(g, red, 10, 5, 11, 1); R(g, redD, 9, 6, 2, 1); R(g, red, 7, 6, 2, 1); R(g, red, 6, 7, 2, 1); R(g, redD, 5, 8, 2, 1); R(g, red, 4, 9, 1, 1);
-    // face
-    R(g, P.eye, 15, 8, 1, 2); R(g, P.eye, 18, 8, 1, 2); R(g, P.skinD, 17, 11, 1, 1);
-    // sword
-    R(g, P.metal, 22, 1, 2, 18); R(g, P.metalL, 22, 1, 1, 17); R(g, P.metalD, 23, 2, 1, 17); R(g, P.metalL, 22, 0, 1, 1);
-    R(g, P.gold, 19, 19, 7, 1); R(g, P.goldD, 19, 20, 7, 1);
-    R(g, P.brown, 22, 21, 2, 3); R(g, P.gold, 22, 24, 2, 1);
-    R(g, P.skin, 20, 20, 3, 2); R(g, P.skinD, 20, 21, 3, 1);
+    R(g, arDD, 8, 14, 2, 4); R(g, sk, 8, 18, 2, 6); R(g, skD, 9, 18, 1, 6); R(g, st, 8, 19); R(g, neb, 8, 22); R(g, st2, 9, 23);
+    // longsword, point down, hand resting on the pommel
+    R(g, arL, 19, 24, 1, 15); R(g, ar, 20, 24, 1, 15); R(g, arD, 20, 27, 1, 12); R(g, ar, 19, 39, 1, 1);
+    R(g, gold, 17, 23, 6, 1); R(g, goldD, 17, 24, 1, 1); R(g, goldD, 22, 24, 1, 1);
+    R(g, '#4a2e1a', 19, 20, 2, 3); R(g, gold, 19, 19, 2, 1);
+    // neck + head (profile, facing right)
+    R(g, sk, 13, 11, 3, 2); R(g, skD, 13, 12, 3, 1);
+    R(g, sk, 12, 4, 6, 7); R(g, sk, 18, 7, 1, 2); R(g, sk, 13, 11, 4, 0);
+    R(g, skD, 12, 8, 1, 3); R(g, skD, 14, 10, 4, 1); R(g, skL, 13, 5, 2, 1); R(g, skL, 17, 5, 1, 2);
+    R(g, st, 14, 7); R(g, st2, 16, 9); R(g, neb, 13, 9); R(g, st, 17, 5); R(g, neb, 14, 12);
+    R(g, eye, 16, 6, 2, 1); R(g, '#ffffff', 17, 6, 1, 1); R(g, skD, 16, 9, 2, 1);
+    // hair front
+    R(g, hr, 11, 2, 7, 2); R(g, hr, 11, 4, 2, 6); R(g, hr, 16, 3, 3, 1); R(g, hr, 18, 4, 1, 2);
+    R(g, hrD, 11, 7, 1, 4); R(g, hrD, 14, 3, 2, 1); R(g, '#ffffff', 13, 2, 2, 1);
+    // pauldron, front arm, gauntlet on the pommel
+    oval(g, ar, 16, 14, 3, 2); R(g, arL, 15, 13, 2, 1); R(g, arD, 14, 15, 5, 1);
+    R(g, ar, 17, 16, 2, 2); R(g, arD, 18, 16, 1, 2); R(g, gold, 17, 18, 2, 1);
+    R(g, sk, 17, 19, 2, 2); R(g, st, 17, 19);
+    R(g, sk, 18, 19, 3, 3); R(g, skL, 18, 19, 1, 1); R(g, skD, 18, 21, 3, 1); R(g, st, 20, 20); R(g, neb, 19, 21);
   });
 }
 function bakeTerrestro() {
-  const P = PAL, skin = '#b98ae0', skinD = '#8a5fb5', skinL = '#d8b8f2';
-  const hair = '#9a2a7e', hairD = '#5e1450', hairL = '#d4549f', vest = '#ff6bd0', vestD = '#b53d90', vestL = '#ffb3ea';
-  const horn = '#f4ead2', hornD = '#b8a88a';
-  return bake(32, 38, g => {
-    // axe handle + head (behind front hand)
-    R(g, P.brown, 25, 4, 2, 33); R(g, P.brownD, 26, 4, 1, 33);
-    poly(g, P.metal, [[27, 3], [31, 1], [32, 7], [31, 13], [27, 11]]);
-    R(g, P.metalL, 28, 3, 1, 8); R(g, P.metalD, 30, 7, 2, 5); R(g, P.metalD, 27, 10, 3, 1);
-    poly(g, P.metalD, [[25, 5], [21, 6], [25, 8]]);
-    // back arm
-    R(g, skinD, 7, 17, 3, 8); R(g, skinD, 6, 25, 4, 3); R(g, hairD, 7, 17, 3, 1);
-    // legs + boots
-    R(g, P.pants, 12, 29, 4, 4); R(g, P.pants, 17, 29, 4, 4); R(g, P.pantsD, 15, 29, 1, 4); R(g, P.pantsD, 20, 29, 1, 4);
-    R(g, P.brownD, 11, 33, 6, 3); R(g, P.brownD, 17, 33, 6, 3); R(g, P.brown, 12, 33, 3, 1); R(g, P.brown, 18, 33, 3, 1);
-    // torso: bare chest under an open vest
-    R(g, skin, 10, 15, 13, 13); R(g, skinL, 14, 17, 3, 3); R(g, skinD, 15, 22, 3, 1); R(g, skinD, 14, 24, 5, 1);
-    R(g, vest, 10, 15, 4, 12); R(g, vest, 19, 15, 4, 12); R(g, vestL, 11, 16, 1, 8); R(g, vestD, 22, 15, 1, 12); R(g, vestD, 19, 15, 1, 12);
-    R(g, P.gold, 13, 18, 1, 1); R(g, P.gold, 13, 21, 1, 1);
-    // belt
-    R(g, P.brownD, 10, 27, 13, 2); R(g, P.gold, 15, 27, 3, 2); R(g, P.goldD, 16, 28, 1, 1);
-    // shoulders
-    R(g, skin, 8, 14, 17, 3); R(g, skinL, 10, 14, 5, 1); R(g, vestD, 8, 16, 3, 1);
-    // front arm gripping the axe
-    R(g, skin, 22, 17, 3, 6); R(g, skinD, 24, 17, 1, 6); R(g, skin, 23, 22, 4, 3); R(g, skinD, 23, 24, 4, 1);
-    // head
-    R(g, skin, 12, 6, 10, 8); R(g, skinL, 13, 7, 2, 2); R(g, skinD, 12, 13, 10, 1); R(g, skinD, 21, 8, 1, 5);
-    R(g, skin, 21, 10, 2, 2);
-    R(g, horn, 18, 12, 1, 1); R(g, horn, 20, 12, 1, 1);
-    // hair mane
-    R(g, hair, 10, 2, 13, 5); R(g, hair, 9, 5, 4, 12); R(g, hair, 8, 8, 2, 7); R(g, hair, 11, 1, 2, 1); R(g, hair, 15, 0, 3, 2); R(g, hair, 20, 1, 2, 2);
-    R(g, hairD, 8, 12, 3, 5); R(g, hairD, 7, 15, 2, 2); R(g, hairL, 13, 2, 4, 1); R(g, hairL, 12, 3, 1, 2);
-    R(g, hair, 14, 7, 1, 1); R(g, hair, 17, 7, 5, 1);
-    // horns
-    R(g, horn, 10, 0, 2, 3); R(g, hornD, 11, 2, 1, 1); R(g, horn, 9, 0, 1, 1);
-    R(g, horn, 21, 0, 2, 3); R(g, hornD, 21, 2, 1, 1); R(g, horn, 23, 0, 1, 1);
-    // eyes (heavy brow)
-    R(g, P.eye, 17, 9, 1, 2); R(g, P.eye, 20, 9, 1, 2); R(g, hairD, 16, 8, 3, 1); R(g, hairD, 19, 8, 3, 1);
+  // hulking blue cave dweller: crystal spine, long arms, stone club dragged along the ground
+  const sk = '#27407a', skD = '#16254d', skDD = '#0d1733', skL = '#3f5fa8', skH = '#6a8ad0';
+  const cr = '#6ff5ff', crD = '#2fb8d6', crL = '#e0ffff';
+  const eye = '#ffcf4a', bone = '#e8dcc0', boneD = '#b0a484', lea = '#5a4030', leaD = '#3a281c';
+  const wood = '#5a3a22', woodD = '#3a2414', stone = '#6e7280', stoneD = '#4a4e5c', stoneL = '#9aa0b0';
+  return bake(38, 40, g => {
+    // back arm, knuckles near the ground
+    poly(g, skD, [[8, 14], [13, 14], [12, 30], [7, 31], [6, 22]]); R(g, skDD, 6, 22, 1, 8);
+    oval(g, skD, 9, 32, 3, 2.5); R(g, bone, 7, 34); R(g, bone, 9, 35); R(g, bone, 11, 34);
+    // legs and clawed feet
+    R(g, skD, 12, 29, 5, 7); R(g, skD, 11, 36, 7, 3); R(g, boneD, 17, 38); R(g, boneD, 15, 38);
+    R(g, sk, 19, 29, 5, 7); R(g, skL, 19, 30, 1, 5); R(g, sk, 19, 36, 8, 3); R(g, skD, 19, 38, 8, 1);
+    R(g, bone, 27, 37); R(g, bone, 27, 38); R(g, bone, 25, 38);
+    // hunched torso
+    poly(g, sk, [[7, 20], [9, 11], [14, 7], [21, 8], [26, 12], [27, 20], [25, 27], [22, 31], [11, 31], [7, 27]]);
+    poly(g, skD, [[7, 20], [9, 11], [12, 9], [11, 20], [12, 31], [11, 31], [7, 27]]);
+    R(g, skL, 20, 13, 4, 1); R(g, skL, 22, 14, 3, 3); R(g, skH, 22, 14); R(g, skL, 19, 20, 4, 1); R(g, skL, 20, 23, 3, 1);
+    R(g, skD, 18, 16, 1, 9); R(g, skD, 23, 18, 2, 1);
+    for (const [x, y] of [[14, 12], [16, 18], [13, 24], [20, 27], [10, 16]]) R(g, skDD, x, y);
+    // crystals growing along the spine
+    poly(g, crD, [[8, 13], [3, 5], [11, 10]]); poly(g, cr, [[8, 12], [4, 6], [10, 10]]); R(g, crL, 5, 7, 1, 2);
+    poly(g, crD, [[11, 9], [10, 0], [16, 8]]); poly(g, cr, [[12, 9], [10.5, 1], [14, 8]]); R(g, crL, 11, 3, 1, 3);
+    poly(g, crD, [[16, 8], [20, 2], [20, 9]]); poly(g, cr, [[17, 8], [20, 3], [19, 8]]); R(g, crL, 19, 4);
+    // tattered loincloth with a bone clasp
+    poly(g, lea, [[11, 28], [24, 28], [23, 34], [21, 32], [18, 35], [15, 32], [12, 34]]); R(g, leaD, 11, 28, 13, 1); R(g, leaD, 18, 30, 1, 3);
+    R(g, bone, 17, 28, 2, 1);
+    // stone club dragged along the floor
+    line(g, woodD, 29, 30, 33, 34, 2); line(g, wood, 29, 30, 33, 34, 1);
+    oval(g, stone, 34, 35, 3.5, 3); R(g, stoneD, 32, 36, 5, 2); R(g, stoneL, 32, 33, 2, 1);
+    poly(g, crD, [[35, 33], [37, 29], [36, 34]]); R(g, cr, 36, 31);
+    // front arm
+    poly(g, sk, [[22, 11], [27, 12], [29, 22], [25, 23]]);
+    poly(g, sk, [[25, 21], [29, 21], [31, 29], [27, 30]]);
+    R(g, skL, 23, 12, 2, 4); R(g, skD, 28, 15, 1, 6); R(g, skD, 30, 24, 1, 5); R(g, skL, 26, 22, 2, 1);
+    oval(g, sk, 29, 30, 3, 2.6); R(g, skD, 27, 32, 5, 1); R(g, bone, 31, 31); R(g, bone, 32, 30);
+    // head thrust forward from the shoulders
+    oval(g, sk, 30, 11, 5, 4.5); R(g, sk, 27, 12, 8, 4); R(g, skD, 27, 15, 8, 1); R(g, skDD, 26, 12, 1, 3);
+    R(g, skDD, 27, 8, 8, 2); R(g, skL, 28, 7, 5, 1);
+    R(g, eye, 31, 10, 2, 1); R(g, '#fff3b0', 32, 10); R(g, eye, 28, 10);
+    poly(g, skD, [[26, 9], [23, 4], [28, 8]]); R(g, skL, 24, 5);
+    R(g, skD, 35, 11, 1, 2); R(g, skDD, 30, 14, 5, 1);
+    R(g, bone, 31, 13); R(g, bone, 34, 12, 1, 2);
   });
 }
 function bakeLune() {
-  const P = PAL, robe = '#6fe88f', robeD = '#2f9a5a', robeL = '#b8ffc9', hat = '#2e6b47', hatD = '#1c4430', hatL = '#4f9a6b';
-  const hair = '#efe6ff', hairD = '#b4a6d4', sash = '#8a5ad0', sashD = '#5a3496';
-  return bake(28, 38, g => {
-    // staff
-    R(g, P.brown, 22, 9, 2, 28); R(g, P.brownD, 23, 9, 1, 28);
-    // hair falling behind
-    R(g, hair, 8, 15, 4, 11); R(g, hairD, 8, 20, 2, 6); R(g, hairD, 11, 25, 1, 1);
-    // robe (widening toward the hem)
-    for (let y = 21; y < 35; y++) { const k = Math.floor((y - 21) / 4); R(g, robe, 11 - k, y, 9 + k * 2, 1); R(g, robeD, 18 + k, y, 2, 1); R(g, robeL, 12 - k, y, 1, 1); }
-    R(g, P.gold, 8, 34, 14, 1); R(g, P.goldD, 8, 35, 14, 1);
-    R(g, robeD, 15, 28, 1, 6);
-    // sash
-    R(g, sash, 11, 25, 9, 2); R(g, sashD, 11, 26, 9, 1); R(g, sash, 12, 27, 2, 3); R(g, sashD, 13, 29, 1, 1);
-    // collar
-    R(g, robeL, 13, 21, 5, 1);
-    // front sleeve + hand on staff
-    R(g, robe, 18, 22, 3, 4); R(g, robeD, 20, 22, 1, 4); R(g, robeL, 18, 22, 1, 1);
-    R(g, P.skin, 21, 24, 3, 2); R(g, P.skinD, 21, 25, 3, 1);
-    // shoes
-    R(g, sashD, 11, 36, 3, 1); R(g, sashD, 16, 36, 3, 1);
+  // moon-skinned seer: pale grey skin with craters, dark hair, hooded robe, crescent-moon staff
+  const sk = '#e6e8ef', skD = '#b9bccb', skDD = '#8d91a6', crater = '#a3a7ba';
+  const hr = '#1c1f3f', hrD = '#10122a', hrL = '#3a4280';
+  const rb = '#2f7a52', rbD = '#1f5238', rbDD = '#143826', rbL = '#4fa876', trim = '#d7dbef', trimD = '#8a8fb3';
+  const wood = '#3a2a4a', woodD = '#241a30', moon = '#fff3c4', moonD = '#e0c56a';
+  return bake(26, 44, g => {
+    // staff with a crescent moon
+    R(g, wood, 20, 10, 2, 33); R(g, woodD, 21, 10, 1, 33); R(g, trim, 20, 12, 2, 1);
+    oval(g, moon, 21, 5, 5, 5);
+    g.globalCompositeOperation = 'destination-out'; oval(g, '#000', 23.6, 3.4, 4.3, 4.3); g.globalCompositeOperation = 'source-over';
+    R(g, moonD, 17, 6, 1, 2); R(g, moonD, 18, 8, 2, 1); R(g, '#ffffff', 17, 3, 1, 2);
+    R(g, trim, 21, 9, 1, 1);
+    // cloak falling behind
+    poly(g, rbDD, [[9, 4], [14, 2], [16, 10], [15, 40], [6, 42], [5, 22]]);
+    // hair behind
+    poly(g, hr, [[10, 6], [13, 5], [13, 22], [9, 24]]); R(g, hrL, 11, 8, 1, 10);
+    // robe, flaring toward the hem
+    for (let y = 15; y < 43; y++) {
+      const l = 10 - Math.floor((y - 15) / 7), r = 18 + Math.floor((y - 15) / 9);
+      R(g, rb, l, y, r - l, 1); R(g, rbL, l, y, 1, 1); R(g, rbD, r - 2, y, 2, 1);
+    }
+    R(g, trim, 6, 42, 15, 1); R(g, trimD, 14, 24, 1, 18); R(g, rbD, 11, 30, 1, 10);
+    R(g, trim, 10, 22, 8, 1); R(g, '#8ff3ff', 13, 22, 1, 1);
+    // hood around the face
+    poly(g, rb, [[9, 5], [12, 2], [16, 2], [18, 6], [18, 12], [12, 15], [9, 12]]);
+    R(g, rbL, 11, 3, 3, 1); R(g, rbD, 9, 9, 1, 4);
     // face
-    R(g, P.skin, 12, 14, 8, 7); R(g, P.skinL, 13, 15, 2, 1); R(g, P.skinD, 13, 20, 6, 1); R(g, P.skinD, 19, 16, 1, 4);
-    R(g, P.eye, 15, 16, 1, 2); R(g, P.eye, 18, 16, 1, 2); R(g, '#ff9fb8', 14, 18, 1, 1);
-    // bangs
-    R(g, hair, 11, 13, 9, 2); R(g, hair, 11, 15, 2, 4); R(g, hair, 14, 15, 1, 1); R(g, hairD, 11, 18, 1, 2);
-    // hat: brim, band, crooked cone
-    R(g, hat, 7, 12, 17, 2); R(g, hatD, 7, 13, 17, 1); R(g, hatL, 8, 12, 6, 1);
-    R(g, sash, 10, 10, 11, 2); R(g, P.gold, 15, 10, 2, 2);
-    poly(g, hat, [[10, 10], [21, 10], [19, 4], [22, 0], [15, 2]]);
-    R(g, hatL, 12, 7, 1, 3); R(g, hatD, 19, 6, 1, 4);
-    R(g, P.gold, 14, 6, 1, 1); R(g, P.gold, 18, 3, 1, 1); R(g, '#ffffff', 16, 8, 1, 1);
-    // star orb on the staff
-    poly(g, P.gold, [[23, 1], [24.5, 4.5], [28, 5], [25, 7.2], [26, 11], [23, 8.8], [20, 11], [21, 7.2], [18, 5], [21.5, 4.5]]);
-    R(g, '#fff6c0', 22, 5, 2, 2); R(g, '#ffffff', 22, 5, 1, 1);
+    R(g, sk, 13, 5, 4, 8); R(g, sk, 17, 8, 1, 2); R(g, skD, 13, 11, 4, 1); R(g, skDD, 14, 12, 2, 1);
+    R(g, crater, 14, 7); R(g, crater, 13, 9); R(g, skD, 15, 10); R(g, skD, 16, 6);
+    R(g, '#1a1030', 16, 8); R(g, '#8ff3ff', 15, 8); R(g, '#8d6f9e', 16, 11);
+    R(g, trim, 13, 5, 4, 1); R(g, '#8ff3ff', 15, 5);
+    // bangs + hood trim
+    R(g, hr, 12, 6, 1, 7); R(g, hrL, 12, 7, 1, 3);
+    R(g, trim, 12, 2, 4, 1); R(g, trim, 17, 5, 1, 1);
+    // sleeve + hand on the staff
+    poly(g, rb, [[15, 15], [19, 15], [21, 22], [17, 23]]); R(g, rbL, 16, 16, 1, 4); R(g, trim, 18, 21, 3, 1);
+    R(g, sk, 20, 20, 2, 2); R(g, skD, 20, 21, 2, 1);
   });
 }
+const HALO = bake(14, 5, g => {
+  oval(g, '#4fb8ff', 7, 2.5, 7, 2.5);
+  g.globalCompositeOperation = 'destination-out'; oval(g, '#000', 7, 2.6, 4.6, 1.2); g.globalCompositeOperation = 'source-over';
+  R(g, '#bff0ff', 3, 0, 8, 1); R(g, '#ffffff', 5, 0, 3, 1);
+}, null);
+const ORBIT_STARS = ['#ffffff', '#fff3a0', '#ffc4f0'].map(c => fromMap(['..w..', '.wyw.', 'wyyyw', '.wyw.', '..w..'], { w: c, y: '#ffffff' }, null));
 function heroShield(color) {
   return fromMap([
     '.xxxxxx.',
@@ -1125,7 +1154,7 @@ function heroShield(color) {
 }
 const HERO_SPR = [bakeAstra(), bakeTerrestro(), bakeLune()].map((s, i) => ({
   base: s, down: rotatedCCW(s), shield: heroShield(PARTY_DEF[i].color),
-  port: [{ x: 8, y: 0, w: 14, h: 15 }, { x: 8, y: 0, w: 16, h: 16 }, { x: 7, y: 9, w: 16, h: 14 }][i],
+  port: [{ x: 8, y: 0, w: 14, h: 16 }, { x: 23, y: 3, w: 15, h: 15 }, { x: 8, y: 1, w: 14, h: 16 }][i],
 }));
 
 // ---------------------------------------------------------------- MARIONETTE NEO parts
@@ -1445,10 +1474,28 @@ function drawHero(c, i) {
   let x = p.x, y = p.y + Math.sin(G.t * 0.06 + i * 2) * 2;
   if (c.anim > 0) x += Math.sin((20 - c.anim) / 20 * Math.PI) * 26;
   x = snap(x); y = snap(y);
-  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(snap(p.x) - 18, snap(p.y) - 2, 36, 4);
-  const white = c.flash > 0 && (c.flash >> 2) % 2;
-  spr(S.base, x, y, { ox: S.base.w / 2, oy: S.base.h - 1, white });
-  if (c.defending) spr(S.shield, x + 26, y - 30, { alpha: 0.55 + 0.3 * Math.sin(G.t * 0.2) });
+  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(snap(p.x) - 22, snap(p.y) - 2, 44, 4);
+  drawHeroSprite(i, x, y, c.flash > 0 && (c.flash >> 2) % 2);
+  if (c.defending) spr(S.shield, x + 32, y - S.base.h, { alpha: 0.55 + 0.3 * Math.sin(G.t * 0.2) });
+}
+// Hero sprite plus live extras: Astra's orbiting stars and floating halo.
+function drawHeroSprite(i, x, y, white = false) {
+  const base = HERO_SPR[i].base, t = G.t;
+  const orbit = back => {
+    for (let k = 0; k < 3; k++) {
+      const a = t * 0.04 + k * Math.PI * 2 / 3;
+      if ((Math.sin(a) < 0) !== back) continue;
+      spr(ORBIT_STARS[k], snap(x + Math.cos(a) * 28), snap(y - 46 + Math.sin(a) * 8), { alpha: back ? 0.5 : 1 });
+    }
+  };
+  if (i === 0) orbit(true);
+  spr(base, x, y, { ox: base.w / 2, oy: base.h - 1, white });
+  if (i === 0) {
+    orbit(false);
+    const hy = y - 90 + snap(Math.sin(t * 0.08) * 2);
+    ctx.fillStyle = 'rgba(79,184,255,0.16)'; ctx.fillRect(x - 16, hy - 6, 34, 12);
+    spr(HALO, x + 2, hy);
+  }
 }
 
 // sprite-pixel (sx, sy) of sprite s drawn centered at (cx, cy) -> screen position
@@ -1775,17 +1822,17 @@ function drawTitle() {
   txt('CURTAIN CALL', W / 2, 52, { size: 44, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 6 });
   txt('Three heroes against MARIONETTE NEO. Twelve acts.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
   G.party.forEach((c, i) => {
-    const x = 170 + i * 150, S = HERO_SPR[i];
-    spr(S.base, x, 206, { ox: S.base.w / 2, oy: S.base.h - 1 });
-    txt(c.name, x, 214, { size: 14, font: HEAD_FONT, align: 'center', color: c.color });
-    txt(`${c.maxHp} HP`, x, 232, { size: 14, align: 'center', color: COL.dim });
+    const x = 170 + i * 150;
+    drawHeroSprite(i, x, 222);
+    txt(c.name, x, 228, { size: 14, font: HEAD_FONT, align: 'center', color: c.color });
+    txt(`${c.maxHp} HP`, x, 246, { size: 14, align: 'center', color: COL.dim });
   });
   const lines = [
     'Choose an action for each hero, then dodge with the heart.',
     'ASTRA can ACT to raise MERCY. At 100%, anyone can SPARE.',
     'BLUE attacks only hurt you while you are moving.',
   ];
-  lines.forEach((l, i) => txt(l, W / 2, 262 + i * 21, { size: 15, align: 'center', color: i === 2 ? '#2ea8ff' : COL.white }));
+  lines.forEach((l, i) => txt(l, W / 2, 270 + i * 20, { size: 15, align: 'center', color: i === 2 ? '#2ea8ff' : COL.white }));
   // difficulty picker
   const opts = [['NORMAL', false], ['HARD', true]];
   opts.forEach(([label, hard], i) => {
