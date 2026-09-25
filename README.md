@@ -73,7 +73,22 @@ Its 21 attacks: Needle Rain, Puppet Strings, Card Fan (slow cards), Loose Button
 
 A towering chapel candle with a fanged, ember-lit maw, held in a wrought-iron candelabra. Below half HP its flames burn blue. It has one ACT besides Check: **Keep Vigil**, which always works and raises its MERCY 10% per use (8% on Hard). There's no mood to read, so Reveal isn't offered against it.
 
-Its 12 attacks: Wax Drip, Ember Rise, Flame Pillars, Fire Wheel, Cold Draft, Candle Volley, Smoke Screen, Chord of Fire, Hymn, Meltdown, Wick Whips and Last Vigil.
+Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue (stand still)** and **orange (keep moving)**, with plain white wax as the only ordinary danger. Its 12 attacks:
+
+| Attack | What it asks of you |
+| --- | --- |
+| Wax Drip | blue and white wax drops; white wax leaves puddles that slow you |
+| Ember Rain | a dense orange shower: keep moving while dodging white wax |
+| Chord of Fire | expanding blue and orange rings |
+| Candle Row | five columns flare at once, each blue or orange: read your column |
+| Fire Wheel | a spinning wheel of alternating blue and orange spokes |
+| Cold Draft | wind carries blue flames: let it push you and don't touch the keys |
+| Hymn | wavy streams of blue or orange notes |
+| Vespers | the whole stage flares blue or orange |
+| Candle Volley | lobbed candles burst into blue or orange sparks |
+| Meltdown | rising wax plus blue and white drips |
+| Wick Whips | one blue and one orange wick sweep like pendulums |
+| Last Vigil | orange ember rain plus blue rings |
 
 ## Hard Mode
 

@@ -347,11 +347,11 @@ function needle(x, y, vx, vy) {
 function stringAt(x, y, ang, len) {
   return spawn({ kind: 'rect', x, y, w: len, h: 7, ang, warn: 38, life: 38 + 16, cull: false, draw: drawString, onArm: () => sfx('zap') });
 }
-function burst(x, y, n, sp, fountain = false, draw = drawShard) {
+function burst(x, y, n, sp, fountain = false, draw = drawShard, extra = {}) {
   const off = rnd(0, Math.PI * 2);
   for (let i = 0; i < n; i++) {
     const a = fountain ? Math.PI + (i + 0.5) * Math.PI / n : off + i * Math.PI * 2 / n;
-    spawn({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ay: fountain ? 0.045 : 0, r: 4, draw });
+    spawn({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ay: fountain ? 0.045 : 0, r: 4, draw, ...extra });
   }
 }
 function headAt(x, y, burstAt) {
@@ -554,13 +554,6 @@ const seek = (acc, max) => b => {
   const m = max * G.A.spd, sp = Math.hypot(b.vx, b.vy);
   if (sp > m) { b.vx *= m / sp; b.vy *= m / sp; }
 };
-// strike a few of six columns, usually including the heart's
-function columnStrike(A, draw, onArm) {
-  const B = G.box, cols = 6, cw = B.w / cols, k = A.lvl > 1 ? 3 : 2, set = new Set();
-  if (Math.random() < 0.6) set.add(clamp(Math.floor((G.soul.x - B.x) / cw), 0, cols - 1));
-  while (set.size < k) set.add(randInt(cols));
-  for (const c of set) spawn({ kind: 'rect', x: B.x + cw * (c + 0.5), y: B.y + B.h / 2, w: cw - 6, h: B.h + 30, warn: 44, life: 58, cull: false, draw, onArm });
-}
 const beamArm = () => { sfx('zap'); G.shake = 6; };
 function crossers(A, every, sp, draw, r = 5) {
   if (A.t % every !== 0 || A.t > A.dur - 50) return;
@@ -702,110 +695,132 @@ const NEO_ATTACKS = (() => {
 NEO_ATTACKS.find(a => a.blue).tip = 'BLUE attacks pass through you while you stand still.';
 
 // ---------------------------------------------------------------- CANDLEMAW
+// Candlemaw's fire comes in two colors: BLUE flames only hurt a moving heart,
+// ORANGE flames only hurt a still one. Plain white wax is ordinary danger.
+const BLUE_TIP = '#2ea8ff', ORANGE_TIP = '#ff9a1f';
+const flame = blue => blue ? { blue: true } : { orange: true };
+function waxDrop(A, extra = {}) {
+  const B = G.box;
+  return spawn(Object.assign({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 10, vy: 1.5, ay: 0.035, r: 5, draw: drawWax }, extra));
+}
 const CANDLE_ATTACKS = [
   { name: 'WAX DRIP', hint: '* CANDLEMAW is melting, dripping hot wax everywhere.', mood: 'fan', w: 220, h: 180, dur: 380, dmg: 22,
-    tip: 'Wax puddles slow your heart down.',
+    tip: 'BLUE wax passes through you while you stand still. Puddles slow you.', tipColor: BLUE_TIP,
     update(A) {
-      const B = G.box;
-      if (A.t % (A.lvl > 1 ? 7 : 10) !== 0 || A.t > A.dur - 40) return;
-      spawn({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 10, vy: 1.6, ay: 0.04, r: 5, draw: drawWax, upd: b => {
+      if (A.t % (A.lvl > 1 ? 6 : 8) !== 0 || A.t > A.dur - 40) return;
+      waxDrop(A, { vy: 1.6, ay: 0.04, blue: Math.random() < 0.5, upd: b => {
         const B = G.box;
         if (b.y < B.y + B.h - 8) return;
         b.dead = true;
-        if (Math.random() < 0.5) spawn({ x: b.x, y: B.y + B.h - 5, r: 16, solid: false, slow: true, life: 160, cull: false, draw: drawPuddle });
+        if (!b.blue && Math.random() < 0.5) spawn({ x: b.x, y: B.y + B.h - 5, r: 16, solid: false, slow: true, life: 160, cull: false, draw: drawPuddle });
       } });
     } },
-  { name: 'EMBER RISE', hint: '* Embers drift upward as CANDLEMAW hums a low hymn.', mood: 'sing', w: 240, h: 190, dur: 400, dmg: 22,
+  { name: 'EMBER RAIN', hint: '* Sparks pour from its crown in a blinding orange shower.', mood: 'relight', w: 240, h: 190, dur: 400, dmg: 22,
+    tip: 'ORANGE embers only hurt while you stand still. Keep moving!', tipColor: ORANGE_TIP,
     update(A) {
       const B = G.box;
-      if (A.t % (A.lvl > 1 ? 5 : 7) !== 0 || A.t > A.dur - 40) return;
-      const x0 = rnd(B.x + 6, B.x + B.w - 6), ph = rnd(0, 6);
-      spawn({ x: x0, y: B.y + B.h + 8, vy: -rnd(1.4, 2.2), r: 4, glow: true, draw: drawEmber, d: { x0, ph }, upd: b => { b.x = b.d.x0 + Math.sin(b.age * 0.07 + b.d.ph) * 14; } });
+      if (A.t > A.dur - 40) return;
+      if (A.t % 2 === 0) spawn({ x: rnd(B.x + 4, B.x + B.w - 4), y: B.y - 8, vx: rnd(-0.4, 0.4), vy: rnd(1.8, 2.6), r: 4, orange: true, draw: drawEmber });
+      if (A.t % (A.lvl > 1 ? 20 : 28) === 0) waxDrop(A);
     } },
-  { name: 'FLAME PILLARS', hint: '* Its flames gutter low... then something stirs beneath the floor.', mood: 'relight', w: 260, h: 170, dur: 400, dmg: 30,
-    update(A) { if (A.t % (A.lvl > 1 ? 46 : 58) === 8 && A.t < A.dur - 70) columnStrike(A, drawPillar, beamArm); } },
+  { name: 'CHORD OF FIRE', hint: '* CANDLEMAW sings one long chord. The air rings BLUE and ORANGE.', mood: 'sing', w: 240, h: 200, dur: 420, dmg: 26,
+    tip: 'Rings of fire: BLUE stand still, ORANGE keep moving.', tipColor: ORANGE_TIP,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 50 : 64;
+      if (A.t % every === 20 && A.t < A.dur - 100) {
+        A.d.n = (A.d.n || 0) + 1;
+        spawn({ kind: 'ring', x: B.x + B.w / 2, y: B.y + B.h / 2, R: 4, thick: 8, ...flame(A.d.n % 2), life: 130, cull: false, draw: drawRing, upd: b => { b.R += 1.4 * G.A.spd; } });
+      }
+      if (A.t % (A.lvl > 1 ? 22 : 32) === 10 && A.t < A.dur - 40) waxDrop(A);
+    } },
+  { name: 'CANDLE ROW', hint: '* A row of candles rises from the floor, flickering BLUE and ORANGE.', mood: 'sing', w: 250, h: 180, dur: 420, dmg: 26,
+    tip: 'Read your column: BLUE stand still, ORANGE keep moving.', tipColor: ORANGE_TIP,
+    update(A) {
+      const B = G.box, cols = 5, cw = B.w / cols, every = A.lvl > 1 ? 70 : 90;
+      if (A.t % every === 20 && A.t < A.dur - 80) {
+        const colors = Array.from({ length: cols }, () => Math.random() < 0.5);
+        if (colors.every(c => c) || colors.every(c => !c)) colors[randInt(cols)] = !colors[0];
+        colors.forEach((blue, c) => spawn({ kind: 'rect', x: B.x + cw * (c + 0.5), y: B.y + B.h / 2, w: cw - 6, h: B.h + 20, warn: 42, life: 78, cull: false, ...flame(blue), draw: drawWash,
+          onArm: c ? null : () => { sfx('zap'); G.shake = 4; } }));
+      }
+      if (A.t % 18 === 0 && A.t < A.dur - 40) waxDrop(A);
+    } },
   { name: 'FIRE WHEEL', hint: '* CANDLEMAW spins faster and faster, its wax running hot.', mood: 'fan', w: 220, h: 220, dur: 420, dmg: 26,
+    tip: 'BLUE spokes: freeze and let them pass. ORANGE spokes: keep moving.', tipColor: ORANGE_TIP,
     init(A) {
-      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2, spokes = A.lvl > 1 ? 5 : 4;
+      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2, spokes = A.lvl > 1 ? 6 : 4;
       spawn({ x: cx, y: cy, solid: false, life: A.dur, cull: false, draw: drawHub });
       for (let s = 0; s < spokes; s++) for (let k = 1; k <= 5; k++) {
         const a = s * Math.PI * 2 / spokes + 0.4, rad = k * 21;
-        spawn({ x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad, r: 6, warn: 50, glow: true, cull: false, life: A.dur, draw: drawFireball, d: { a, rad },
+        spawn({ x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad, r: 6, warn: 50, cull: false, life: A.dur, ...flame(s % 2 === 0), draw: drawFireball, d: { a, rad },
           upd: b => { const A = G.A; b.d.a += (A.t < A.dur / 2 ? 1 : -1) * (A.lvl > 1 ? 0.022 : 0.017) * A.spd; b.x = cx + Math.cos(b.d.a) * b.d.rad; b.y = cy + Math.sin(b.d.a) * b.d.rad; } });
       }
     },
     update() {} },
   { name: 'COLD DRAFT', hint: '* A cold draft blows through. Its wicks gutter and flicker.', mood: 'relight', w: 260, h: 180, dur: 400, dmg: 22,
-    tip: 'The wind pushes your heart!',
+    tip: 'BLUE flames ride the wind. Let it carry you and do not move!', tipColor: BLUE_TIP,
     init(A) { A.push = { x: 0, y: 0 }; },
     update(A) {
       const B = G.box, dir = Math.floor(A.t / 130) % 2 ? -1 : 1;
       A.push.x = dir * (A.lvl > 1 ? 1.15 : 0.95);
-      if (A.t % (A.lvl > 1 ? 12 : 16) === 0 && A.t < A.dur - 40) spawn({ x: dir > 0 ? B.x - 10 : B.x + B.w + 10, y: rnd(B.y + 8, B.y + B.h - 8), vx: dir * rnd(2.2, 3), r: 5, draw: drawSoot });
+      if (A.t > A.dur - 40) return;
+      if (A.t % (A.lvl > 1 ? 5 : 7) === 0) spawn({ x: dir > 0 ? B.x - 10 : B.x + B.w + 10, y: rnd(B.y + 6, B.y + B.h - 6), vx: dir * rnd(2.4, 3.2), r: 5, blue: true, draw: drawFireball });
+      if (A.t % (A.lvl > 1 ? 26 : 36) === 0) spawn({ x: dir > 0 ? B.x - 10 : B.x + B.w + 10, y: rnd(B.y + 8, B.y + B.h - 8), vx: dir * 1.6, r: 5, draw: drawSoot });
     } },
-  { name: 'CANDLE VOLLEY', hint: '* It hurls lit candle stubs, trailing sooty black smoke.', mood: 'trim', w: 240, h: 190, dur: 400, dmg: 26,
+  { name: 'HYMN', hint: '* CANDLEMAW begins a mournful hymn, swaying to the tune.', mood: 'sing', w: 260, h: 180, dur: 400, dmg: 22,
+    tip: 'BLUE notes: stand still. ORANGE notes: keep moving.', tipColor: ORANGE_TIP,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 30 : 40;
+      if (A.t % every !== 0 || A.t > A.dur - 80) return;
+      A.d.n = (A.d.n || 0) + 1;
+      const left = Math.random() < 0.5, y0 = rnd(B.y + 34, B.y + B.h - 34), amp = rnd(18, 32), ph = rnd(0, 6), col = flame(A.d.n % 2);
+      for (let i = 0; i < 7; i++) spawn({ x: left ? B.x - 12 - i * 18 : B.x + B.w + 12 + i * 18, y: y0, vx: left ? 1.8 : -1.8, r: 5, ...col, draw: drawNote, d: { y0, amp, ph },
+        upd: b => { b.y = b.d.y0 + Math.sin(b.x * 0.045 + b.d.ph) * b.d.amp; } });
+    } },
+  { name: 'VESPERS', hint: "* A distant bell tolls. CANDLEMAW's flame answers in BLUE and ORANGE.", mood: 'sing', w: 220, h: 200, dur: 420, dmg: 26,
+    tip: 'The whole stage flares. BLUE: stand still. ORANGE: keep moving.', tipColor: ORANGE_TIP,
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 62 : 80;
+      if (A.t % every === 20 && A.t < A.dur - 80) spawn({ kind: 'rect', x: B.x + B.w / 2, y: B.y + B.h / 2, w: B.w + 10, h: B.h + 10, warn: 36, life: 62, cull: false, ...flame(Math.random() < 0.5), draw: drawWash, onArm: () => { sfx('zap'); G.shake = 4; } });
+      if (A.t % (A.lvl > 1 ? 18 : 26) === 0 && A.t < A.dur - 40) waxDrop(A);
+    } },
+  { name: 'CANDLE VOLLEY', hint: '* It hurls lit candle stubs that burst into colored sparks.', mood: 'trim', w: 240, h: 190, dur: 400, dmg: 26,
+    tip: 'Each candle bursts into its own color of sparks.', tipColor: ORANGE_TIP,
     update(A) {
       const B = G.box, every = A.lvl > 1 ? 26 : 36;
       if (A.t % every !== 0 || A.t > A.dur - 70) return;
       const left = Math.random() < 0.5, tx = Math.random() < 0.5 ? soulClampX(20) : rnd(B.x + 20, B.x + B.w - 20);
-      const x0 = left ? B.x - 10 : B.x + B.w + 10, y0 = B.y + B.h * 0.5, T = 60, g = 0.08;
-      spawn({ x: x0, y: y0, vx: (tx - x0) / T, vy: ((B.y + B.h - 8 - y0) - 0.5 * g * T * T) / T, ay: g, r: 6, glow: true, draw: drawStub,
-        upd: b => { b.ang += 0.2; if (b.vy > 0 && b.y >= G.box.y + G.box.h - 8) { b.dead = true; burst(b.x, b.y - 2, G.A.lvl > 1 ? 7 : 5, 1.8, true, drawEmber); } } });
-    } },
-  { name: 'SMOKE SCREEN', hint: '* Thick black smoke pours from its wicks. It can barely breathe.', mood: 'trim', w: 220, h: 200, dur: 420, dmg: 22,
-    tip: 'Only the light around your heart shows the way.',
-    init(A) { A.dark = 50; },
-    update(A) {
-      const B = G.box;
-      if (A.t % 80 === 20 && A.t < A.dur - 100) {
-        const c = [[B.x + 14, B.y + 14], [B.x + B.w - 14, B.y + 14]][randInt(2)];
-        spawn({ x: c[0], y: c[1], r: 6, glow: true, warn: 30, life: 220, cull: false, draw: drawFireball, upd: seek(0.04, A.lvl > 1 ? 1.5 : 1.25) });
-      }
-      crossers(A, A.lvl > 1 ? 20 : 26, 1.7, drawSoot);
-    } },
-  { name: 'CHORD OF FIRE', hint: '* CANDLEMAW sings one long chord. The air rings BLUE and ORANGE.', mood: 'sing', w: 240, h: 200, dur: 420, dmg: 26,
-    tip: 'BLUE: stand still.  ORANGE: keep moving.', tipColor: '#ff9a1f',
-    update(A) {
-      const B = G.box, every = A.lvl > 1 ? 50 : 64;
-      if (A.t % every === 20 && A.t < A.dur - 100) {
-        A.d.n = (A.d.n || 0) + 1;
-        const orange = A.d.n % 2 === 0;
-        spawn({ kind: 'ring', x: B.x + B.w / 2, y: B.y + B.h / 2, R: 4, thick: 8, blue: !orange, orange, life: 130, cull: false, draw: drawRing, upd: b => { b.R += 1.4 * G.A.spd; } });
-      }
-      if (A.lvl > 1) crossers(A, 40, 1.6, drawEmber, 4);
-    } },
-  { name: 'HYMN', hint: '* CANDLEMAW begins a mournful hymn, swaying to the tune.', mood: 'sing', w: 260, h: 180, dur: 400, dmg: 22,
-    update(A) {
-      const B = G.box, every = A.lvl > 1 ? 34 : 46;
-      if (A.t % every !== 0 || A.t > A.dur - 80) return;
-      const left = Math.random() < 0.5, y0 = rnd(B.y + 34, B.y + B.h - 34), amp = rnd(18, 32), ph = rnd(0, 6);
-      for (let i = 0; i < 6; i++) spawn({ x: left ? B.x - 12 - i * 20 : B.x + B.w + 12 + i * 20, y: y0, vx: left ? 1.8 : -1.8, r: 5, draw: drawNote, d: { y0, amp, ph },
-        upd: b => { b.y = b.d.y0 + Math.sin(b.x * 0.045 + b.d.ph) * b.d.amp; } });
+      const x0 = left ? B.x - 10 : B.x + B.w + 10, y0 = B.y + B.h * 0.5, T = 60, g = 0.08, col = flame(Math.random() < 0.5);
+      spawn({ x: x0, y: y0, vx: (tx - x0) / T, vy: ((B.y + B.h - 8 - y0) - 0.5 * g * T * T) / T, ay: g, r: 6, draw: drawStub, d: col,
+        upd: b => { b.ang += 0.2; if (b.vy > 0 && b.y >= G.box.y + G.box.h - 8) { b.dead = true; burst(b.x, b.y - 2, G.A.lvl > 1 ? 9 : 7, 1.8, true, drawEmber, b.d); } } });
     } },
   { name: 'MELTDOWN', hint: '* The heat is unbearable. CANDLEMAW is melting into a puddle.', mood: 'fan', w: 240, h: 200, dur: 420, dmg: 24,
-    tip: 'Melted wax is rising!', fill: '#b9a988',
+    tip: 'Wax is rising! BLUE drips pass through you if you hold still.', tipColor: BLUE_TIP, fill: '#b9a988',
     update(A) {
       const B = G.box, k = Math.min(1, A.t / (A.dur * 0.7));
       B.h = 200 - (A.lvl > 1 ? 100 : 85) * k;
-      if (A.t % (A.lvl > 1 ? 7 : 9) === 0 && A.t < A.dur - 40) spawn({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 10, vy: 1.7, ay: 0.03, r: 5, draw: drawWax });
+      if (A.t % (A.lvl > 1 ? 6 : 8) === 0 && A.t < A.dur - 40) waxDrop(A, { vy: 1.7, ay: 0.03, blue: Math.random() < 0.55 });
     } },
-  { name: 'WICK WHIPS', hint: '* Its long wicks crackle and whip, black with soot.', mood: 'trim', w: 240, h: 200, dur: 420, dmg: 26,
+  { name: 'WICK WHIPS', hint: '* Its long wicks crackle and whip, one BLUE and one ORANGE.', mood: 'trim', w: 240, h: 200, dur: 420, dmg: 26,
+    tip: 'BLUE wick: freeze as it sweeps past. ORANGE wick: keep moving.', tipColor: ORANGE_TIP,
     init(A) {
       const B = G.box, L = 170;
       for (const s of [-1, 1]) {
         const ax = s < 0 ? B.x + 24 : B.x + B.w - 24, ay = B.y - 10, ph = s < 0 ? 0 : Math.PI;
-        const b = spawn({ kind: 'rect', w: L, h: 6, warn: 50, cull: false, life: A.dur, draw: drawWick, d: { ax, ay, ph },
+        const b = spawn({ kind: 'rect', w: L, h: 8, warn: 50, cull: false, life: A.dur, ...flame(s < 0), draw: drawWick, d: { ax, ay, ph },
           upd: b => { const a = Math.PI / 2 + Math.sin(b.age * 0.028 * G.A.spd * (G.A.lvl > 1 ? 1.25 : 1) + b.d.ph) * 1.05; b.ang = a; b.x = b.d.ax + Math.cos(a) * L / 2; b.y = b.d.ay + Math.sin(a) * L / 2; } });
         b.upd(b);
       }
     },
-    update(A) { if (A.t > 60) crossers(A, A.lvl > 1 ? 30 : 42, 1.6, drawEmber, 4); } },
+    update(A) { if (A.t > 60 && A.t % (A.lvl > 1 ? 30 : 42) === 0 && A.t < A.dur - 40) waxDrop(A); } },
   { name: 'LAST VIGIL', hint: '* It is burning down to the very end. Its flame flickers weakly.', mood: 'relight', w: 240, h: 200, dur: 460, dmg: 26,
+    tip: 'Everything at once. Watch the colors!', tipColor: ORANGE_TIP,
     update(A) {
       const B = G.box;
-      if (A.t % 12 === 0 && A.t < A.dur - 40) { const x0 = rnd(B.x + 6, B.x + B.w - 6), ph = rnd(0, 6); spawn({ x: x0, y: B.y + B.h + 8, vy: -1.7, r: 4, glow: true, draw: drawEmber, d: { x0, ph }, upd: b => { b.x = b.d.x0 + Math.sin(b.age * 0.07 + b.d.ph) * 12; } }); }
-      if (A.t % 90 === 60 && A.t < A.dur - 70) columnStrike(A, drawPillar, beamArm);
-      if (A.t === 40 || A.t === 220 || (A.lvl > 1 && A.t === 130)) spawn({ x: B.x + 14, y: B.y + 14, r: 6, glow: true, warn: 30, life: 200, cull: false, draw: drawFireball, upd: seek(0.045, 1.35) });
+      if (A.t > A.dur - 40) return;
+      if (A.t % 4 === 0) spawn({ x: rnd(B.x + 4, B.x + B.w - 4), y: B.y - 8, vy: rnd(1.8, 2.4), r: 4, orange: true, draw: drawEmber });
+      if (A.t % 100 === 30 && A.t < A.dur - 110) spawn({ kind: 'ring', x: B.x + B.w / 2, y: B.y + B.h / 2, R: 4, thick: 8, blue: true, life: 130, cull: false, draw: drawRing, upd: b => { b.R += 1.4 * G.A.spd; } });
+      if (A.t % (A.lvl > 1 ? 24 : 32) === 0) waxDrop(A);
     } },
 ];
 
@@ -838,7 +853,7 @@ const BOSSES = {
   },
   candle: {
     id: 'candle', name: 'CANDLEMAW', hp: 3400, hpHard: 4600, attacks: CANDLE_ATTACKS, draw: () => drawCandle(),
-    blurb: 'A chapel candle that learned to hunger. 12 acts. One simple ACT.',
+    blurb: 'A haunted candle of BLUE and ORANGE fire. 12 acts.',
     light: 'rgba(255,170,80,0.08)',
     check: '* CANDLEMAW - AT 30 DF 10. A chapel candle that has burned alone for centuries. It is terrified of going out.',
     intro: '* CANDLEMAW rises from a pool of its own wax.',
@@ -1678,6 +1693,15 @@ const SPR2 = (() => {
   ];
   S.soot = fromMap(['.ggg.', 'gGGgg', 'gGggg', 'ggggd', '.gdd.'], { g: '#8a8494', G: '#c4bfcc', d: '#5a5464' }, null);
   S.note = fromMap(['...ww', '...w.w', '...w..', '...w..', '.www..', 'wwww..', '.ww...'], { w: '#ffe6a0' }, null);
+  const FIRE_ROWS = [['...o...', '..ooo..', '.ooyoo.', '.oyyyo.', 'ooywyoo', 'ooywyoo', '.oyyyo.', '..ooo..'], ['..o....', '..ooo..', '.oooyo.', '.oyyyo.', 'ooyyyoo', 'ooywyoo', '.oyyyo.', '..ooo..']];
+  S.fireB = FIRE_ROWS.map(r => fromMap(r, { o: '#2a6bff', y: '#6fd0ff', w: '#e8fbff' }, null));
+  S.fireO = FIRE_ROWS.map(r => fromMap(r, { o: '#ff7a1f', y: '#ffb347', w: '#fff0c0' }, null));
+  S.emberB = [fromMap(['.o.', 'oyo', '.o.'], { o: '#2e8cff', y: '#dff6ff' }, null), fromMap(['o.o', '.y.', 'o.o'], { o: '#2a6bff', y: '#9fe0ff' }, null)];
+  S.waxB = fromMap(['..w..', '.www.', 'wwwwd', 'wwwwd', '.wdd.'], { w: '#8fd4ff', d: '#2e7fd0' }, null);
+  const NOTE = ['...ww', '...w.w', '...w..', '...w..', '.www..', 'wwww..', '.ww...'];
+  S.noteB = fromMap(NOTE, { w: '#6fc4ff' }, null);
+  S.noteO = fromMap(NOTE, { w: '#ffa640' }, null);
+  S.stubB = fromMap(['..o..', '..y..', '.www.', '.wwd.', '.wwd.', '.wwd.'], { o: '#2a6bff', y: '#dff6ff', w: '#e6dcc2', d: '#b9a988' }, null);
   S.stub = fromMap(['..o..', '..y..', '.www.', '.wwd.', '.wwd.', '.wwd.'], { o: '#ff8a1f', y: '#fff3b0', w: '#e6dcc2', d: '#b9a988' }, null);
   S.hub = fromMap(['..kkk..', '.kLLLk.', 'kLkkkLk', 'kLkokLk', 'kLkkkLk', '.kLLLk.', '..kkk..'], { k: '#2a2430', L: '#4a4058', o: '#ff8a1f' }, null);
   return S;
@@ -1847,7 +1871,7 @@ function drawBullet(b) {
   ctx.rotate(b.ang);
   if (b.warn > 0 && b.solid) {
     const on = (b.warn >> 2) % 2;
-    const base = b.blue ? '46,168,255' : '255,42,61';
+    const base = b.blue ? '46,168,255' : b.orange ? '255,154,31' : '255,42,61';
     ctx.fillStyle = `rgba(${base},${on ? 0.32 : 0.14})`; ctx.strokeStyle = `rgba(${base},${on ? 1 : 0.5})`; ctx.lineWidth = 2;
     if (b.kind === 'circle') { ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
     else { ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.strokeRect(-b.w / 2, -b.h / 2, b.w, b.h); }
@@ -2171,29 +2195,36 @@ function drawRing(b) {
   ctx.strokeStyle = b.orange ? '#ffd9a0' : '#bfe6ff'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(0, 0, b.R, 0, Math.PI * 2); ctx.stroke();
 }
-function drawWax() { blit(SPR2.wax); }
+function drawWax(b) { blit(b.blue ? SPR2.waxB : SPR2.wax); }
 function drawPuddle(b) {
   ctx.globalAlpha = Math.min(1, (b.life - b.age) / 40) * 0.9;
   ctx.fillStyle = '#b9a988'; ctx.fillRect(-b.r, -3, b.r * 2, 6);
   ctx.fillStyle = '#e6dcc2'; ctx.fillRect(-b.r + 4, -3, b.r * 2 - 10, 2);
 }
-function drawEmber(b) { blit(SPR2.ember[(b.age >> 3) % 2]); }
-function drawFireball(b) { ctx.rotate(-b.ang); blit(SPR2.fire[(G.t >> 3) % 2]); }
-function drawPillar(b) {
-  const k = (b.age - 44) / 14, x0 = -b.w / 2, y0 = -b.h / 2;
-  ctx.fillStyle = `rgba(255,90,30,${0.85 - k * 0.5})`; ctx.fillRect(x0, y0, b.w, b.h);
-  ctx.fillStyle = `rgba(255,200,60,${0.9 - k * 0.5})`; ctx.fillRect(x0 + 4, y0, b.w - 8, b.h);
-  ctx.fillStyle = `rgba(255,246,208,${0.9 - k * 0.5})`;
-  for (let y = y0; y < b.h / 2; y += 6) ctx.fillRect(snap(Math.sin(y * 0.2 + G.t * 0.5) * 4) - 3, y, 6, 4);
+function drawEmber(b) { blit((b.blue ? SPR2.emberB : SPR2.ember)[(b.age >> 3) % 2]); }
+function drawFireball(b) { ctx.rotate(-b.ang); blit((b.blue ? SPR2.fireB : b.orange ? SPR2.fireO : SPR2.fire)[(G.t >> 3) % 2]); }
+// a sheet of colored flame filling a column or the whole stage
+function drawWash(b) {
+  const k = Math.max(0, 1 - (b.age - b.life + 10) / 10), x0 = -b.w / 2, y0 = -b.h / 2;
+  const c = b.blue ? ['46,168,255', '#6fd0ff', '#dff6ff'] : ['255,154,31', '#ffb347', '#fff0c0'];
+  ctx.fillStyle = `rgba(${c[0]},${0.5 * k})`; ctx.fillRect(x0, y0, b.w, b.h);
+  ctx.globalAlpha = k;
+  for (let x = x0; x < b.w / 2; x += 6) {
+    const h = snap(12 + 10 * Math.abs(Math.sin(x * 0.3 + G.t * 0.35)));
+    ctx.fillStyle = c[1]; ctx.fillRect(x, b.h / 2 - h, 4, h);
+    ctx.fillStyle = c[2]; ctx.fillRect(x + 1, b.h / 2 - h / 2, 2, h / 2);
+  }
+  ctx.globalAlpha = 1;
 }
-function drawNote() { blit(SPR2.note); }
+function drawNote(b) { blit(b.blue ? SPR2.noteB : b.orange ? SPR2.noteO : SPR2.note); }
 function drawWick(b) {
-  ctx.fillStyle = '#2a1a10'; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
-  ctx.fillStyle = '#5a3a22'; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, 2);
-  ctx.fillStyle = '#ff8a1f'; for (let x = -b.w / 2 + 10; x < b.w / 2; x += 22) ctx.fillRect(x, -1, 2, 2);
-  ctx.fillStyle = (G.t >> 2) % 2 ? '#ffd23f' : '#ff5a1f'; ctx.fillRect(b.w / 2 - 6, -5, 8, 10);
+  const c = b.blue ? ['#1e5fc8', '#6fd0ff', '#dff6ff'] : b.orange ? ['#c85a10', '#ffa640', '#fff0c0'] : ['#2a1a10', '#5a3a22', '#ff8a1f'];
+  ctx.fillStyle = c[0]; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+  ctx.fillStyle = c[1]; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, 2);
+  ctx.fillStyle = c[2]; for (let x = -b.w / 2 + 10; x < b.w / 2; x += 22) ctx.fillRect(x, -1, 2, 2);
+  ctx.fillStyle = (G.t >> 2) % 2 ? c[2] : c[1]; ctx.fillRect(b.w / 2 - 6, -6, 8, 12);
 }
-function drawStub() { blit(SPR2.stub); }
+function drawStub(b) { blit(b.d.blue ? SPR2.stubB : SPR2.stub); }
 function drawSoot() { blit(SPR2.soot); }
 function drawHub() { blit(SPR2.hub); }
 
