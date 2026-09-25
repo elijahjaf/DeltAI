@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Curtain Call</title>
+<title>Last Wish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap">
@@ -72,7 +72,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>CURTAIN CALL</h1>
+    <h1>LAST WISH</h1>
     <p>A three-hero battle against Marionette NEO or Candlemaw</p>
   </header>
 
@@ -103,7 +103,7 @@
   <div class="rules">
     <div class="rule"><b>FIGHT</b><span>Press Z as the bar crosses the mark. A dead-center hit is a critical.</span></div>
     <div class="rule"><b>MAGIC</b><span>Terrestro and Lune have their own spells. They cost EXP and either deal damage or heal.</span></div>
-    <div class="rule"><b>ACT</b><span>Astra acts instead of casting. Read the flavor text for what the enemy wants, then pick the matching ACT to raise its MERCY.</span></div>
+    <div class="rule"><b>ACT</b><span>Astra acts instead of casting. Against Marionette NEO, read the flavor text and pick the matching ACT. Against Candlemaw, Keep Vigil always raises MERCY a little.</span></div>
     <div class="rule"><b>SPARE</b><span>Any hero can SPARE. Once MERCY reaches 100% and the enemy's name turns yellow, sparing it ends the battle.</span></div>
     <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including a downed one.</span></div>
     <div class="rule"><b>DEFEND</b><span>Take half damage this turn and gain 16% EXP. Grazing bullets also earns EXP.</span></div>
@@ -838,28 +838,29 @@ const BOSSES = {
   },
   candle: {
     id: 'candle', name: 'CANDLEMAW', hp: 3400, hpHard: 4600, attacks: CANDLE_ATTACKS, draw: () => drawCandle(),
-    blurb: 'A chapel candle that learned to hunger. 12 acts.',
+    blurb: 'A chapel candle that learned to hunger. 12 acts. One simple ACT.',
     light: 'rgba(255,170,80,0.08)',
     check: '* CANDLEMAW - AT 30 DF 10. A chapel candle that has burned alone for centuries. It is terrified of going out.',
     intro: '* CANDLEMAW rises from a pool of its own wax.',
     phase2: '* CANDLEMAW is burning down! Its flames turn a cold BLUE.',
     winFight: '* CANDLEMAW gutters out, leaving only a curl of smoke.',
     winSpare: '* CANDLEMAW was SPARED! It settles into a calm, steady glow.',
+    // A single ACT that always works and raises MERCY slowly.
+    simpleAct: true, actStep: 10, actStepHard: 8,
     acts: [
-      { id: 'relight', name: 'Relight', verb: 'relight its wicks', desc: 'Shelter its flame. It wants this when its wicks gutter.',
-        ok: '* ASTRA cupped a hand around its guttering wick. CANDLEMAW burned tall and proud.' },
-      { id: 'trim', name: 'Trim Wick', verb: 'trim its wicks', desc: 'Clear the soot. It wants this when it chokes on smoke.',
-        ok: '* ASTRA trimmed its sooty wicks. The smoke cleared and CANDLEMAW breathed easier.' },
-      { id: 'sing', name: 'Sing', verb: 'sing along', desc: 'Join its song. It wants this when it hums a hymn.',
-        ok: '* ASTRA sang along with its hymn. CANDLEMAW\'s wax softened into a smile.' },
-      { id: 'fan', name: 'Fan', verb: 'fan its wax', desc: 'Cool it down. It wants this when it melts and drips.',
-        ok: '* ASTRA fanned its melting wax. CANDLEMAW cooled and let out a long sigh.' },
+      { id: 'vigil', name: 'Keep Vigil', desc: 'Sit with it and shelter its flame. Slowly raises MERCY.', lines: [
+        '* ASTRA sat beside CANDLEMAW and cupped a hand around its flame.',
+        '* ASTRA told CANDLEMAW about the stars. Its flame leaned closer to listen.',
+        "* ASTRA hummed a quiet hymn. CANDLEMAW's wax softened.",
+        '* ASTRA shielded its wicks from the draft. CANDLEMAW burned a little steadier.',
+        '* ASTRA promised CANDLEMAW it would not burn out alone.',
+      ] },
     ],
   },
 };
 const BOSS_IDS = ['neo', 'candle'];
 const curAttack = () => G.boss.attacks[G.turn % G.boss.attacks.length];
-const curActs = () => [...BASE_ACTS, ...G.boss.acts];
+const curActs = () => G.boss.simpleAct ? [BASE_ACTS[0], ...G.boss.acts] : [...BASE_ACTS, ...G.boss.acts];
 
 // ---------------------------------------------------------------- round flow
 function startRound() {
@@ -998,16 +999,18 @@ function beginResolve() {
           return `* ${c.name} peered behind the curtain... Next turn, the right ACT will be REVEALED.`;
         }
         if (act.id === 'check') return G.boss.check;
-        const mood = curAttack().mood;
-        if (act.id !== mood) { sfx('miss'); return `* ${c.name} tried to ${act.verb}... but that isn't what ${e.name} wanted right now.`; }
+        const simple = G.boss.simpleAct;
+        if (!simple && act.id !== curAttack().mood) { sfx('miss'); return `* ${c.name} tried to ${act.verb}... but that isn't what ${e.name} wanted right now.`; }
         const before = e.mercy;
-        e.mercy = Math.min(100, e.mercy + (G.hard ? MERCY_STEP_HARD : MERCY_STEP));
+        const step = simple ? (G.hard ? G.boss.actStepHard : G.boss.actStep) : (G.hard ? MERCY_STEP_HARD : MERCY_STEP);
+        e.mercy = Math.min(100, e.mercy + step);
         const gain = e.mercy - before;
         G.stats.acts++;
         sfx('mercy');
         if (gain > 0) popup(ENEMY_POS.x, ENEMY_POS.y - 80, `+${gain}% MERCY`, COL.gold, 16);
         sparkle(ENEMY_POS.x, ENEMY_POS.y - 40, COL.gold, 12, 2);
-        return act.ok + (e.mercy >= 100 ? ' Its name turned YELLOW. It can be SPARED!' : ` MERCY +${gain}%.`);
+        const text = act.lines ? act.lines[(G.stats.acts - 1) % act.lines.length] : act.ok;
+        return text + (e.mercy >= 100 ? ' Its name turned YELLOW. It can be SPARED!' : ` MERCY +${gain}%.`);
       });
     } else if (a.type === 'spare') {
       q.push(() => {
@@ -1169,7 +1172,7 @@ function victory(spared = false) {
   setState('victory');
   sfx('win');
   if (spared) {
-    setMsg(`${G.boss.winSpare} YOU WON${hard}! Turns: ${G.turn + 1}   Correct ACTs: ${s.acts}   Damage: ${s.damage}`);
+    setMsg(`${G.boss.winSpare} YOU WON${hard}! Turns: ${G.turn + 1}   ACTs: ${s.acts}   Damage: ${s.damage}`);
     return;
   }
   G.enemy.hp = 0;
@@ -2432,7 +2435,7 @@ function drawPopups() {
 
 function drawTitle() {
   ctx.fillStyle = 'rgba(7,4,13,0.88)'; ctx.fillRect(0, 0, W, H);
-  txt('CURTAIN CALL', W / 2, 52, { size: 44, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 6 });
+  txt('LAST WISH', W / 2, 52, { size: 44, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 6 });
   txt('Three heroes. Two monsters. One stage.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
   G.party.forEach((c, i) => {
     const x = 170 + i * 150;

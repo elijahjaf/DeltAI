@@ -1,4 +1,4 @@
-# Curtain Call
+# Last Wish
 
 A Deltarune-style turn-based battle that runs in the browser. Three heroes fight one of two bosses: Marionette NEO, a half-puppet, half-robot horror, or Candlemaw, a haunted candle. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
 
@@ -35,7 +35,7 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 
 - **FIGHT**: a timing bar slides toward a mark. Press Z as it crosses. The closer you are, the more damage you deal, and a dead-center hit is a 1.5x critical.
 - **MAGIC** (Terrestro and Lune): spends shared EXP, which works like Deltarune's TP. Each has their own damage and healing spells.
-- **ACT** (Astra): the peaceful way to progress. Each turn the flavor text hints at what Marionette NEO wants. Pick the matching ACT to raise its **MERCY** by 25% (20% on Hard). A wrong ACT does nothing.
+- **ACT** (Astra): the peaceful way to progress. Against Marionette NEO, the flavor text hints each turn at what it wants. Pick the matching ACT to raise its **MERCY** by 25% (20% on Hard). A wrong ACT does nothing.
   - *Applaud*: it's playing to the crowd or waiting for applause.
   - *Dance*: it holds out a hand or looks for a partner.
   - *Oil Joints*: its joints creak or screech.
@@ -71,7 +71,7 @@ Its 21 attacks: Needle Rain, Puppet Strings, Card Fan (slow cards), Loose Button
 
 ### Candlemaw (3400 HP)
 
-A towering chapel candle with a fanged, ember-lit maw, held in a wrought-iron candelabra. Below half HP its flames burn blue. Its ACTs are Relight (its wicks gutter), Trim Wick (it's choking on smoke), Sing (it hums a hymn) and Fan (it's melting).
+A towering chapel candle with a fanged, ember-lit maw, held in a wrought-iron candelabra. Below half HP its flames burn blue. It has one ACT besides Check: **Keep Vigil**, which always works and raises its MERCY 10% per use (8% on Hard). There's no mood to read, so Reveal isn't offered against it.
 
 Its 12 attacks: Wax Drip, Ember Rise, Flame Pillars, Fire Wheel, Cold Draft, Candle Volley, Smoke Screen, Chord of Fire, Hymn, Meltdown, Wick Whips and Last Vigil.
 
