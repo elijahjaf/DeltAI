@@ -1,6 +1,8 @@
 # Curtain Call
 
-A Deltarune-style turn-based battle that runs in the browser. Three heroes fight the Hollow Marionette, and on the enemy's turn you steer a heart through bullet patterns inside the battle box.
+A Deltarune-style turn-based battle that runs in the browser. Three heroes fight Marionette NEO, a half-puppet, half-robot boss. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
+
+All art is 16-bit style pixel art. Each sprite is drawn in code at low resolution, given a dark outline, and scaled up 2x. There are no image files.
 
 **Play:** open `index.html` in any modern browser. It has no build step and no dependencies. It uses Google Fonts when online and falls back to a monospace font offline.
 
@@ -12,6 +14,8 @@ A Deltarune-style turn-based battle that runs in the browser. Three heroes fight
 | Z / Enter / Space | Confirm, or strike during FIGHT |
 | X / Shift | Go back. Hold while dodging to move slowly |
 | M | Sound on or off |
+
+On the title screen, use the arrow keys to pick **Normal** or **Hard**.
 
 Touch devices get an on-screen d-pad with Z and X buttons.
 
@@ -32,11 +36,13 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 
 **EXP** also comes from grazing. When the heart passes close to a bullet without touching it, you get a burst of EXP, plus a little more for each frame you stay close.
 
+**Blue attacks** (Scissor Dance's blades) pass through the heart harmlessly while it stands still. They only hurt while you are moving.
+
 A hero at 0 HP is **downed**. They skip turns and regain 1/8 of their max HP each round until they are back up. Healing revives them sooner. If all three heroes are downed, it's game over.
 
-## The Hollow Marionette
+## Marionette NEO
 
-The enemy has 3200 HP and 12 attacks. It uses them in order, one per turn, and the menu text hints at the next one:
+A porcelain-and-steel marionette that hangs from a control rail. It has striped wings, a cannon arm, a puppet glove and a pulsing heart core. It has 3200 HP and 12 attacks. It uses them in order, one per turn, and the menu text hints at the next one:
 
 1. Needle Rain
 2. Puppet Strings
@@ -48,7 +54,15 @@ The enemy has 3200 HP and 12 attacks. It uses them in order, one per turn, and t
 8. Stage Lights
 9. Tangled Thread
 10. Chandelier
-11. Scissor Dance
+11. Scissor Dance (blue: stand still to let the blades pass)
 12. Grand Finale
 
-Below half HP a string snaps and the Marionette gets frantic. Every attack becomes denser and faster and deals 25% more damage.
+Below half HP a string snaps and Marionette NEO gets frantic. Its eye and core turn red, one arm and wing go limp, and every attack becomes denser and faster and deals 25% more damage.
+
+## Hard Mode
+
+- The enemy has 4400 HP.
+- Every attack runs at its frantic level from turn one and deals about 15% more damage.
+- Bullets are 10% faster, rising to 20% once the enemy is below half HP.
+- The item bag holds 3 Glow Berries, 1 Honey Loaf and 1 Phoenix Tea.
+- The heart's invincibility after a hit is shorter.
