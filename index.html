@@ -97,7 +97,7 @@
     <span><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> or <kbd>WASD</kbd> move</span>
     <span><kbd>Z</kbd> / <kbd>Enter</kbd> confirm, strike</span>
     <span><kbd>X</kbd> / <kbd>Shift</kbd> back, hold to focus while dodging</span>
-    <span><kbd>M</kbd> sound on or off</span>
+    <span><kbd>M</kbd> music and sound on or off</span>
   </div>
 
   <div class="rules">
@@ -217,6 +217,191 @@ const SFX = {
   lose: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.3, 'triangle', 0.05, 0, i * 0.18)),
 };
 const sfx = n => { if (SFX[n]) SFX[n](); };
+
+// ---------------------------------------------------------------- music
+// Original chiptune boss themes, synthesized live with Web Audio (no files).
+// Notation: one token per 16th note. A note name starts a note, "." holds it, "-" is a rest.
+const NOTE_IDX = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+function midiOf(name) {
+  const m = /^([A-G])([#b]?)(-?\d)$/.exec(name);
+  return NOTE_IDX[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (+m[3] + 1) * 12;
+}
+const hz = midi => 440 * Math.pow(2, (midi - 69) / 12);
+function parseTrack(str) {
+  const toks = str.trim().split(/\s+/), ev = [];
+  toks.forEach((tk, i) => {
+    if (tk === '.') { if (ev.length && ev[ev.length - 1].open) ev[ev.length - 1].len++; return; }
+    if (ev.length) ev[ev.length - 1].open = false;
+    if (tk === '-') return;
+    ev.push({ step: i, midi: midiOf(tk), len: 1, open: true });
+  });
+  return { len: toks.length, ev };
+}
+// bass: per-bar root with a rhythm of semitone offsets (null = rest, '.' = hold)
+function bassLine(chords, pattern, octaveDrop = 12) {
+  return chords.map(ch => { const r = midiOf(ch.split(' ')[0]) - octaveDrop; return pattern.map(p => p === null ? '-' : p === '.' ? '.' : nameOf(r + p)).join(' '); }).join(' ');
+}
+// arpeggio: chord tones (+12) picked by index each 16th
+function arpLine(chords, idx, up = 12) {
+  return chords.map(ch => { const n = ch.split(' ').map(midiOf); return idx.map(i => i === null ? '-' : nameOf(n[i % n.length] + up + (i >= n.length ? 12 : 0))).join(' '); }).join(' ');
+}
+function padLine(chords, voice) { return chords.map(ch => { const n = ch.split(' '); return [n[voice % n.length], ...Array(15).fill('.')].join(' '); }).join(' '); }
+function nameOf(midi) { const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']; return names[midi % 12] + (Math.floor(midi / 12) - 1); }
+
+function makeSong(def) {
+  const tracks = def.tracks.map(t => Object.assign({}, t, parseTrack(t.notes)));
+  const len = Math.max(...tracks.map(t => t.len), def.drums ? def.drums.replace(/\s/g, '').length : 0);
+  return { name: def.name, bpm: def.bpm, tracks, drums: def.drums ? def.drums.replace(/\s/g, '') : '', len };
+}
+
+const SONG_DEFS = (() => {
+  const S = {};
+  // ---- LAST WISH (title): gentle and hopeful, F major
+  {
+    const ch = ['F3 A3 C4', 'A3 C4 E4', 'Bb3 D4 F4', 'C4 E4 G4', 'F3 A3 C4', 'D3 F3 A3', 'Bb3 D4 F4', 'C4 E4 G4'];
+    S.title = { name: 'Last Wish', bpm: 92, tracks: [
+      { wave: 'pulse25', vol: 0.055, vib: true, notes: `
+        A4 . . . C5 . F5 . . . E5 . C5 . . .   E5 . . . . . A4 . C5 . E5 . . . . .
+        D5 . . . F5 . Bb5 . . . A5 . F5 . . .  E5 . . . G5 . . . C5 . . . - - - -
+        F5 . . . A5 . C6 . . . Bb5 . A5 . . .  A5 . . . F5 . D5 . . . E5 . F5 . . .
+        D5 . F5 . Bb5 . A5 . G5 . F5 . D5 . . . E5 . . . G5 . . . C6 . . . - - - -` },
+      { wave: 'pulse12', vol: 0.02, notes: arpLine(ch, [0, 1, 2, 3, 2, 1, 0, 1, 0, 1, 2, 3, 2, 1, 0, 1]) },
+      { wave: 'triangle', vol: 0.09, notes: bassLine(ch, [0, '.', '.', '.', '.', '.', '.', '.', 7, '.', '.', '.', '.', '.', '.', '.']) },
+    ] };
+  }
+  // ---- STRINGS ATTACHED (Marionette NEO): funky, jazzy, glitchy, D minor
+  {
+    const ch = ['D3 F3 A3', 'D3 F3 A3', 'Bb2 D3 F3', 'C3 E3 G3', 'D3 F3 A3', 'D3 F3 A3', 'G2 Bb2 D3', 'A2 C#3 E3'];
+    S.neo = { name: 'Strings Attached', bpm: 150, tracks: [
+      { wave: 'square', vol: 0.05, vib: true, notes: `
+        D5 . - D5 F5 . A5 . G5 F5 E5 . D5 . - -     A4 . C5 . D5 . - F5 . E5 D5 . C5 . A4 .
+        Bb4 . D5 . F5 . - Bb5 . A5 G5 . F5 . D5 .   C5 . E5 . G5 . - C6 . Bb5 . A5 G5 . E5 .
+        D6 - D6 - C6 - A5 . - F5 . G5 . A5 - -      D5 F5 A5 D6 . . C6 A5 . F5 . D5 . E5 F5 .
+        G5 . Bb5 . D6 . C6 Bb5 . A5 . G5 . F5 . -   E5 . C#5 . A4 . - C#5 E5 A5 . G5 F5 E5 D5 C#5` },
+      { wave: 'pulse12', vol: 0.022, notes: arpLine(ch, [0, null, 2, null, 1, null, 2, 0, null, 2, null, 1, 2, null, 1, null]) },
+      { wave: 'square', vol: 0.045, notes: bassLine(ch, [0, '.', 12, null, 0, null, 12, '.', null, 0, 12, null, 10, '.', 7, '.']) },
+    ], drums: `k-h-s-hkk-h-s-hh k-h-s-hkk-h-s-hh k-h-s-hkk-h-s-hh k-h-s-hkk-h-sshs
+               k-h-s-hkk-h-s-hh k-h-s-hkk-h-s-hh k-h-s-hkk-h-s-hh k-h-s-hkssssssss` };
+  }
+  // ---- WAX AND WANE (Candlemaw): a grand, mournful march, C minor
+  {
+    const ch = ['C3 Eb3 G3', 'Ab2 C3 Eb3', 'Eb3 G3 Bb3', 'Bb2 D3 F3', 'C3 Eb3 G3', 'Ab2 C3 Eb3', 'F3 Ab3 C4', 'G2 B2 D3'];
+    S.candle = { name: 'Wax and Wane', bpm: 124, tracks: [
+      { wave: 'pulse25', vol: 0.055, vib: true, notes: `
+        G4 . . . C5 . . . Eb5 . D5 . C5 . . .   Ab4 . . . C5 . Eb5 . Ab5 . . . G5 . F5 .
+        G5 . . . Eb5 . . . Bb4 . Eb5 . G5 . . .  F5 . . . D5 . Bb4 . F5 . . . G5 . Ab5 .
+        G5 . . . . . Eb5 . C6 . . . Bb5 . Ab5 .  G5 . Ab5 . G5 . Eb5 . C5 . . . Eb5 . . .
+        F5 . Ab5 . C6 . . . Bb5 . Ab5 . G5 . F5 . G5 . . . B4 . D5 . G5 . . . - - - -` },
+      { wave: 'triangle', vol: 0.035, notes: padLine(ch, 1) },
+      { wave: 'triangle', vol: 0.035, notes: padLine(ch, 2) },
+      { wave: 'pulse12', vol: 0.018, notes: arpLine(ch, [0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 3]) },
+      { wave: 'square', vol: 0.045, notes: bassLine(ch, [0, '.', 12, '.', 0, '.', 12, '.', 0, '.', 12, '.', 0, '.', 7, '.']) },
+    ], drums: `k---s---k-k-s--- k---s---k-k-s--- k---s---k-k-s--- k---s---k-k-ssss` };
+  }
+  // ---- HIGH NOON (Deadeye, yellow): galloping western, E minor
+  {
+    const ch = ['E3 G3 B3', 'E3 G3 B3', 'A2 C3 E3', 'B2 D#3 F#3', 'E3 G3 B3', 'C3 E3 G3', 'A2 C3 E3', 'B2 D#3 F#3'];
+    S.yellow = { name: 'High Noon', bpm: 132, tracks: [
+      { wave: 'pulse25', vol: 0.055, vib: true, notes: `
+        E5 . . . B4 . . E5 G5 . F#5 . E5 . . .   B5 . . . A5 G5 F#5 . G5 . . . - - - -
+        A5 . . . E5 . . A5 C6 . B5 . A5 . . .    D#5 . . . F#5 . A5 . B5 . . . - - D#5 .
+        E5 . G5 . B5 . E6 . . . D6 . C6 . B5 .   C6 . . . G5 . E5 . G5 . C6 . B5 . . .
+        A5 . C6 . E6 . . . D6 C6 B5 . A5 . . .   B5 . . . A5 . G5 . F#5 . D#5 . B4 . . .` },
+      { wave: 'pulse12', vol: 0.02, notes: arpLine(ch, [0, null, 1, 2, 0, null, 1, 2, 0, null, 1, 2, 0, null, 2, 1]) },
+      { wave: 'triangle', vol: 0.1, notes: bassLine(ch, [0, '.', 0, 0, 7, '.', 7, 7, 0, '.', 0, 0, 7, '.', 5, 7]) },
+    ], drums: `k-hhs-hhk-hhs-hh k-hhs-hhk-hhs-hh k-hhs-hhk-hhs-hh k-hhs-hhk-hhsshs` };
+  }
+  // ---- SUNDOWN DRIVE (Deadeye, blue): relentless, spinning 16ths, E minor
+  {
+    const ch = ['E3 G3 B3', 'D3 F#3 A3', 'C3 E3 G3', 'B2 D#3 F#3', 'E3 G3 B3', 'D3 F#3 A3', 'C3 E3 G3', 'B2 D#3 F#3'];
+    S.blue = { name: 'Sundown Drive', bpm: 168, tracks: [
+      { wave: 'square', vol: 0.045, vib: true, notes: `
+        B5 . . . G5 . . . E5 . F#5 . G5 . A5 .   A5 . . . F#5 . . . D5 . E5 . F#5 . G5 .
+        G5 . . . E5 . . . C5 . D5 . E5 . G5 .    F#5 . . . D#5 . . . B4 . . . D#5 . F#5 .
+        E6 . . . B5 . . . G5 . B5 . E6 . G6 .    F#6 . . . D6 . . . A5 . D6 . F#6 . A6 .
+        G6 . E6 . C6 . G5 . E6 . C6 . G5 . E5 .  F#5 . A5 . B5 . D#6 . F#6 . . . - - - -` },
+      { wave: 'pulse12', vol: 0.028, notes: arpLine(ch, [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 4, 3, 2, 1, 2, 3]) },
+      { wave: 'square', vol: 0.042, notes: bassLine(ch, [0, null, 12, null, 0, null, 12, null, 0, null, 12, null, 0, 12, 10, 12]) },
+    ], drums: `k-h-s-h-k-hks-hh k-h-s-h-k-hks-hh k-h-s-h-k-hks-hh k-h-s-h-kkssssss` };
+  }
+  return S;
+})();
+const SONGS = Object.fromEntries(Object.entries(SONG_DEFS).map(([k, d]) => [k, makeSong(d)]));
+// frantic versions: same songs, faster
+SONGS.neo2 = Object.assign({}, SONGS.neo, { bpm: 172 });
+SONGS.candle2 = Object.assign({}, SONGS.candle, { bpm: 150 });
+
+const Music = { song: null, step: 0, next: 0, bus: null, waves: null, noise: null };
+function musicInit() {
+  if (Music.bus || !AC) return;
+  Music.bus = AC.createGain(); Music.bus.gain.value = muted ? 0 : 0.6; Music.bus.connect(AC.destination);
+  const pulse = duty => { const n = 32, re = new Float32Array(n), im = new Float32Array(n); for (let k = 1; k < n; k++) im[k] = 2 / (k * Math.PI) * Math.sin(k * Math.PI * duty); return AC.createPeriodicWave(re, im); };
+  Music.waves = { pulse25: pulse(0.25), pulse12: pulse(0.125) };
+  const buf = AC.createBuffer(1, AC.sampleRate * 0.5, AC.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  Music.noise = buf;
+}
+function playNote(freq, t, dur, wave, vol, vib) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  if (Music.waves[wave]) o.setPeriodicWave(Music.waves[wave]); else o.type = wave;
+  o.frequency.setValueAtTime(freq, t);
+  if (vib && dur > 0.2) {
+    const l = AC.createOscillator(), lg = AC.createGain();
+    l.frequency.value = 5.5; lg.gain.value = freq * 0.012;
+    l.connect(lg).connect(o.frequency); l.start(t + 0.12); l.stop(t + dur);
+  }
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.006);
+  g.gain.setValueAtTime(vol * 0.8, t + Math.max(0.012, dur - 0.03));
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(Music.bus); o.start(t); o.stop(t + dur + 0.02);
+}
+function playDrum(kind, t) {
+  if (kind === 'k') {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+    g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    o.connect(g).connect(Music.bus); o.start(t); o.stop(t + 0.15);
+    return;
+  }
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = Music.noise; f.type = 'highpass'; f.frequency.value = kind === 's' ? 1200 : 7000;
+  const len = kind === 's' ? 0.12 : 0.035, vol = kind === 's' ? 0.07 : 0.025;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  s.connect(f).connect(g).connect(Music.bus); s.start(t); s.stop(t + len + 0.01);
+}
+function setSong(song) {
+  if (Music.song === song) return;
+  Music.song = song; Music.step = 0;
+  if (AC) Music.next = AC.currentTime + 0.08;
+}
+// schedule notes a little ahead of the audio clock
+function musicTick() {
+  if (!AC) return;
+  musicInit();
+  Music.bus.gain.value = muted ? 0 : 0.6;
+  const song = Music.song;
+  if (!song) return;
+  const dt = 60 / song.bpm / 4;
+  if (Music.next < AC.currentTime - 0.5) Music.next = AC.currentTime + 0.05;
+  while (Music.next < AC.currentTime + 0.15) {
+    const i = Music.step, t = Music.next;
+    for (const tr of song.tracks) {
+      const e = tr.ev.find(e => e.step === i % tr.len);
+      if (e) playNote(hz(e.midi), t, e.len * dt * 0.95, tr.wave, tr.vol, tr.vib);
+    }
+    const dk = song.drums[i % (song.drums.length || 1)];
+    if (dk && dk !== '-') playDrum(dk, t);
+    Music.next += dt;
+    Music.step = (i + 1) % song.len;
+  }
+}
+function wantedSong() {
+  if (G.state === 'title') return SONGS.title;
+  if (G.state === 'victory' || G.state === 'gameover') return null;
+  const b = G.boss;
+  return SONGS[G.phase2 && b.song2 ? b.song2 : b.song];
+}
 
 // ---------------------------------------------------------------- data
 const PARTY_DEF = [
@@ -1005,7 +1190,7 @@ const BASE_ACTS = [
 ];
 const BOSSES = {
   neo: {
-    id: 'neo', name: 'MARIONETTE NEO', hp: 3200, hpHard: 4400, attacks: NEO_ATTACKS, draw: () => drawNeo(),
+    id: 'neo', song: 'neo', song2: 'neo2', name: 'MARIONETTE NEO', hp: 3200, hpHard: 4400, attacks: NEO_ATTACKS, draw: () => drawNeo(),
     blurb: 'A scrap-metal puppet with a cracked grin. 21 acts.',
     light: 'rgba(255,60,90,0.07)',
     check: '* MARIONETTE NEO - AT 28 DF 12. A stage puppet rebuilt from scrap. All it wants is for its show to go well.',
@@ -1025,7 +1210,7 @@ const BOSSES = {
     ],
   },
   candle: {
-    id: 'candle', name: 'CANDLEMAW', hp: 3400, hpHard: 4600, attacks: CANDLE_ATTACKS, draw: () => drawCandle(),
+    id: 'candle', song: 'candle', song2: 'candle2', name: 'CANDLEMAW', hp: 3400, hpHard: 4600, attacks: CANDLE_ATTACKS, draw: () => drawCandle(),
     blurb: 'A haunted candle of BLUE and ORANGE fire. 12 acts.',
     light: 'rgba(255,170,80,0.08)',
     check: '* CANDLEMAW - AT 30 DF 10. A chapel candle that has burned alone for centuries. It is terrified of going out.',
@@ -1047,7 +1232,7 @@ const BOSSES = {
   },
 };
 BOSSES.deadeye = {
-  id: 'deadeye', name: 'DEADEYE', hp: 3000, hpHard: 4200, attacks: DEADEYE_YELLOW, attacks2: DEADEYE_BLUE, mercySwitch: true,
+  id: 'deadeye', song: 'yellow', song2: 'blue', name: 'DEADEYE', hp: 3000, hpHard: 4200, attacks: DEADEYE_YELLOW, attacks2: DEADEYE_BLUE, mercySwitch: true,
   // One ACT: steady MERCY, but every use makes its attacks stronger.
   simpleAct: true, actStep: 7, actStepHard: 5, draw: () => drawDeadeye(),
   blurb: 'A ghost gunslinger. YELLOW SOUL, then BLUE SOUL. 12 acts.',
@@ -2937,6 +3122,7 @@ function draw() {
 
   if (G.state === 'title') drawTitle();
   if (G.state === 'gameover') drawGameOver();
+  if (Music.song && !muted && G.state !== 'title') txt('♪ ' + Music.song.name, 8, H - 4, { size: 11, base: 'bottom', color: COL.dim });
   if (muted) txt('MUTED', W - 8, H - 4, { size: 10, font: HEAD_FONT, align: 'right', base: 'bottom', color: COL.dim });
 }
 
@@ -2948,6 +3134,8 @@ function frame(now) {
   acc += Math.min(100, now - last);
   last = now;
   while (acc >= STEP) { step(); pressed.clear(); acc -= STEP; }
+  setSong(wantedSong());
+  musicTick();
   draw();
   requestAnimationFrame(frame);
 }

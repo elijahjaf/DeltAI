@@ -6,6 +6,18 @@ All art is 16-bit style pixel art. Each sprite is drawn in code at low resolutio
 
 **Play:** open `index.html` in any modern browser. It has no build step and no dependencies. It uses Google Fonts when online and falls back to a monospace font offline.
 
+## Music
+
+Every screen has its own original chiptune track, synthesized live with the Web Audio API (there are no audio files). The tracks are written in the style of Toby Fox's boss themes: pulse-wave leads, driving bass and busy arpeggios. Press **M** to mute music and sound effects.
+
+| Track | Plays during | Style |
+| --- | --- | --- |
+| Last Wish | title screen | gentle and hopeful, F major |
+| Strings Attached | Marionette NEO | funky, jazzy and glitchy, D minor; speeds up when it turns frantic |
+| Wax and Wane | Candlemaw | a grand, mournful march, C minor; speeds up when its flames turn blue |
+| High Noon | Deadeye, YELLOW SOUL half | a galloping western with a harmonica-like lead, E minor |
+| Sundown Drive | Deadeye, BLUE SOUL half | relentless spinning 16ths, E minor |
+
 ## Controls
 
 | Key | Action |
@@ -13,7 +25,7 @@ All art is 16-bit style pixel art. Each sprite is drawn in code at low resolutio
 | Arrow keys / WASD | Move the menu cursor or the heart |
 | Z / Enter / Space | Confirm, or strike during FIGHT |
 | X / Shift | Go back. Hold while dodging to move slowly |
-| M | Sound on or off |
+| M | Music and sound on or off |
 
 On the title screen, use the arrow keys to pick **Normal** or **Hard**.
 
