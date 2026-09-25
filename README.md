@@ -1,6 +1,6 @@
 # Last Wish
 
-A Deltarune-style turn-based battle that runs in the browser. Three heroes fight one of three bosses: Marionette NEO, a half-puppet, half-robot horror; Candlemaw, a haunted candle; or Deadeye, a ghost gunslinger. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
+A Deltarune-style turn-based battle that runs in the browser. Three heroes fight one of four bosses: Marionette NEO, a half-puppet, half-robot horror; Candlemaw, a haunted candle; Deadeye, a ghost gunslinger; or Encore, a masked phantom that remixes them all. On the enemy's turn you steer a heart through bullet patterns inside the battle box.
 
 All art is 16-bit style pixel art. Each sprite is drawn in code at low resolution, given a dark outline, and scaled up 2x. There are no image files.
 
@@ -16,7 +16,10 @@ Every screen has its own original chiptune track, synthesized live with the Web 
 | Strings Attached | Marionette NEO | funky, jazzy and glitchy, D minor; speeds up when it turns frantic |
 | Wax and Wane | Candlemaw | a grand, mournful march, C minor; speeds up when its flames turn blue |
 | High Noon | Deadeye, YELLOW SOUL half | a galloping western with a harmonica-like lead, E minor |
+| The Last Encore | Encore | a restless medley in B minor; speeds up when it turns frantic |
 | Sundown Drive | Deadeye, BLUE SOUL half | relentless spinning 16ths, E minor |
+
+Numbers in the game use a custom 5×7 pixel digit set so that every digit is easy to tell apart: 2 has a flat base and a diagonal, 8 has two loops, and 0 is slashed.
 
 ## Controls
 
@@ -130,9 +133,30 @@ A skeletal ghost gunslinger in a wide-brim hat and striped poncho, trailing smok
 
 It has one ACT besides Check: **Accept Duel**. Each use raises MERCY 7% (5% on Hard), but also makes every one of Deadeye's attacks deal 5% more damage, stacking for the rest of the fight. Reaching 50% MERCY this way also flips your heart to BLUE.
 
+### Encore (3600 HP)
+
+A phantom conductor in a star-lined cloak and a split comedy/tragedy mask, with the masks of the other three bosses orbiting it. Its eyes glow the color of your current SOUL. Every attack remixes another boss's tricks in a new way, and Encore **switches your SOUL between red, yellow and blue**, sometimes in the middle of an attack.
+
+| Attack | SOUL | What happens |
+| --- | --- | --- |
+| Masquerade | red | a breathing ring of masks orbits the center and flicks cards at you |
+| Shooting Gallery | yellow | conveyor rows of targets and TNT glide past; some shoot back |
+| Rising Tide | blue | wax rises under you while orange embers fall and cacti slide in |
+| Conductor's Baton | red | a spinning baton that blinks, then flips between blue and orange |
+| Candle Duel | yellow | shoot falling candles, and each one drips blue wax |
+| Gravity Flip | blue | gravity flips up and down; Z always jumps away from the side you're on |
+| Spotlight Solo | red | stay inside a wandering spotlight, because the darkness around it hurts |
+| Bell Toll | yellow | shoot bells swinging on long ropes |
+| Soul Swap | all | your SOUL cycles red → yellow → blue every few seconds |
+| Prism | red | blue and orange beams plus falling shards |
+| Curtain Crossfire | red | blue curtains fall while fans of white cards fly in |
+| Final Encore | all | everything at once, with fast SOUL swaps |
+
+Its ACTs are a gamble. **Applaud** gives a safe +6% MERCY (5% on Hard). **Cry Encore!** gives +14% (11%), but its next attack comes at full fury. Its theme is **The Last Encore**, a restless B-minor medley that speeds up when it turns frantic.
+
 ## Hard Mode
 
-- Marionette NEO has 4400 HP, Candlemaw 4600 and Deadeye 4200.
+- Marionette NEO has 4400 HP, Candlemaw 4600, Deadeye 4200 and Encore 4800.
 - Every attack runs at its frantic level from turn one and deals about 15% more damage.
 - Bullets are 10% faster, rising to 20% once the enemy is below half HP.
 - MERCY rises more slowly: 15% per correct ACT against Marionette NEO (instead of 18%) and 6% per Keep Vigil against Candlemaw (instead of 8%).

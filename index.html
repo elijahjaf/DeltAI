@@ -141,7 +141,7 @@
 <div class="wrap">
   <header>
     <h1>LAST WISH</h1>
-    <p>Three heroes against Marionette NEO, Candlemaw or Deadeye</p>
+    <p>Three heroes against four bosses</p>
   </header>
 
   <div class="tabs" role="tablist" aria-label="Page sections">
@@ -251,7 +251,7 @@
         <li><span class="tag blue">BLUE</span> bullets only hurt while you move. Stand still and let them pass.</li>
         <li><span class="tag orange">ORANGE</span> bullets only hurt while you stand still. Keep moving through them.</li>
         <li><span class="tag yellow">YELLOW HEART</span> The heart flips upside down and <b>Z fires shots upward</b>. Yellow objects break when shot. Yellow <b>TNT</b> freezes in place, flashes a warning cross, then blasts its whole row and column. The blast only hurts you, so stay out of the lines!</li>
-        <li><span class="tag blue">BLUE HEART</span> Gravity pulls the heart down. <b>Tap Z</b> for a short hop and <b>hold Z</b> for a full jump. You can land on platforms.</li>
+        <li><span class="tag blue">BLUE HEART</span> Gravity pulls the heart down. <b>Tap Z</b> for a short hop and <b>hold Z</b> for a full jump. You can land on platforms. If gravity flips, Z jumps away from whichever side you're standing on.</li>
         <li><span class="tag red">HAZARDS</span> Some attacks add darkness, reversed controls, strings that drag you, wind, slowing wax puddles, or a shrinking box. The <b>Attack guide</b> below explains each one.</li>
       </ul>
     </section>
@@ -262,6 +262,7 @@
         <div class="card"><h3>MARIONETTE NEO</h3><p>A scrap-metal puppet with 21 attacks. It turns frantic below half HP.</p><p><b>ACT:</b> each turn's flavor text hints at its mood. Pick the matching ACT (Applaud, Dance, Oil Joints or Untangle) for +18% MERCY. <b>Reveal</b> shows the right answer next turn.</p></div>
         <div class="card"><h3>CANDLEMAW</h3><p>A haunted candle with 12 attacks built on <span class="tag blue">BLUE</span> and <span class="tag orange">ORANGE</span> fire.</p><p><b>ACT:</b> <b>Keep Vigil</b> always works: +8% MERCY every time.</p></div>
         <div class="card"><h3>DEADEYE</h3><p>A ghost gunslinger. The first half uses the <span class="tag yellow">YELLOW HEART</span>. At half HP or half MERCY it switches to the <span class="tag blue">BLUE HEART</span>.</p><p><b>ACT:</b> <b>Accept Duel</b> gives +7% MERCY, but each use makes its attacks hit 5% harder.</p></div>
+        <div class="card"><h3>ENCORE</h3><p>A masked phantom that remixes every other boss's tricks and switches your heart between <span class="tag red">RED</span> <span class="tag yellow">YELLOW</span> and <span class="tag blue">BLUE</span>, sometimes mid-attack. Gravity can even flip.</p><p><b>ACT:</b> <b>Applaud</b> gives a safe +6% MERCY. <b>Cry Encore!</b> gives +14%, but its next attack comes at full fury.</p></div>
       </div>
     </section>
 
@@ -558,12 +559,27 @@ const SONG_DEFS = (() => {
       { wave: 'square', vol: 0.042, notes: bassLine(ch, [0, null, 12, null, 0, null, 12, null, 0, null, 12, null, 0, 12, 10, 12]) },
     ], drums: `k-h-s-h-k-hks-hh k-h-s-h-k-hks-hh k-h-s-h-k-hks-hh k-h-s-h-kkssssss` };
   }
+  // ---- THE LAST ENCORE (Encore): a restless medley, B minor
+  {
+    const ch = ['B2 D3 F#3', 'G2 B2 D3', 'D3 F#3 A3', 'A2 C#3 E3', 'B2 D3 F#3', 'G2 B2 D3', 'E3 G3 B3', 'F#2 A#2 C#3'];
+    S.encore = { name: 'The Last Encore', bpm: 160, tracks: [
+      { wave: 'square', vol: 0.05, vib: true, notes: `
+        B4 . D5 . F#5 . B5 . A5 . F#5 . D5 . E5 .     D5 . . . B4 . . . G4 . B4 . D5 . G5 .
+        F#5 . . . A5 . . . D6 . C#6 . A5 . F#5 .      E5 . . . C#5 . E5 . A5 . . . G5 F#5 E5 C#5
+        B5 . . . - B5 A5 . B5 . D6 . F#6 . . .        G6 . F#6 . D6 . B5 . G5 . B5 . D6 . . .
+        E6 . D6 . B5 . G5 . E5 . G5 . B5 . E6 .       F#5 . A#5 . C#6 . F#6 . . . E6 D6 C#6 A#5 . .` },
+      { wave: 'pulse12', vol: 0.024, notes: arpLine(ch, [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 4, 3, 2, 1, 0, 2]) },
+      { wave: 'triangle', vol: 0.03, notes: padLine(ch, 1) },
+      { wave: 'square', vol: 0.044, notes: bassLine(ch, [0, null, 12, null, 0, 12, null, 12, 0, null, 12, null, 7, null, 10, 12]) },
+    ], drums: `k-h-s-hkk-hks-hh k-h-s-hkk-hks-hh k-h-s-hkk-hks-hh k-h-s-hkssss-sss` };
+  }
   return S;
 })();
 const SONGS = Object.fromEntries(Object.entries(SONG_DEFS).map(([k, d]) => [k, makeSong(d)]));
 // frantic versions: same songs, faster
 SONGS.neo2 = Object.assign({}, SONGS.neo, { bpm: 172 });
 SONGS.candle2 = Object.assign({}, SONGS.candle, { bpm: 150 });
+SONGS.encore2 = Object.assign({}, SONGS.encore, { bpm: 184 });
 
 const Music = { song: null, step: 0, next: 0, bus: null, waves: null, noise: null };
 function musicInit() {
@@ -1511,6 +1527,190 @@ const curAttack = () => {
   if (b.attacks2 && G.phase2) return b.attacks2[(G.turn - G.phaseTurn) % b.attacks2.length];
   return b.attacks[G.turn % b.attacks.length];
 };
+
+// ---------------------------------------------------------------- ENCORE
+// A phantom that performs every act at once: its attacks remix the other bosses'
+// tricks and it swaps your SOUL between red, yellow and blue, sometimes mid-attack.
+function setSoul(mode) {
+  const S = G.soul;
+  if (S.mode === mode) return;
+  S.mode = mode; S.vy = 0; S.ground = false; S.grav = 1; S.slammed = false;
+  G.shots = [];
+  G.bullets = G.bullets.filter(b => !b.solid || b.keep);
+  sfx('select');
+  sparkle(S.x, S.y, mode === 'yellow' ? '#ffe14a' : mode === 'blue' ? '#2ea8ff' : '#ff2a3d', 12, 2);
+}
+const colorFlag = blue => blue ? { blue: true } : { orange: true };
+const ENCORE_ATTACKS = [
+  { name: 'MASQUERADE', soul: 'red', hint: '* ENCORE twirls, and a ring of old masks begins to dance.', w: 230, h: 210, dur: 420, dmg: 24,
+    tip: 'Masks orbit the center and flick cards at you. Mind the ring as it breathes in and out.',
+    init(A) {
+      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2 - 10, n = A.lvl > 1 ? 8 : 6;
+      for (let k = 0; k < n; k++) spawn({ x: cx, y: cy, r: 9, warn: 45, life: A.dur, cull: false, draw: drawHead, d: { burst: 99999, k, n },
+        upd: b => { const A = G.A, a = A.t * (A.lvl > 1 ? 0.03 : 0.022) + b.d.k * Math.PI * 2 / b.d.n, r = 52 + Math.sin(A.t * 0.03) * 24; b.x = cx + Math.cos(a) * r; b.y = cy + Math.sin(a) * r; } });
+      G.bullets.forEach(b => { if (b.upd) { const w = b.warn; b.warn = 0; b.upd(b); b.warn = w; } });
+    },
+    update(A) {
+      if (A.t < 50 || A.t % (A.lvl > 1 ? 12 : 16) !== 0 || A.t > A.dur - 40) return;
+      const m = choice(G.bullets.filter(b => b.draw === drawHead));
+      if (!m) return;
+      const a = Math.atan2(G.soul.y - m.y, G.soul.x - m.x);
+      spawn({ kind: 'rect', x: m.x, y: m.y, vx: Math.cos(a) * 2.2, vy: Math.sin(a) * 2.2, w: 12, h: 8, ang: a, draw: drawCard });
+    } },
+  { name: 'SHOOTING GALLERY', soul: 'yellow', hint: '* ENCORE opens a carnival shooting gallery. Step right up!', w: 260, h: 200, dur: 440, dmg: 22,
+    tip: 'Shoot the targets as they glide past. Some shoot back, and TNT blasts its row and column.',
+    update(A) {
+      const B = G.box, sp = (A.lvl > 1 ? 1.6 : 1.2);
+      for (let row = 0; row < 3; row++) {
+        if ((A.t + row * 13) % 40 !== 0 || A.t > A.dur - 80) continue;
+        const dir = row % 2 ? -1 : 1, y = B.y + 22 + row * 30, x = dir > 0 ? B.x - 12 : B.x + B.w + 12;
+        if (Math.random() < 0.2) tnt({ x, y, vx: dir * sp });
+        else spawn({ x, y, vx: dir * sp, r: 8, yellow: true, draw: drawOutlaw, upd: b => { if (b.y > G.box.y + 70 && Math.random() < 0.012) spawn({ x: b.x, y: b.y + 8, vy: 2.2, r: 3, draw: drawPellet }); } });
+      }
+    } },
+  { name: 'RISING TIDE', soul: 'blue', hint: '* Wax pours onto the stage. ENCORE conducts the rising tide.', w: 300, h: 150, dur: 440, dmg: 24,
+    tip: 'The wax tide rises! Keep moving through the ORANGE embers and hop the cacti.', fill: '#b9a988',
+    update(A) {
+      const B = G.box, k = Math.min(1, A.t / (A.dur * 0.7));
+      B.h = 150 - (A.lvl > 1 ? 60 : 45) * k;
+      if (A.t % (A.lvl > 1 ? 5 : 7) === 0 && A.t < A.dur - 40) spawn({ x: rnd(B.x + 4, B.x + B.w - 4), y: B.y - 8, vy: rnd(1.6, 2.2), r: 4, orange: true, draw: drawEmber });
+      if (A.t % (A.lvl > 1 ? 60 : 80) === 30 && A.t < A.dur - 60) cactus(A, 18);
+    } },
+  { name: "CONDUCTOR'S BATON", soul: 'red', hint: "* ENCORE raises its baton. The orchestra of the dead begins.", w: 220, h: 220, dur: 420, dmg: 26,
+    tip: 'The baton flips between BLUE and ORANGE. Watch it blink before it changes.',
+    init(A) {
+      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2;
+      spawn({ kind: 'rect', x: cx, y: cy, w: 330, h: 8, ang: 0.3, warn: 60, life: A.dur - 10, cull: false, blue: true, draw: drawBaton, keep: true,
+        upd: b => {
+          b.ang += (G.A.lvl > 1 ? 0.028 : 0.021) * G.A.spd;
+          if (b.age % 130 === 0 && b.age > 60) { const blue = !b.blue; b.blue = blue; b.orange = !blue; }
+        } });
+      spawn({ x: cx, y: cy, solid: false, life: A.dur, cull: false, draw: drawPivot });
+    },
+    update(A) { if (A.t > 70) crossers(A, A.lvl > 1 ? 28 : 38, 1.6, drawNote); } },
+  { name: 'CANDLE DUEL', soul: 'yellow', hint: '* ENCORE lights a row of candles and dares you to snuff them.', w: 240, h: 200, dur: 420, dmg: 24,
+    tip: 'Shoot the yellow candles. Each one drips BLUE wax, so hold still under it.',
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 50 : 64) !== 0 || A.t > A.dur - 120) return;
+      const n = A.lvl > 1 ? 5 : 4;
+      for (let k = 0; k < n; k++) spawn({ x: B.x + (k + 0.5) * B.w / n + rnd(-10, 10), y: B.y - 10, vy: 0.7, r: 7, yellow: true, draw: drawYCandle,
+        onShot: b => { b.dead = true; sfx('crack'); sparkle(b.x, b.y, '#ffe14a', 6, 1.6); for (let i = 0; i < 3; i++) spawn({ x: b.x + (i - 1) * 10, y: b.y, vy: 1.6 + i * 0.3, ay: 0.03, r: 5, blue: true, draw: drawWax }); } });
+    } },
+  { name: 'GRAVITY FLIP', soul: 'blue', hint: '* ENCORE flips the stage upside down. The audience gasps.', w: 300, h: 150, dur: 440, dmg: 26,
+    tip: 'Gravity flips! Z always jumps away from whichever side you are standing on.',
+    update(A) {
+      const B = G.box, S = G.soul, every = A.lvl > 1 ? 90 : 110;
+      if (A.t % every === every - 24 && A.t < A.dur - 40) A.d.warnFlip = 24;
+      if (A.d.warnFlip > 0 && --A.d.warnFlip === 0) { S.grav = -(S.grav || 1); S.ground = false; G.shake = 6; sfx('zap'); }
+      if (A.t % (A.lvl > 1 ? 44 : 56) === 20 && A.t < A.dur - 60) {
+        const top = (S.grav || 1) < 0, h = Math.random() < 0.5 ? 20 : 36;
+        spawn({ kind: 'rect', x: B.x + B.w + 10, y: top ? B.y + h / 2 : B.y + B.h - h / 2, w: 12, h, vx: -(A.lvl > 1 ? 2.8 : 2.4), draw: drawCactus, ang: top ? Math.PI : 0 });
+      }
+    } },
+  { name: 'SPOTLIGHT SOLO', soul: 'red', hint: '* A single spotlight finds you. ENCORE demands a solo.', w: 240, h: 200, dur: 420, dmg: 22,
+    tip: 'Stay inside the spotlight. The darkness around it hurts!',
+    init(A) {
+      const B = G.box;
+      spawn({ kind: 'ring', x: B.x + B.w / 2, y: B.y + B.h / 2, R: 500, thick: 600, life: A.dur - 10, cull: false, keep: true, draw: drawSpot, d: { r: 200 },
+        upd: b => {
+          const A = G.A, B = G.box, target = A.lvl > 1 ? 46 : 56;
+          b.d.r = Math.max(target, b.d.r - 2.2); b.R = b.d.r + 300;
+          if (A.t > 80) { b.x = B.x + B.w / 2 + Math.sin(A.t * 0.017) * (B.w / 2 - target - 8); b.y = B.y + B.h / 2 + Math.sin(A.t * 0.023 + 1) * (B.h / 2 - target - 8); }
+        } });
+    },
+    update(A) {
+      const spot = G.bullets.find(b => b.draw === drawSpot);
+      if (!spot || A.t < 90 || A.t % (A.lvl > 1 ? 14 : 20) !== 0 || A.t > A.dur - 40) return;
+      needle(spot.x + rnd(-40, 40), G.box.y - 10, 0, 2.4);
+    } },
+  { name: 'BELL TOLL', soul: 'yellow', hint: '* Bells swing from the rafters. ENCORE rings them one by one.', w: 240, h: 200, dur: 420, dmg: 24,
+    tip: 'Shoot the swinging bells before they reach you.',
+    update(A) {
+      const B = G.box, n = A.lvl > 1 ? 4 : 3;
+      if (A.t % 45 !== 0 || A.t > A.dur - 80 || G.bullets.filter(b => b.bell).length >= n) return;
+      const slots = [0.2, 0.4, 0.6, 0.8], ax = B.x + B.w * choice(slots), L = rnd(110, 160), ph = rnd(0, 6);
+      spawn({ x: ax, y: B.y + L, r: 10, yellow: true, bell: true, warn: 24, cull: false, life: 600, draw: drawBell, d: { ax, ay: B.y - 4, L, ph },
+        upd: b => { const a = Math.sin(b.age * 0.035 * (G.A.lvl > 1 ? 1.3 : 1) + b.d.ph) * 1.0; b.x = b.d.ax + Math.sin(a) * b.d.L; b.y = b.d.ay + Math.cos(a) * b.d.L; } });
+    } },
+  { name: 'SOUL SWAP', soul: 'red', hint: '* ENCORE snaps its fingers. Your SOUL flickers through every color.', w: 250, h: 190, dur: 480, dmg: 24,
+    tip: 'Your SOUL changes color every few seconds: RED dodge, YELLOW shoot, BLUE jump.',
+    update(A) {
+      const B = G.box, seg = Math.floor(A.t / 120) % 3, mode = ['red', 'yellow', 'blue'][seg];
+      if (A.t % 120 === 0 && A.t > 0) setSoul(mode);
+      if (A.t > A.dur - 50 || A.t % 120 < 20) return;
+      if (mode === 'red' && A.t % 7 === 0) needle(rnd(B.x + 4, B.x + B.w - 4), B.y - 12, 0, rnd(2.4, 3.4));
+      if (mode === 'yellow' && A.t % 30 === 0) for (let k = 0; k < 3; k++) bottle({ x: rnd(B.x + 14, B.x + B.w - 14), y: B.y - 10 - k * 12, vy: 1 });
+      if (mode === 'blue' && A.t % 40 === 0) cactus(A, Math.random() < 0.5 ? 20 : 34);
+    } },
+  { name: 'PRISM', soul: 'red', hint: '* ENCORE holds up a prism. The light splits BLUE and ORANGE.', w: 240, h: 200, dur: 420, dmg: 28,
+    tip: 'Colored beams: BLUE hold still, ORANGE keep moving. White shards still hurt.',
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 44 : 58;
+      if (A.t % every === 10 && A.t < A.dur - 70) {
+        A.d.n = (A.d.n || 0) + 1;
+        const col = colorFlag(A.d.n % 2 === 1);
+        if (A.d.n % 3 === 0) spawn({ kind: 'rect', x: soulClampX(12), y: B.y + B.h / 2, w: 24, h: B.h + 40, warn: 40, life: 58, cull: false, ...col, draw: drawBeam, onArm: beamArm });
+        else spawn({ kind: 'rect', x: B.x + B.w / 2, y: soulClampY(12), w: B.w + 40, h: 24, warn: 40, life: 58, cull: false, ...col, draw: drawBeam, onArm: beamArm });
+      }
+      if (A.t % (A.lvl > 1 ? 24 : 34) === 0 && A.t < A.dur - 40) spawn({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 8, vy: rnd(1.4, 2), r: 4, draw: drawShard });
+    } },
+  { name: 'CURTAIN CROSSFIRE', soul: 'red', hint: '* The curtains fall BLUE while ENCORE deals cards from both wings.', w: 240, h: 190, dur: 420, dmg: 24,
+    tip: 'BLUE curtains pass through you if you hold still, but the white cards still need dodging.',
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 60 : 75) === 0 && A.t < A.dur - 90) spawn({ kind: 'rect', x: B.x + B.w / 2, y: B.y - 10, w: B.w + 10, h: 16, vy: 1.4, blue: true, draw: drawWall });
+      if (A.t % (A.lvl > 1 ? 36 : 48) === 24 && A.t < A.dur - 50) {
+        const left = Math.random() < 0.5, x = left ? B.x - 8 : B.x + B.w + 8, y = rnd(B.y + 20, B.y + B.h - 20), a = Math.atan2(G.soul.y - y, G.soul.x - x);
+        for (let k = -1; k <= 1; k++) spawn({ kind: 'rect', x, y, vx: Math.cos(a + k * 0.22) * 2.2, vy: Math.sin(a + k * 0.22) * 2.2, w: 12, h: 8, ang: a + k * 0.22, draw: drawCard });
+      }
+    } },
+  { name: 'FINAL ENCORE', soul: 'red', hint: '* ENCORE takes center stage for its last and greatest act.', w: 250, h: 190, dur: 540, dmg: 26,
+    tip: 'The whole show at once, and your SOUL keeps changing. Good luck!',
+    update(A) {
+      const B = G.box, seg = Math.floor(A.t / 90) % 3, mode = ['red', 'yellow', 'blue'][seg];
+      if (A.t % 90 === 0 && A.t > 0) setSoul(mode);
+      if (A.t > A.dur - 50 || A.t % 90 < 16) return;
+      if (mode === 'red') {
+        if (A.t % 9 === 0) needle(rnd(B.x + 4, B.x + B.w - 4), B.y - 12, rnd(-0.4, 0.4), rnd(2.4, 3.4));
+        if (A.t % 30 === 0) spawn({ kind: 'ring', x: B.x + B.w / 2, y: B.y + B.h / 2, R: 4, thick: 8, blue: true, life: 90, cull: false, draw: drawRing, upd: b => { b.R += 1.5; } });
+      }
+      if (mode === 'yellow') {
+        if (A.t % 24 === 0) bottle({ x: rnd(B.x + 14, B.x + B.w - 14), y: B.y - 10, vy: 1.2 });
+        if (A.t % 90 === 40) tnt({ x: rnd(B.x + 30, B.x + B.w - 30), y: B.y - 10, vy: 0.9 });
+      }
+      if (mode === 'blue') {
+        if (A.t % 36 === 0) cactus(A, Math.random() < 0.5 ? 20 : 34);
+        if (A.t % 90 === 50) spawn({ x: rnd(B.x + 10, B.x + B.w - 10), y: B.y - 8, vy: 2, r: 4, orange: true, draw: drawEmber });
+      }
+    } },
+];
+
+BOSSES.encore = {
+  id: 'encore', song: 'encore', song2: 'encore2', name: 'ENCORE', hp: 3600, hpHard: 4800, attacks: ENCORE_ATTACKS, draw: () => drawEncore(),
+  simpleAct: true,
+  blurb: 'A phantom that performs every act. All SOUL modes. 12 acts.',
+  light: 'rgba(200,140,255,0.08)',
+  check: '* ENCORE - AT 30 DF 15. A phantom that wears the faces of old performers. It never wants the curtain to fall.',
+  intro: '* The curtain rises on its own. ENCORE takes the stage!',
+  phase2: "* ENCORE's masks crack. The show goes into overtime!",
+  winFight: "* ENCORE's masks fall away one by one. The curtain finally closes.",
+  winSpare: '* ENCORE was SPARED! It takes one last, perfect bow.',
+  acts: [
+    { id: 'applaud', name: 'Applaud', step: 6, stepHard: 5, desc: 'Polite applause. Raises MERCY a little, safely.', lines: [
+      '* ASTRA gave ENCORE a warm round of applause. It bowed deeply.',
+      '* ASTRA clapped along to the rhythm. ENCORE seemed pleased.',
+      '* ASTRA whistled from the front row. ENCORE twirled its cloak.',
+    ] },
+    { id: 'encore', name: 'Cry Encore!', step: 14, stepHard: 11, fury: true, desc: 'Beg for more! Raises MERCY a lot, but its next attack is at full fury.', lines: [
+      '* ASTRA shouted "ENCORE!" The phantom trembled with delight.',
+      '* ASTRA begged for one more act. ENCORE cracked its knuckles.',
+      '* ASTRA stomped and cheered for more. ENCORE is ready to give everything.',
+    ] },
+  ],
+};
+BOSS_IDS.push('encore');
+
 const curActs = () => G.boss.simpleAct ? [BASE_ACTS[0], ...G.boss.acts] : [...BASE_ACTS, ...G.boss.acts];
 
 // ---------------------------------------------------------------- round flow
@@ -1656,7 +1856,8 @@ function beginResolve() {
         const simple = G.boss.simpleAct;
         if (!simple && act.id !== curAttack().mood) { sfx('miss'); return `* ${c.name} tried to ${act.verb}... but that isn't what ${e.name} wanted right now.`; }
         const before = e.mercy;
-        const step = simple ? (G.hard ? G.boss.actStepHard : G.boss.actStep) : (G.hard ? MERCY_STEP_HARD : MERCY_STEP);
+        const step = act.step ? (G.hard ? act.stepHard : act.step) : simple ? (G.hard ? G.boss.actStepHard : G.boss.actStep) : (G.hard ? MERCY_STEP_HARD : MERCY_STEP);
+        if (act.fury) G.furyNext = true;
         e.mercy = Math.min(100, e.mercy + step);
         const gain = e.mercy - before;
         G.stats.acts++;
@@ -1664,6 +1865,7 @@ function beginResolve() {
         if (gain > 0) popup(ENEMY_POS.x, ENEMY_POS.y - 80, `+${gain}% MERCY`, COL.gold, 16);
         sparkle(ENEMY_POS.x, ENEMY_POS.y - 40, COL.gold, 12, 2);
         let text = act.lines ? act.lines[(G.stats.acts - 1) % act.lines.length] : act.ok;
+        if (act.fury) text += ' Its next act will be at FULL FURY!';
         if (act.dmgUp) {
           G.dmgBonus = (G.dmgBonus || 0) + act.dmgUp;
           popup(ENEMY_POS.x, ENEMY_POS.y - 100, `ATK +${G.dmgBonus}%`, COL.red, 14);
@@ -1757,9 +1959,10 @@ function updateFight() {
 // ENEMY TURN: dodge inside the box
 function startEnemyTurn() {
   const atk = curAttack();
-  const frantic = G.phase2 && !G.boss.attacks2;
-  const lvl = frantic || G.hard ? 2 : 1;
-  const spd = G.hard ? (frantic ? 1.2 : 1.1) : 1;
+  const frantic = G.phase2 && !G.boss.attacks2, fury = !!G.furyNext;
+  G.furyNext = false;
+  const lvl = frantic || fury || G.hard ? 2 : 1;
+  const spd = (G.hard ? (frantic ? 1.2 : 1.1) : 1) * (fury ? 1.15 : 1);
   G.atk = atk;
   G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1) * (1 + (G.dmgBonus || 0) / 100)) };
   G.boxFrom = { ...TEXTBOX };
@@ -1782,20 +1985,22 @@ function updateDodge() {
   S.x = clamp(S.x + dx * sp, B.x + 8, B.x + B.w - 8);
   if (S.mode === 'blue') {
     // BLUE SOUL: gravity. Z (or Up) jumps; letting go early cuts the jump short.
-    const jump = held.has('ok') || held.has('up');
-    if (S.ground && jump) { S.vy = -6.4; S.ground = false; }
-    if (!jump && S.vy < -3) S.vy = -3;
-    S.vy = Math.min(S.vy + 0.32, S.slammed ? 12 : 7.5);
+    const g = S.grav || 1, jump = held.has('ok') || held.has('up');
+    if (S.ground && jump) { S.vy = -6.4 * g; S.ground = false; }
+    if (!jump && S.vy * g < -3) S.vy = -3 * g;
+    const cap = S.slammed ? 12 : 7.5;
+    S.vy = clamp(S.vy + 0.32 * g, -cap, cap);
     const prevY = S.y;
     S.y += S.vy;
     S.ground = false;
-    if (S.vy >= 0) for (const b of G.bullets) {
+    if (g > 0 && S.vy >= 0) for (const b of G.bullets) {
       if (!b.platform || b.warn > 0) continue;
       const top = b.y - b.h / 2;
       if (prevY + 8 <= top + 1 && S.y + 8 >= top && Math.abs(S.x - b.x) < b.w / 2 + 4) { S.y = top - 8; S.vy = 0; S.ground = true; S.x += b.vx; }
     }
-    if (S.y >= B.y + B.h - 8) { S.y = B.y + B.h - 8; S.vy = 0; S.ground = true; if (S.slammed) { S.slammed = false; G.shake = 8; } }
-    if (S.y < B.y + 8) { S.y = B.y + 8; S.vy = Math.max(S.vy, 0); }
+    // with gravity flipped (g < 0) the ceiling becomes the floor
+    if (S.y >= B.y + B.h - 8) { S.y = B.y + B.h - 8; if (g > 0) { S.vy = 0; S.ground = true; if (S.slammed) { S.slammed = false; G.shake = 8; } } else S.vy = Math.min(S.vy, 0); }
+    if (S.y <= B.y + 8) { S.y = B.y + 8; if (g < 0) { S.vy = 0; S.ground = true; } else S.vy = Math.max(S.vy, 0); }
   } else S.y = clamp(S.y + dy * sp, B.y + 8, B.y + B.h - 8);
   // YELLOW SOUL: Z fires a shot straight up
   if (S.mode === 'yellow') {
@@ -2528,6 +2733,143 @@ function drawDeadeye() {
   ctx.restore();
 }
 
+// ---------------------------------------------------------------- ENCORE art
+const EC = (() => {
+  const C = {}, face = '#f4f0e6', faceD = '#c8c0b0', gold = '#d4af37', goldD = '#8a6a1c', dark = '#140a1c';
+  // split comedy / tragedy mask
+  C.mask = bake(26, 30, g => {
+    oval(g, face, 13, 15, 12.5, 14.5);
+    g.save(); g.beginPath(); g.ellipse(13, 15, 12.5, 14.5, 0, 0, Math.PI * 2); g.clip();
+    R(g, '#dcd6c8', 13, 0, 13, 30); R(g, faceD, 23, 0, 3, 30); R(g, '#ffffff', 4, 4, 5, 2);
+    g.restore();
+    R(g, gold, 12, 0, 2, 30);
+    // comedy side: happy crescent eye, big smile
+    poly(g, dark, [[4, 12], [11, 12], [9, 9], [6, 9]]);
+    for (let x = 4; x <= 11; x++) R(g, dark, x, 21 - Math.round(Math.sin((x - 4) / 7 * Math.PI) * 3), 1, 2);
+    R(g, '#ff9fb8', 3, 16, 3, 2);
+    // tragedy side: sad slanted eye, frown, a painted tear
+    poly(g, dark, [[15, 10], [22, 12], [21, 14], [16, 13]]);
+    for (let x = 15; x <= 22; x++) R(g, dark, x, 20 + Math.round(Math.sin((x - 15) / 7 * Math.PI) * -3) + 3, 1, 2);
+    R(g, '#6fc4ff', 19, 15, 1, 3); R(g, '#6fc4ff', 19, 18, 2, 1);
+    // gold trim + star on the brow
+    for (let a = 0; a < Math.PI * 2; a += 0.08) R(g, goldD, Math.round(13 + Math.cos(a) * 12.5), Math.round(15 + Math.sin(a) * 14.5));
+    R(g, gold, 12, 2, 2, 2); R(g, gold, 11, 3, 4, 1);
+  });
+  C.glove = fromMap(['.w.w.w.', '.w.w.w.', 'wwwwwww', 'wwwwwwg', 'wwwwwgg', '.wwwgg.', '..ppp..', '..ppp..'], { w: '#ffffff', g: '#c8c0d8', p: '#6a2a8a' });
+  C.miniSkull = bake(10, 10, g => { oval(g, '#e8e0c8', 5, 4.5, 4.5, 4.5); R(g, '#e8e0c8', 2, 6, 6, 3); R(g, '#140a10', 2, 3, 2, 2); R(g, '#140a10', 6, 3, 2, 2); R(g, '#140a10', 3, 8, 4, 1); });
+  return C;
+})();
+const SPR4 = (() => {
+  const S = {};
+  S.candleY = fromMap(['..o..', '..y..', '.yyy.', '.ylyd', '.ylyd', '.yyyd', '.yyyd', '.yddd'], { o: '#ff8a1f', y: '#ffe14a', l: '#fff6b0', d: '#c9a21c' }, null);
+  S.bell = fromMap(['...yy...', '..yyyy..', '.yylyyy.', '.yylyyy.', '.yyyyyd.', 'yyyyyyyd', 'dddddddd', '...kk...'], { y: '#ffe14a', l: '#fff6b0', d: '#c9a21c', k: '#8a6a1c' }, null);
+  return S;
+})();
+function drawYCandle() { blit(SPR4.candleY); }
+function drawBell(b) {
+  ctx.rotate(-b.ang);
+  ctx.fillStyle = 'rgba(220,210,230,0.6)';
+  const dx = b.d.ax - b.x, dy = b.d.ay - b.y, n = Math.round(Math.hypot(dx, dy) / 3);
+  for (let i = 0; i < n; i++) ctx.fillRect(snap(dx * i / n) - 1, snap(dy * i / n) - 1, 2, 2);
+  blit(SPR4.bell);
+}
+function drawBaton(b) {
+  const blink = b.age > 60 && b.age % 130 >= 106 && (b.age >> 2) % 2;
+  const blue = blink ? !b.blue : b.blue;
+  const c = blue ? ['#2ea8ff', '#bfe6ff'] : ['#ff9a1f', '#ffd9a0'];
+  ctx.fillStyle = c[0]; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+  ctx.fillStyle = c[1]; ctx.fillRect(-b.w / 2, -1, b.w, 2);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(b.w / 2 - 8, -b.h / 2, 8, b.h); ctx.fillRect(-b.w / 2, -b.h / 2, 8, b.h);
+}
+// spotlight: the stage is dark (and dangerous) everywhere except a moving pool of light
+function drawSpot(b) {
+  const B = G.box, r = b.d.r;
+  ctx.fillStyle = 'rgba(24,6,34,0.9)';
+  ctx.beginPath(); ctx.rect(B.x - b.x, B.y - b.y, B.w, B.h); ctx.arc(0, 0, r, 0, Math.PI * 2, true); ctx.fill();
+  ctx.strokeStyle = '#ffe9a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,240,180,0.08)'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawEncore() {
+  const e = G.enemy;
+  if (e.fade >= 1) return;
+  const t = G.t, p2 = G.phase2;
+  const shx = e.shake > 0 ? rnd(-e.shake, e.shake) * 0.5 : 0;
+  const ex = snap(ENEMY_POS.x + shx), ey = snap(ENEMY_POS.y + Math.sin(t * 0.04) * 6 - (e.spared ? 0 : -e.fade * 60));
+  const white = e.flash > 0 && (e.flash >> 1) % 2;
+  const mode = G.state === 'dodge' ? G.soul.mode : 'red';
+  const eyeCol = mode === 'yellow' ? '#ffe14a' : mode === 'blue' ? '#2ea8ff' : '#ff2a3d';
+  ctx.save();
+  ctx.globalAlpha = 1 - e.fade;
+  // orbiting masks of the other performers (behind when on the far side)
+  const orbit = back => {
+    for (let k = 0; k < 3; k++) {
+      const a = t * 0.025 + k * Math.PI * 2 / 3;
+      if ((Math.sin(a) < 0) !== back) continue;
+      const x = snap(ex + Math.cos(a) * 78), y = snap(ey - 40 + Math.sin(a) * 18);
+      ctx.globalAlpha = (1 - e.fade) * (back ? 0.55 : 1);
+      if (k === 0) spr(SPR.miniHead, x, y);
+      else if (k === 1) { spr(CM.candle, x, y + 10, { ox: CM.candle.w / 2, oy: CM.candle.h - 1 }); drawFlame(x, y - 14, 0.7, p2, 7); }
+      else spr(EC.miniSkull, x, y);
+    }
+    ctx.globalAlpha = 1 - e.fade;
+  };
+  orbit(true);
+  // cloak: flowing, star-lined
+  const wave = i => Math.sin(t * 0.08 + i) * 5;
+  const cloak = [[ex - 20, ey - 40], [ex + 20, ey - 40], [ex + 46, ey + 20], [ex + 40 + wave(0), ey + 70], [ex + 18, ey + 62 + wave(1)], [ex, ey + 74 + wave(2)], [ex - 18, ey + 62 + wave(3)], [ex - 40 + wave(4), ey + 70], [ex - 46, ey + 20]];
+  ctx.fillStyle = white ? '#ffffff' : '#2a1640';
+  ctx.beginPath(); cloak.forEach(([x, y], i) => i ? ctx.lineTo(snap(x), snap(y)) : ctx.moveTo(snap(x), snap(y))); ctx.closePath(); ctx.fill();
+  if (!white) {
+    ctx.fillStyle = '#1a0c2a'; ctx.beginPath(); ctx.moveTo(ex, ey - 30); ctx.lineTo(ex + 14, ey + 60); ctx.lineTo(ex - 14, ey + 60); ctx.closePath(); ctx.fill();
+    for (let i = 0; i < 14; i++) { const sx = ex + Math.sin(i * 7.3) * 30, sy = ey - 20 + (i * 37) % 80; ctx.fillStyle = (t + i * 9) % 60 < 30 ? '#ffe9a0' : '#c77dff'; ctx.fillRect(snap(sx), snap(sy), 2, 2); }
+    ctx.fillStyle = '#d4af37'; ctx.fillRect(ex - 22, ey - 42, 44, 4); ctx.fillStyle = '#8a6a1c'; ctx.fillRect(ex - 22, ey - 38, 44, 2);
+  }
+  // floating gloves; the right one conducts with a baton
+  const lh = [ex - 52, ey + Math.sin(t * 0.06) * 8], rh = [ex + 52, ey - 10 + Math.sin(t * 0.06 + 2) * 10];
+  spr(EC.glove, snap(lh[0]), snap(lh[1]), { white });
+  spr(EC.glove, snap(rh[0]), snap(rh[1]), { white, flip: true });
+  const ba = -0.9 + Math.sin(t * 0.12) * 0.5;
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 16; i++) ctx.fillRect(snap(rh[0] + Math.cos(ba) * i * 2), snap(rh[1] - 6 + Math.sin(ba) * i * 2), 2, 2);
+  ctx.fillStyle = '#ffe14a'; ctx.fillRect(snap(rh[0] + Math.cos(ba) * 32), snap(rh[1] - 6 + Math.sin(ba) * 32), 4, 4);
+  // mask, tilting between comedy and tragedy
+  const tilt = Math.sin(t * 0.03) * 0.12 + (p2 && (t % 90) < 5 ? rnd(-0.3, 0.3) : 0);
+  spr(EC.mask, ex, ey - 62, { white, ang: tilt });
+  if (!white) {
+    for (const [dx, dy] of [[-12, -8], [10, -6]]) {
+      const c = Math.cos(tilt), s = Math.sin(tilt), x = ex + dx * c - dy * s, y = ey - 62 + dx * s + dy * c;
+      ctx.fillStyle = eyeCol; ctx.globalAlpha = (1 - e.fade) * 0.35; ctx.fillRect(snap(x) - 6, snap(y) - 5, 12, 10);
+      ctx.globalAlpha = 1 - e.fade; ctx.fillRect(snap(x) - 2, snap(y) - 2, 4, 4);
+    }
+    if (p2) { ctx.fillStyle = '#140a1c'; ctx.fillRect(ex - 2, ey - 90, 2, 10); ctx.fillRect(ex, ey - 82, 2, 8); }
+  }
+  orbit(false);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- pixel digits
+// Canvas numbers use this 5x7 set so every digit is easy to tell apart (2 vs 8 especially).
+const DIGITS = {
+  0: ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'],
+  1: ['..#..', '.##..', '#.#..', '..#..', '..#..', '..#..', '#####'],
+  2: ['.###.', '#...#', '....#', '...#.', '..#..', '.#...', '#####'],
+  3: ['####.', '....#', '....#', '.###.', '....#', '....#', '####.'],
+  4: ['...#.', '..##.', '.#.#.', '#..#.', '#####', '...#.', '...#.'],
+  5: ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
+  6: ['..##.', '.#...', '#....', '####.', '#...#', '#...#', '.###.'],
+  7: ['#####', '....#', '...#.', '..#..', '.#...', '.#...', '.#...'],
+  8: ['.###.', '#...#', '#...#', '.###.', '#...#', '#...#', '.###.'],
+  9: ['.###.', '#...#', '#...#', '.####', '....#', '...#.', '.##..'],
+};
+function drawDigits(str, x, y, px, color, outline) {
+  const cells = [];
+  [...str].forEach((ch, i) => DIGITS[ch].forEach((row, ry) => { for (let rx = 0; rx < 5; rx++) if (row[rx] === '#') cells.push([x + (i * 6 + rx) * px, y + ry * px]); }));
+  if (outline) { ctx.fillStyle = '#000'; const o = Math.max(1, outline / 3); for (const [cx, cy] of cells) ctx.fillRect(cx - o, cy - o, px + o * 2, px + o * 2); }
+  ctx.fillStyle = color;
+  for (const [cx, cy] of cells) ctx.fillRect(cx, cy, px, px);
+}
+
 // ---------------------------------------------------------------- bullets, icons, stage
 const SPR = (() => {
   const P = PAL, S = {};
@@ -2602,12 +2944,32 @@ const SPR = (() => {
 
 // ---------------------------------------------------------------- drawing helpers
 function txt(s, x, y, o = {}) {
-  ctx.font = `${o.weight || 400} ${o.size || 16}px ${o.font || TEXT_FONT}`;
-  ctx.textAlign = o.align || 'left';
-  ctx.textBaseline = o.base || 'top';
-  if (o.outline) { ctx.lineWidth = o.outline; ctx.strokeStyle = '#000'; ctx.lineJoin = 'round'; ctx.strokeText(s, x, y); }
-  ctx.fillStyle = o.color || COL.white;
-  ctx.fillText(s, x, y);
+  s = String(s);
+  const size = o.size || 16, base = o.base || 'top', color = o.color || COL.white;
+  ctx.font = `${o.weight || 400} ${size}px ${o.font || TEXT_FONT}`;
+  ctx.textBaseline = base;
+  if (!/[0-9]/.test(s)) {
+    ctx.textAlign = o.align || 'left';
+    if (o.outline) { ctx.lineWidth = o.outline; ctx.strokeStyle = '#000'; ctx.lineJoin = 'round'; ctx.strokeText(s, x, y); }
+    ctx.fillStyle = color;
+    ctx.fillText(s, x, y);
+    return;
+  }
+  // numbers are drawn with the pixel digit set; letters keep the font
+  const px = Math.max(1, Math.round(size / 10 * 2) / 2), runs = s.split(/([0-9]+)/).filter(r => r.length);
+  const widths = runs.map(r => /^[0-9]/.test(r) ? r.length * 6 * px - px + px : ctx.measureText(r).width);
+  const total = widths.reduce((a, b) => a + b, 0), align = o.align || 'left';
+  let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+  const baseline = base === 'bottom' ? y - size * 0.2 : base === 'middle' ? y + size * 0.3 : y + size * 0.8;
+  ctx.textAlign = 'left';
+  runs.forEach((r, i) => {
+    if (/^[0-9]/.test(r)) drawDigits(r, Math.round(cx * 2) / 2, Math.round((baseline - 7 * px) * 2) / 2, px, color, o.outline);
+    else {
+      if (o.outline) { ctx.lineWidth = o.outline; ctx.strokeStyle = '#000'; ctx.lineJoin = 'round'; ctx.strokeText(r, cx, y); }
+      ctx.fillStyle = color; ctx.fillText(r, cx, y);
+    }
+    cx += widths[i];
+  });
 }
 function wrap(s, maxW, size = 17) {
   ctx.font = `400 ${size}px ${TEXT_FONT}`;
@@ -2621,9 +2983,9 @@ function wrap(s, maxW, size = 17) {
   return lines;
 }
 function heart(x, y, px, color) {
-  const s = color === 'blue' ? SPR.heartBlue : color === 'yellow' ? SPR3.heartY : SPR.heart;
+  const s = color === 'blue' || color === 'blueUp' ? SPR.heartBlue : color === 'yellow' ? SPR3.heartY : SPR.heart;
   const k = px / 2;
-  if (color === 'yellow') {
+  if (color === 'yellow' || color === 'blueUp') {
     // the yellow SOUL is drawn upside down, pointing where it shoots
     ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.scale(1, -1);
     ctx.drawImage(s.img, -s.w * k, -s.h * k, s.w * px, s.h * px);
@@ -2990,7 +3352,8 @@ function drawBeam(b) {
   const k = b.age < 40 ? 1 : Math.max(0, 1 - (b.age - 40) / 18), horiz = b.w >= b.h;
   const L = horiz ? b.w : b.h, T = (horiz ? b.h : b.w) * k;
   const R2 = (th, c) => { ctx.fillStyle = c; th = Math.max(2, snap(th)); horiz ? ctx.fillRect(-L / 2, -th / 2, L, th) : ctx.fillRect(-th / 2, -L / 2, th, L); };
-  R2(T + 8, 'rgba(255,40,90,0.35)'); R2(T, '#ff4f8f'); R2(T * 0.6, '#ffc2da'); R2(T * 0.25, '#ffffff');
+  const c = b.blue ? ['rgba(46,168,255,0.35)', '#2ea8ff', '#bfe6ff'] : b.orange ? ['rgba(255,154,31,0.35)', '#ff9a1f', '#ffd9a0'] : ['rgba(255,40,90,0.35)', '#ff4f8f', '#ffc2da'];
+  R2(T + 8, c[0]); R2(T, c[1]); R2(T * 0.6, c[2]); R2(T * 0.25, '#ffffff');
 }
 function drawWall(b) {
   const c = b.orange ? ['#ff9a1f', '#ffd9a0'] : ['#2ea8ff', '#bfe6ff'];
@@ -3265,7 +3628,7 @@ function drawBattleBox() {
     }
     ctx.fillStyle = '#ffe14a';
     for (const sh of G.shots || []) ctx.fillRect(Math.round(sh.x) - 1, Math.round(sh.y) - 4, 2, 8);
-    if (!(S.iframes > 0 && (S.iframes >> 2) % 2)) heart(S.x, S.y, 2, S.mode === 'yellow' ? 'yellow' : S.mode === 'blue' ? 'blue' : 'red');
+    if (!(S.iframes > 0 && (S.iframes >> 2) % 2)) heart(S.x, S.y, 2, S.mode === 'yellow' ? 'yellow' : S.mode === 'blue' ? ((S.grav || 1) < 0 ? 'blueUp' : 'blue') : 'red');
     const tc = G.atk.blue ? '#2ea8ff' : G.atk.tipColor || (G.phase2 ? COL.red : COL.gold);
     txt(G.atk.name, B.x + B.w / 2, G.boxTo.y - 24, { size: 12, font: HEAD_FONT, align: 'center', color: tc, outline: 3 });
   }
@@ -3297,7 +3660,7 @@ function drawPopups() {
 function drawTitle() {
   ctx.fillStyle = 'rgba(7,4,13,0.88)'; ctx.fillRect(0, 0, W, H);
   txt('LAST WISH', W / 2, 52, { size: 44, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 6 });
-  txt('Three heroes. Three monsters. One stage.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
+  txt('Three heroes. Four monsters. One stage.', W / 2, 106, { size: 17, align: 'center', color: COL.white });
   G.party.forEach((c, i) => {
     const x = 170 + i * 150;
     drawHeroSprite(i, x, 222);
@@ -3309,10 +3672,11 @@ function drawTitle() {
   const row = (y, label, opts, sel, focus) => {
     if (focus) heart(42, y + 16, 2, 'red');
     txt(label, 120, y + 11, { size: 11, font: HEAD_FONT, align: 'right', color: focus ? COL.gold : COL.dim });
+    const bw = opts.length > 3 ? 114 : 156, step = bw + 8;
     opts.forEach(([name, color], i) => {
-      const x = 130 + i * 164, on = sel === i;
-      frameBox(x, y, 156, 32, on ? color : COL.panelLine, 2);
-      txt(name, x + 78, y + 11, { size: 10, font: HEAD_FONT, align: 'center', color: on ? color : COL.dim });
+      const x = 130 + i * step, on = sel === i;
+      frameBox(x, y, bw, 32, on ? color : COL.panelLine, 2);
+      txt(name, x + bw / 2, y + 11, { size: opts.length > 3 ? 8 : 10, font: HEAD_FONT, align: 'center', color: on ? color : COL.dim });
     });
   };
   row(306, 'ENEMY', BOSS_IDS.map(id => [BOSSES[id].name, COL.gold]), BOSS_IDS.indexOf(G.bossId), G.titleRow === 0);
