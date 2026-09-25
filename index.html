@@ -235,7 +235,7 @@ const ITEM_DEF = [
   { name: 'Phoenix Tea', heal: 999, qty: 1, desc: 'Still warm. Fully heals and revives.' },
 ];
 const actionsFor = c => ['FIGHT', c.acts ? 'ACT' : 'MAGIC', 'ITEM', 'SPARE', 'DEFEND'];
-const MERCY_STEP = 25, MERCY_STEP_HARD = 20;
+const MERCY_STEP = 18, MERCY_STEP_HARD = 15;
 const DEFEND_EXP = 16;
 const HARD_ITEMS = [3, 1, 1];
 
@@ -861,7 +861,7 @@ const BOSSES = {
     winFight: '* CANDLEMAW gutters out, leaving only a curl of smoke.',
     winSpare: '* CANDLEMAW was SPARED! It settles into a calm, steady glow.',
     // A single ACT that always works and raises MERCY slowly.
-    simpleAct: true, actStep: 10, actStepHard: 8,
+    simpleAct: true, actStep: 8, actStepHard: 6,
     acts: [
       { id: 'vigil', name: 'Keep Vigil', desc: 'Sit with it and shelter its flame. Slowly raises MERCY.', lines: [
         '* ASTRA sat beside CANDLEMAW and cupped a hand around its flame.',

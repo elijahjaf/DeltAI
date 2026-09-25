@@ -35,7 +35,7 @@ Touch devices get an on-screen d-pad with Z and X buttons.
 
 - **FIGHT**: a timing bar slides toward a mark. Press Z as it crosses. The closer you are, the more damage you deal, and a dead-center hit is a 1.5x critical.
 - **MAGIC** (Terrestro and Lune): spends shared EXP, which works like Deltarune's TP. Each has their own damage and healing spells.
-- **ACT** (Astra): the peaceful way to progress. Against Marionette NEO, the flavor text hints each turn at what it wants. Pick the matching ACT to raise its **MERCY** by 25% (20% on Hard). A wrong ACT does nothing.
+- **ACT** (Astra): the peaceful way to progress. Against Marionette NEO, the flavor text hints each turn at what it wants. Pick the matching ACT to raise its **MERCY** by 18% (15% on Hard). A wrong ACT does nothing.
   - *Applaud*: it's playing to the crowd or waiting for applause.
   - *Dance*: it holds out a hand or looks for a partner.
   - *Oil Joints*: its joints creak or screech.
@@ -71,7 +71,7 @@ Its 21 attacks: Needle Rain, Puppet Strings, Card Fan (slow cards), Loose Button
 
 ### Candlemaw (3400 HP)
 
-A towering chapel candle with a fanged, ember-lit maw, held in a wrought-iron candelabra. Below half HP its flames burn blue. It has one ACT besides Check: **Keep Vigil**, which always works and raises its MERCY 10% per use (8% on Hard). There's no mood to read, so Reveal isn't offered against it.
+A towering chapel candle with a fanged, ember-lit maw, held in a wrought-iron candelabra. Below half HP its flames burn blue. It has one ACT besides Check: **Keep Vigil**, which always works and raises its MERCY 8% per use (6% on Hard). There's no mood to read, so Reveal isn't offered against it.
 
 Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue (stand still)** and **orange (keep moving)**, with plain white wax as the only ordinary danger. Its 12 attacks:
 
@@ -95,6 +95,6 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 - Marionette NEO has 4400 HP and Candlemaw has 4600.
 - Every attack runs at its frantic level from turn one and deals about 15% more damage.
 - Bullets are 10% faster, rising to 20% once the enemy is below half HP.
-- MERCY rises 20% per correct ACT instead of 25%.
+- MERCY rises more slowly: 15% per correct ACT against Marionette NEO (instead of 18%) and 6% per Keep Vigil against Candlemaw (instead of 8%).
 - The item bag holds 3 Glow Berries, 1 Honey Loaf and 1 Phoenix Tea.
 - The heart's invincibility after a hit is shorter.
