@@ -237,6 +237,7 @@ const actionsFor = c => ['FIGHT', c.acts ? 'ACT' : 'MAGIC', 'ITEM', 'SPARE', 'DE
 // Astra's ACTs. Each enemy turn has a mood (hinted in the flavor text); the matching ACT raises MERCY.
 const ACTS = [
   { id: 'check', name: 'Check', desc: 'Study MARIONETTE NEO and read its stats.' },
+  { id: 'reveal', name: 'Reveal', desc: 'Peer behind the curtain. Next turn, the right ACT is revealed.' },
   { id: 'applaud', name: 'Applaud', verb: 'applaud', desc: 'Cheer for the show. It wants this when it plays to the crowd.',
     ok: "* ASTRA applauded wildly! MARIONETTE NEO's eye sparkled with joy." },
   { id: 'dance', name: 'Dance', verb: 'dance', desc: 'Take its hand. It wants this when it looks for a partner.',
@@ -263,7 +264,7 @@ function newGame(state = 'title', hard = false) {
     menu: null, msg: null, queue: [], lanes: [],
     popups: [], particles: [], bullets: [],
     box: { ...TEXTBOX }, soul: { x: 320, y: 200, iframes: 0, graze: 0, moving: false, blueSafe: 0 },
-    atk: null, A: null, spared: false, stateT: 0, gameOverAt: 0, expFlash: 0,
+    atk: null, A: null, spared: false, revealTurn: -1, stateT: 0, gameOverAt: 0, expFlash: 0,
     stats: { grazes: 0, expGained: 0, hits: 0, damage: 0, acts: 0 },
   };
 }
@@ -421,7 +422,7 @@ const ATTACKS = [
             const n = G.A.lvl > 1 ? 7 : 5;
             for (let k = 0; k < n; k++) {
               const a = base + (k - (n - 1) / 2) * 0.2;
-              spawn({ kind: 'rect', x: b.x, y: b.y, vx: Math.cos(a) * 2.7, vy: Math.sin(a) * 2.7, w: 12, h: 8, ang: a, draw: drawCard });
+              spawn({ kind: 'rect', x: b.x, y: b.y, vx: Math.cos(a) * 1.8, vy: Math.sin(a) * 1.8, w: 12, h: 8, ang: a, draw: drawCard });
             }
           },
         });
@@ -577,11 +578,15 @@ function startRound() {
   } else if (G.turn === 0) {
     text = '* MARIONETTE NEO drops onto the stage, sparking. ' + text.slice(2);
   }
+  const r = revealedAct();
+  if (r) text += ` REVEALED: ${r.name.toUpperCase()}.`;
   setMsg(text);
   setState('menu');
 }
 
 const curChar = () => G.party[G.menu.ci];
+// The ACT that a Reveal from last turn points at, if any.
+const revealedAct = () => G.revealTurn === G.turn ? ACTS.find(a => a.id === ATTACKS[G.turn % ATTACKS.length].mood) : null;
 function nextUp(from) { for (let i = from + 1; i < 3; i++) if (isUp(G.party[i])) return i; return -1; }
 function prevUp(from) { for (let i = from - 1; i >= 0; i--) if (isUp(G.party[i])) return i; return -1; }
 const reservedExp = () => G.party.reduce((s, c) => s + (c.action && c.action.type === 'magic' ? c.action.spell.cost : 0), 0);
@@ -683,6 +688,12 @@ function beginResolve() {
       q.push(() => {
         const act = a.act, e = G.enemy;
         c.anim = 20;
+        if (act.id === 'reveal') {
+          G.revealTurn = G.turn + 1;
+          sfx('magic');
+          sparkle(HERO_POS[0].x, HERO_POS[0].y - 60, '#8ff3ff', 10, 1.5);
+          return `* ${c.name} peered behind the curtain... Next turn, the right ACT will be REVEALED.`;
+        }
         if (act.id === 'check') return '* MARIONETTE NEO - AT 28 DF 12. A stage puppet rebuilt from scrap. All it wants is for its show to go well.';
         const mood = ATTACKS[G.turn % ATTACKS.length].mood;
         if (act.id !== mood) { sfx('miss'); return `* ${c.name} tried to ${act.verb}... but that isn't what MARIONETTE NEO wanted right now.`; }
@@ -1694,14 +1705,18 @@ function drawSubMenu() {
   const rowY = i => T.y + 10 + i * 22;
   const descX = 360;
   if (m.sub === 'act') {
+    const revealed = revealedAct();
     ACTS.forEach((act, i) => {
       const x = T.x + 36 + (i % 2) * 150, y = rowY(Math.floor(i / 2));
       if (i === m.subSel) heart(x - 16, y + 9, 1.4, 'red');
-      txt(act.name, x, y, { size: 17, color: i === m.subSel ? COL.gold : COL.white });
+      const shown = act === revealed;
+      txt(act.name, x, y, { size: 17, color: i === m.subSel ? COL.gold : shown ? '#8ff3ff' : COL.white });
+      if (shown) { ctx.font = `400 17px ${TEXT_FONT}`; spr(ORBIT_STARS[0], x + ctx.measureText(act.name).width + 10, y + 9); }
     });
     wrap(ACTS[m.subSel].desc, 252, 15).slice(0, 2).forEach((l, i) => txt(l, descX, T.y + 10 + i * 19, { size: 15, color: COL.dim }));
-    const e = G.enemy;
-    txt(e.mercy >= 100 ? 'MERCY 100%. It can be SPARED!' : `MERCY ${Math.round(e.mercy)}%`, descX, T.y + 54, { size: 14, color: COL.gold });
+    const e = G.enemy, mercy = e.mercy >= 100 ? 'MERCY 100%. It can be SPARED!' : `MERCY ${Math.round(e.mercy)}%`;
+    if (revealed && e.mercy < 100) txt(`Answer: ${revealed.name}   ${mercy}`, descX, T.y + 54, { size: 14, color: '#8ff3ff' });
+    else txt(mercy, descX, T.y + 54, { size: 14, color: COL.gold });
     return;
   }
   if (m.sub === 'magic') {

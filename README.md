@@ -41,6 +41,7 @@ Touch devices get an on-screen d-pad with Z and X buttons.
   - *Oil Joints*: its joints creak or screech.
   - *Untangle*: its strings are knotted or tangled.
   - *Check*: shows its stats.
+  - *Reveal*: next turn, the right ACT is revealed in the flavor text and marked with a star in the ACT menu.
 - **SPARE** (everyone): once MERCY reaches 100%, the enemy's name turns yellow and sparing it ends the battle peacefully. Sparing earlier does nothing.
 - **ITEM**: a shared, limited bag (4 Glow Berries, 2 Honey Loaves, 1 Phoenix Tea). Any hero can use one on any teammate, including a downed one.
 - **DEFEND**: halves the damage that hero takes this turn and grants 16% EXP.
@@ -57,7 +58,7 @@ A porcelain-and-steel marionette that hangs from a control rail. It has striped 
 
 1. Needle Rain
 2. Puppet Strings
-3. Card Fan
+3. Card Fan (slow-moving cards)
 4. Loose Buttons
 5. Curtain Fall
 6. Paper Bloom
