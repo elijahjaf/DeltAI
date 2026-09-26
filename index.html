@@ -229,7 +229,7 @@
         <div class="rule"><b>MAGIC</b><span>Terrio's spells deal damage and Lune's spells heal. Spells cost EXP from the orange meter on the left.</span></div>
         <div class="rule"><b>ACT</b><span>Astra's peaceful option. It raises the enemy's MERCY; how it works depends on the boss (see below).</span></div>
         <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including one who is down.</span></div>
-        <div class="rule"><b>SPARE</b><span>Any hero can SPARE. It only works once MERCY is 100% and the enemy's name has turned yellow.</span></div>
+        <div class="rule"><b>SPARE</b><span>Any hero can SPARE. It only works once MERCY is 100% (200% for ENCORE) and the enemy's name has turned yellow.</span></div>
         <div class="rule"><b>DEFEND</b><span>That hero takes half damage this round and you gain 16% EXP.</span></div>
       </div>
       <p><b>EXP</b> also comes from <b>grazing</b>: brush past bullets without touching them. A hero at 0 HP is <b>down</b>. They skip turns and slowly recover, or you can heal them sooner. If all three go down, it's game over.</p>
@@ -260,9 +260,9 @@
       <h2>The bosses</h2>
       <div class="cards">
         <div class="card"><h3>MARIONETTE NEO</h3><p>A scrap-metal puppet with 21 attacks. It turns frantic below half HP.</p><p><b>ACT:</b> each turn's flavor text hints at its mood. Pick the matching ACT (Applaud, Dance, Oil Joints or Untangle) for +18% MERCY. <b>Reveal</b> shows the right answer next turn.</p></div>
-        <div class="card"><h3>CANDLEMAW</h3><p>A haunted candle with 12 attacks built on <span class="tag blue">BLUE</span> and <span class="tag orange">ORANGE</span> fire.</p><p><b>ACT:</b> <b>Keep Vigil</b> always works: +8% MERCY every time.</p></div>
+        <div class="card"><h3>CANDLEMAW</h3><p>A haunted candle with 17 attacks built on <span class="tag blue">BLUE</span> and <span class="tag orange">ORANGE</span> fire.</p><p><b>ACT:</b> <b>Keep Vigil</b> always works: +8% MERCY every time.</p></div>
         <div class="card"><h3>DEADEYE</h3><p>A ghost gunslinger. The first half uses the <span class="tag yellow">YELLOW HEART</span>. At half HP or half MERCY it switches to the <span class="tag blue">BLUE HEART</span>.</p><p><b>ACT:</b> <b>Accept Duel</b> gives +7% MERCY, but each use makes its attacks hit 5% harder.</p></div>
-        <div class="card"><h3>ENCORE</h3><p>A masked phantom that remixes every other boss's tricks and switches your heart between <span class="tag red">RED</span> <span class="tag yellow">YELLOW</span> and <span class="tag blue">BLUE</span>, sometimes mid-attack. Gravity can even flip.</p><p><b>ACT:</b> <b>Applaud</b> gives a safe +6% MERCY. <b>Cry Encore!</b> gives +14%, but its next attack comes at full fury.</p></div>
+        <div class="card"><h3>ENCORE</h3><p>A masked phantom that remixes every other boss's tricks and switches your heart between <span class="tag red">RED</span> <span class="tag yellow">YELLOW</span> and <span class="tag blue">BLUE</span>, sometimes mid-attack. Gravity can even flip. The hardest boss: all 17 attacks run at full strength from the first turn, faster and harder-hitting.</p><p><b>MERCY:</b> the bar runs to <b>200%</b>, and Encore can only be SPARED once it's full.</p><p><b>ACT:</b> <b>Applaud</b> gives a safe +6% MERCY. <b>Cry Encore!</b> gives +14%, but its next attack comes at full fury.</p></div>
       </div>
     </section>
 
@@ -1532,7 +1532,7 @@ const BOSSES = {
   },
   candle: {
     id: 'candle', song: 'candle', song2: 'candle2', name: 'CANDLEMAW', hp: 3400, hpHard: 4600, attacks: CANDLE_ATTACKS, draw: () => drawCandle(),
-    blurb: 'A haunted candle of BLUE and ORANGE fire. 12 acts.',
+    blurb: 'A haunted candle of BLUE and ORANGE fire. 17 acts.',
     light: 'rgba(255,170,80,0.08)',
     check: '* CANDLEMAW - AT 30 DF 10. A chapel candle that has burned alone for centuries. It is terrified of going out.',
     intro: '* CANDLEMAW rises from a pool of its own wax.',
@@ -1742,7 +1742,8 @@ const ENCORE_ATTACKS = [
 BOSSES.encore = {
   id: 'encore', song: 'encore', song2: 'encore2', name: 'ENCORE', hp: 3600, hpHard: 4800, attacks: ENCORE_ATTACKS, draw: () => drawEncore(),
   simpleAct: true,
-  blurb: 'A phantom that performs every act. All SOUL modes. 12 acts.',
+  blurb: 'A phantom that performs every act. All SOUL modes. 17 acts. SPARE at 200% MERCY.',
+  mercyMax: 200, hardBase: true,
   light: 'rgba(200,140,255,0.08)',
   check: '* ENCORE - AT 30 DF 15. A phantom that wears the faces of old performers. It never wants the curtain to fall.',
   intro: '* The curtain rises on its own. ENCORE takes the stage!',
@@ -1764,6 +1765,147 @@ BOSSES.encore = {
 };
 BOSS_IDS.push('encore');
 
+// ---------------------------------------------------------------- Candlemaw: five more blue/orange acts
+const CANDLE_EXTRA = [
+  { name: 'TWIN FLAMES', hint: '* CANDLEMAW splits its flame in two, one BLUE and one ORANGE.', mood: 'relight', w: 240, h: 200, dur: 420, dmg: 26,
+    tip: 'Fireballs fly in crossing pairs, one BLUE and one ORANGE. Never let both touch you at once.', tipColor: ORANGE_TIP,
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 30 : 40) !== 0 || A.t > A.dur - 60) return;
+      const tx = soulClampX(10), ty = soulClampY(10), leftBlue = Math.random() < 0.5;
+      for (const [sx, blue] of [[B.x - 8, leftBlue], [B.x + B.w + 8, !leftBlue]]) {
+        const sy = B.y + rnd(10, B.h * 0.4), a = Math.atan2(ty - sy, tx - sx) + (sx < B.x ? -0.1 : 0.1);
+        spawn({ x: sx, y: sy, vx: Math.cos(a) * 2.2, vy: Math.sin(a) * 2.2, r: 6, ...flame(blue), draw: drawFireball });
+      }
+    } },
+  { name: 'FLAME SPIRAL', hint: '* CANDLEMAW spins in place, its flames spiraling outward.', mood: 'fan', w: 230, h: 220, dur: 420, dmg: 24,
+    tip: 'Spiral arms alternate BLUE and ORANGE. Slip through the gaps and read the colors.', tipColor: ORANGE_TIP,
+    init(A) { const B = G.box; spawn({ x: B.x + B.w / 2, y: B.y + B.h / 2 - 10, solid: false, life: A.dur, cull: false, draw: drawHub }); },
+    update(A) {
+      if (A.t < 40 || A.t % (A.lvl > 1 ? 6 : 8) !== 0 || A.t > A.dur - 50) return;
+      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2 - 10;
+      for (let k = 0; k < 4; k++) {
+        const a = A.t * 0.035 + k * Math.PI / 2;
+        spawn({ x: cx, y: cy, vx: Math.cos(a) * 1.5, vy: Math.sin(a) * 1.5, r: 5, ...flame(k % 2 === 0), draw: drawFireball });
+      }
+    } },
+  { name: 'WAX ICICLES', hint: '* Wax icicles hang from the rafters, dripping BLUE and ORANGE.', mood: 'fan', w: 260, h: 190, dur: 420, dmg: 26,
+    tip: 'Icicles drop when you walk under them. BLUE: freeze. ORANGE: keep going.', tipColor: BLUE_TIP,
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 26 : 36) === 0 && A.t < A.dur - 80 && G.bullets.filter(b => b.icicle && b.d.hang).length < 8) {
+        spawn({ kind: 'rect', x: rnd(B.x + 10, B.x + B.w - 10), y: B.y + 10, w: 8, h: 20, icicle: true, ...flame(Math.random() < 0.5), cull: false, life: 500, draw: drawIcicle, d: { hang: true },
+          upd: b => {
+            if (b.d.hang) { b.vy = 0; if (Math.abs(G.soul.x - b.x) < 26 && b.age > 30) { b.d.hang = false; b.vy = 1; b.ay = 0.25; sfx('crack'); } }
+            else if (b.y > G.box.y + G.box.h + 20) b.dead = true;
+          } });
+      }
+      if (A.lvl > 1 && A.t % 30 === 0 && A.t < A.dur - 40) waxDrop(A);
+    } },
+  { name: 'GEYSER WAVE', hint: '* The floor boils. Geysers erupt one after another, BLUE and ORANGE.', mood: 'relight', w: 260, h: 180, dur: 420, dmg: 26,
+    tip: 'A wave of geysers sweeps across. Switch between still and moving as it passes you.', tipColor: ORANGE_TIP,
+    update(A) {
+      const B = G.box, vents = 8, cw = B.w / vents, every = A.lvl > 1 ? 100 : 130;
+      if (A.t % every !== 20 || A.t > A.dur - 110) return;
+      const dir = (A.t / every | 0) % 2 ? 1 : -1, first = Math.random() < 0.5;
+      for (let i = 0; i < vents; i++) {
+        const c = dir > 0 ? i : vents - 1 - i;
+        spawn({ kind: 'rect', x: B.x + cw * (c + 0.5), y: B.y + B.h / 2, w: cw - 2, h: B.h + 20, warn: 30 + i * 8, life: 46 + i * 8, cull: false, ...flame((i % 2 === 0) === first), draw: drawWash });
+      }
+    } },
+  { name: 'PROCESSION', hint: '* A procession of lanterns drifts by, humming a funeral hymn.', mood: 'sing', w: 260, h: 200, dur: 420, dmg: 24,
+    tip: 'Rows of lanterns drift past. Let BLUE ones pass through you; keep moving through ORANGE ones.', tipColor: ORANGE_TIP,
+    update(A) {
+      const B = G.box, rows = 4, every = A.lvl > 1 ? 34 : 44;
+      for (let r = 0; r < rows; r++) {
+        if ((A.t + r * 11) % every !== 0 || A.t > A.dur - 60) continue;
+        const dir = r % 2 ? -1 : 1, y = B.y + 24 + r * (B.h - 48) / (rows - 1);
+        spawn({ x: dir > 0 ? B.x - 10 : B.x + B.w + 10, y, vx: dir * 1.6, r: 6, ...flame(r % 2 === 0), draw: drawLantern });
+      }
+    } },
+];
+CANDLE_ATTACKS.splice(CANDLE_ATTACKS.length - 1, 0, ...CANDLE_EXTRA);
+
+// ---------------------------------------------------------------- Encore: five more acts
+const ENCORE_EXTRA = [
+  { name: 'MIRROR MATCH', soul: 'red', hint: '* ENCORE holds up a mirror. Your reflection moves the wrong way.', w: 240, h: 190, dur: 420, dmg: 26,
+    tip: 'Controls are REVERSED while BLUE and ORANGE walls sweep past.',
+    init(A) { A.invert = true; },
+    update(A) { NEO_ATTACKS.find(a => a.name === 'BLUE & ORANGE').update(A); if (A.t > 60) crossers(A, 40, 1.6, drawBead); } },
+  { name: 'HIGH WIRE', soul: 'blue', hint: '* ENCORE strings a high wire over a bed of spikes.', w: 300, h: 150, dur: 440, dmg: 26,
+    tip: 'Ride the platforms over the spikes, and hop when a string snaps taut above yours.',
+    init(A) {
+      const B = G.box, fy = B.y + B.h;
+      spawn({ kind: 'rect', x: B.x + B.w / 2, y: fy - 6, w: B.w + 20, h: 12, warn: 70, life: A.dur, cull: false, keep: true, draw: drawSpikes });
+      A.d.lanes = [[fy - 30, 1.3], [fy - 62, -1.5], [fy - 94, 1.7]];
+      A.d.lanes.forEach(([y, vx], i) => { for (let k = 0; k < 2; k++) spawn({ kind: 'rect', platform: true, solid: false, keep: true, x: B.x + (k + 0.3 * i) * B.w / 2 + 30, y, w: 44, h: 8, vx, cull: false, life: A.dur, draw: drawCart,
+        upd: b => { const B = G.box; if (b.x > B.x + B.w + 30) b.x = B.x - 30; if (b.x < B.x - 30) b.x = B.x + B.w + 30; } }); });
+    },
+    update(A) {
+      const B = G.box;
+      if (A.t % 50 === 30 && A.t > 80 && A.t < A.dur - 60) { const [y] = choice(A.d.lanes); stringAt(B.x + B.w / 2, y - 12, 0, B.w + 40); }
+    } },
+  { name: 'BURNING WHEEL', soul: 'yellow', hint: '* ENCORE sets a wheel of candles spinning. Snuff them if you can.', w: 230, h: 220, dur: 440, dmg: 26,
+    tip: 'Shoot the yellow candles off the spinning wheel to open a way through.',
+    init(A) {
+      const B = G.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2 - 10, spokes = 5;
+      spawn({ x: cx, y: cy, solid: false, life: A.dur, cull: false, draw: drawHub });
+      for (let s = 0; s < spokes; s++) for (let k = 1; k <= 5; k++) {
+        const a = s * Math.PI * 2 / spokes + 0.3, rad = k * 22;
+        spawn({ x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad, r: 7, yellow: true, warn: 50, cull: false, life: A.dur, draw: drawYCandle, d: { a, rad },
+          upd: b => { b.d.a += 0.02 * G.A.spd; b.x = cx + Math.cos(b.d.a) * b.d.rad; b.y = cy + Math.sin(b.d.a) * b.d.rad; } });
+      }
+    },
+    update(A) {
+      const B = G.box;
+      if (A.t % 45 === 20 && A.t > 60 && A.t < A.dur - 40) {
+        const cx = B.x + B.w / 2, cy = B.y + B.h / 2 - 10, a = Math.atan2(G.soul.y - cy, G.soul.x - cx);
+        spawn({ x: cx, y: cy, vx: Math.cos(a) * 2, vy: Math.sin(a) * 2, r: 3, draw: drawPellet });
+      }
+    } },
+  { name: 'STRING QUARTET', soul: 'yellow', hint: '* ENCORE tugs your SOUL on a string and conducts a quartet of notes.', w: 240, h: 200, dur: 420, dmg: 24,
+    tip: 'A string drags your heart while yellow notes fall. Shoot them before they reach you.',
+    init(A) { A.pull = { x: G.box.x + G.box.w / 2, y: G.box.y + G.box.h - 30, sp: 1.2 }; },
+    update(A) {
+      const B = G.box;
+      A.pull.x = B.x + B.w / 2 + Math.sin(A.t * 0.024) * B.w * 0.4;
+      A.pull.y = B.y + B.h * 0.72 + Math.sin(A.t * 0.04) * B.h * 0.18;
+      if (A.t % 14 === 0 && A.t < A.dur - 50) {
+        const x0 = rnd(B.x + 20, B.x + B.w - 20), ph = rnd(0, 6);
+        spawn({ x: x0, y: B.y - 10, vy: 1.3, r: 6, yellow: true, draw: drawNote, d: { x0, ph }, upd: b => { b.x = b.d.x0 + Math.sin(b.age * 0.06 + b.d.ph) * 16; } });
+      }
+    } },
+  { name: 'BLACKOUT SWAP', soul: 'red', hint: '* The lights go out. In the dark, ENCORE swaps your SOUL again and again.', w: 260, h: 170, dur: 480, dmg: 26,
+    tip: 'Darkness, and your SOUL swaps between RED and BLUE. Only glowing hazards show.',
+    init(A) { A.dark = 50; },
+    update(A) {
+      const B = G.box, mode = Math.floor(A.t / 100) % 2 ? 'blue' : 'red';
+      if (A.t % 100 === 0 && A.t > 0) setSoul(mode);
+      if (A.t > A.dur - 50 || A.t % 100 < 16) return;
+      if (mode === 'red' && A.t % 40 === 0) { const c = choice([[B.x + 14, B.y + 14], [B.x + B.w - 14, B.y + 14]]); spawn({ x: c[0], y: c[1], r: 6, glow: true, warn: 20, life: 120, cull: false, draw: drawEye, upd: seek(0.05, 1.5) }); }
+      if (mode === 'blue' && A.t % 34 === 0) { const b = cactus(A, Math.random() < 0.5 ? 20 : 34); b.glow = true; }
+      if (A.t % 22 === 0) spawn({ x: rnd(B.x + 6, B.x + B.w - 6), y: B.y - 6, vy: 1.8, r: 4, glow: true, draw: drawEmber });
+    } },
+];
+ENCORE_ATTACKS.splice(ENCORE_ATTACKS.length - 1, 0, ...ENCORE_EXTRA);
+// a hanging wax icicle, tinted by its flame color
+function drawIcicle(b) {
+  const c = b.blue ? ['#1e5fc8', '#6fd0ff', '#dff6ff'] : ['#c85a10', '#ffa640', '#fff0c0'];
+  const w = b.w, h = b.h;
+  ctx.fillStyle = c[0]; ctx.fillRect(-w / 2, -h / 2, w, h * 0.5); ctx.fillRect(-w / 2 + 2, 0, w - 4, h * 0.3); ctx.fillRect(-1, h * 0.3, 2, h * 0.2);
+  ctx.fillStyle = c[1]; ctx.fillRect(-w / 2 + 2, -h / 2, 2, h * 0.7);
+  ctx.fillStyle = c[2]; ctx.fillRect(-w / 2 + 2, -h / 2 + 2, 2, 4);
+}
+// a paper lantern carrying a BLUE or ORANGE flame
+function drawLantern(b) {
+  ctx.fillStyle = '#2a1a10'; ctx.fillRect(-1, -11, 2, 3); ctx.fillRect(-5, -8, 10, 2); ctx.fillRect(-5, 6, 10, 2);
+  ctx.fillStyle = b.blue ? 'rgba(46,168,255,0.55)' : 'rgba(255,154,31,0.55)'; ctx.fillRect(-6, -6, 12, 12);
+  ctx.fillStyle = b.blue ? '#6fd0ff' : '#ffb347'; ctx.fillRect(-6, -6, 1, 12); ctx.fillRect(5, -6, 1, 12);
+  ctx.save(); ctx.scale(0.6, 0.6); blit((b.blue ? SPR2.fireB : SPR2.fireO)[(G.t >> 3) % 2]); ctx.restore();
+}
+
+// most foes can be SPARED at 100% MERCY; ENCORE demands 200%
+const mercyMax = () => G.boss.mercyMax || 100;
 const curActs = () => G.boss.simpleAct ? [BASE_ACTS[0], ...G.boss.acts] : [...BASE_ACTS, ...G.boss.acts];
 
 // ---------------------------------------------------------------- round flow
@@ -1911,7 +2053,7 @@ function beginResolve() {
         const before = e.mercy;
         const step = act.step ? (G.hard ? act.stepHard : act.step) : simple ? (G.hard ? G.boss.actStepHard : G.boss.actStep) : (G.hard ? MERCY_STEP_HARD : MERCY_STEP);
         if (act.fury) G.furyNext = true;
-        e.mercy = Math.min(100, e.mercy + step);
+        e.mercy = Math.min(mercyMax(), e.mercy + step);
         const gain = e.mercy - before;
         G.stats.acts++;
         sfx('mercy');
@@ -1924,11 +2066,12 @@ function beginResolve() {
           popup(ENEMY_POS.x, ENEMY_POS.y - 100, `ATK +${G.dmgBonus}%`, COL.red, 14);
           text += ` Its attacks now deal +${G.dmgBonus}% damage.`;
         }
-        return text + (e.mercy >= 100 ? ' Its name turned YELLOW. It can be SPARED!' : ` MERCY +${gain}%.`);
+        if (before < 100 && e.mercy >= 100 && e.mercy < mercyMax()) return text + ` MERCY +${gain}%. It is only halfway satisfied... the show must go on!`;
+        return text + (e.mercy >= mercyMax() ? ' Its name turned YELLOW. It can be SPARED!' : ` MERCY +${gain}%.`);
       });
     } else if (a.type === 'spare') {
       q.push(() => {
-        if (G.enemy.mercy >= 100) { G.spared = true; sfx('mercy'); return `* ${c.name} spared ${G.enemy.name}!`; }
+        if (G.enemy.mercy >= mercyMax()) { G.spared = true; sfx('mercy'); return `* ${c.name} spared ${G.enemy.name}!`; }
         sfx('miss');
         return `* ${c.name} spared ${G.enemy.name}... but its name wasn't YELLOW.`;
       });
@@ -2014,10 +2157,12 @@ function startEnemyTurn() {
   const atk = curAttack();
   const frantic = G.phase2 && !G.boss.attacks2, fury = !!G.furyNext;
   G.furyNext = false;
-  const lvl = frantic || fury || G.hard ? 2 : 1;
-  const spd = (G.hard ? (frantic ? 1.2 : 1.1) : 1) * (fury ? 1.15 : 1);
+  // hardBase bosses (ENCORE) always perform at full strength, a little faster
+  const base = !!G.boss.hardBase;
+  const lvl = frantic || fury || G.hard || base ? 2 : 1;
+  const spd = (G.hard ? (frantic ? 1.2 : 1.1) : 1) * (fury ? 1.15 : 1) * (base ? 1.1 : 1);
   G.atk = atk;
-  G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1) * (1 + (G.dmgBonus || 0) / 100)) };
+  G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1) * (base ? 1.2 : 1) * (1 + (G.dmgBonus || 0) / 100)) };
   G.boxFrom = { ...TEXTBOX };
   G.boxTo = { x: 320 - atk.w / 2, y: BOX_CY - atk.h / 2, w: atk.w, h: atk.h };
   G.bullets = [];
@@ -3403,7 +3548,7 @@ function drawCandle() {
 function drawEnemyPanel() {
   const e = G.enemy;
   const bx = 432, bw = 184, barX = 482, barW = 104;
-  const spareable = e.mercy >= 100;
+  const spareable = e.mercy >= mercyMax();
   txt(e.name, bx, 244, { size: 10, font: HEAD_FONT, color: spareable ? COL.gold : COL.dim });
   txt(Math.ceil(e.hp) + ' / ' + e.maxHp, bx + bw, 243, { size: 12, align: 'right', color: COL.white });
   txt('HP', bx, 258, { size: 9, font: HEAD_FONT, color: COL.dim });
@@ -3413,7 +3558,9 @@ function drawEnemyPanel() {
   ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(barX, 258, fw, 2);
   txt(Math.round(e.hp / e.maxHp * 100) + '%', bx + bw, 256, { size: 11, align: 'right', color: COL.white });
   txt('MERCY', bx, 270, { size: 9, font: HEAD_FONT, color: spareable ? COL.gold : COL.dim });
-  pixelBar(barX, 270, barW, 6, e.shownMercy / 100, spareable ? COL.gold : COL.orange, '#3a1a08');
+  pixelBar(barX, 270, barW, 6, e.shownMercy / mercyMax(), spareable ? COL.gold : COL.orange, '#3a1a08');
+  // Encore's bar runs to 200%: mark where 100% sits
+  if (mercyMax() > 100) { ctx.fillStyle = COL.white; ctx.fillRect(barX + barW * 100 / mercyMax() - 1, 269, 2, 8); }
   txt(Math.round(e.mercy) + '%', bx + bw, 268, { size: 11, align: 'right', color: spareable ? COL.gold : COL.white });
 }
 
@@ -3548,7 +3695,7 @@ function drawActionRow() {
     const x = 8 + k * 126, y = 354, w = 120, h = 32;
     const sel = m.sel === k, active = sel && m.sub === 'action';
     const disabled = label === 'ITEM' && !G.items.some(i => i.qty > 0);
-    const glow = label === 'SPARE' && G.enemy.mercy >= 100;
+    const glow = label === 'SPARE' && G.enemy.mercy >= mercyMax();
     frameBox(x, y, w, h, sel ? COL.gold : '#9a5a18', 2);
     const color = disabled ? '#4a3a5a' : sel || glow ? COL.gold : COL.orange;
     if (active) heart(x + 17, y + h / 2, 2, 'red');
@@ -3584,8 +3731,8 @@ function drawSubMenu() {
       if (shown) { ctx.font = `400 17px ${TEXT_FONT}`; spr(ORBIT_STARS[0], x + ctx.measureText(act.name).width + 10, y + 9); }
     });
     wrap(acts[m.subSel].desc, 252, 15).slice(0, 2).forEach((l, i) => txt(l, descX, T.y + 10 + i * 19, { size: 15, color: COL.dim }));
-    const e = G.enemy, mercy = e.mercy >= 100 ? 'MERCY 100%. It can be SPARED!' : `MERCY ${Math.round(e.mercy)}%`;
-    if (revealed && e.mercy < 100) txt(`Answer: ${revealed.name}   ${mercy}`, descX, T.y + 54, { size: 14, color: '#8ff3ff' });
+    const e = G.enemy, mercy = e.mercy >= mercyMax() ? `MERCY ${mercyMax()}%. It can be SPARED!` : `MERCY ${Math.round(e.mercy)}%`;
+    if (revealed && e.mercy < mercyMax()) txt(`Answer: ${revealed.name}   ${mercy}`, descX, T.y + 54, { size: 14, color: '#8ff3ff' });
     else txt(mercy, descX, T.y + 54, { size: 14, color: COL.gold });
     return;
   }

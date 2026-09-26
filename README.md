@@ -57,7 +57,7 @@ A **MOVE WITH** switch above the game chooses **Arrow keys** or an on-screen **J
   - *Untangle*: its strings are knotted or tangled.
   - *Check*: shows its stats.
   - *Reveal*: next turn, the right ACT is revealed in the flavor text and marked with a star in the ACT menu.
-- **SPARE** (everyone): once MERCY reaches 100%, the enemy's name turns yellow and sparing it ends the battle peacefully. Sparing earlier does nothing.
+- **SPARE** (everyone): once MERCY reaches 100% (200% for Encore), the enemy's name turns yellow and sparing it ends the battle peacefully. Sparing earlier does nothing.
 - **ITEM**: a shared, limited bag (4 Glow Berries, 2 Honey Loaves, 1 Phoenix Tea). Any hero can use one on any teammate, including a downed one.
 - **DEFEND**: halves the damage that hero takes this turn and grants 16% EXP.
 
@@ -88,7 +88,7 @@ Its 21 attacks: Needle Rain, Puppet Strings, Card Fan (slow cards), Loose Button
 
 A towering chapel candle with a fanged, ember-lit maw, held in a wrought-iron candelabra. Below half HP its flames burn blue. It has one ACT besides Check: **Keep Vigil**, which always works and raises its MERCY 8% per use (6% on Hard). There's no mood to read, so Reveal isn't offered against it.
 
-Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue (stand still)** and **orange (keep moving)**, with plain white wax as the only ordinary danger. Its 12 attacks:
+Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue (stand still)** and **orange (keep moving)**, with plain white wax as the only ordinary danger. Its 17 attacks:
 
 | Attack | What it asks of you |
 | --- | --- |
@@ -103,6 +103,11 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 | Candle Volley | lobbed candles burst into blue or orange sparks |
 | Meltdown | rising wax plus blue and white drips |
 | Wick Whips | one blue and one orange wick sweep like pendulums |
+| Twin Flames | fireballs fly at you in crossing pairs, one blue and one orange |
+| Flame Spiral | four spiral arms of alternating blue and orange fire spin out from the center |
+| Wax Icicles | blue and orange icicles hang overhead and drop when you walk under them |
+| Geyser Wave | a wave of blue and orange geysers erupts column by column across the floor |
+| Procession | rows of blue and orange lanterns drift past in alternating directions |
 | Last Vigil | orange ember rain plus blue rings |
 
 ### Deadeye (3000 HP)
@@ -139,7 +144,7 @@ It has one ACT besides Check: **Accept Duel**. Each use raises MERCY 7% (5% on H
 
 ### Encore (3600 HP)
 
-A phantom conductor in a star-lined cloak and a split comedy/tragedy mask, with the masks of the other three bosses orbiting it. Its eyes glow the color of your current SOUL. Every attack remixes another boss's tricks in a new way, and Encore **switches your SOUL between red, yellow and blue**, sometimes in the middle of an attack.
+A phantom conductor in a star-lined cloak and a split comedy/tragedy mask, with the masks of the other three bosses orbiting it. Its eyes glow the color of your current SOUL. It is the hardest boss: every one of its 17 attacks runs at full strength from the first turn, about 10% faster and with 20% more damage than the attack's base level, even outside Hard Mode. Every attack remixes another boss's tricks in a new way, and Encore **switches your SOUL between red, yellow and blue**, sometimes in the middle of an attack.
 
 | Attack | SOUL | What happens |
 | --- | --- | --- |
@@ -154,9 +159,14 @@ A phantom conductor in a star-lined cloak and a split comedy/tragedy mask, with 
 | Soul Swap | all | your SOUL cycles red → yellow → blue every few seconds |
 | Prism | red | blue and orange beams plus falling shards |
 | Curtain Crossfire | red | blue curtains fall while fans of white cards fly in |
+| Mirror Match | red | your controls are reversed while blue and orange walls sweep past |
+| High Wire | blue | the floor is spikes: ride moving platforms and hop over strings that snap taut |
+| Burning Wheel | yellow | a spinning wheel of yellow candles; shoot candles off it to open a path |
+| String Quartet | yellow | a string drags your heart around while yellow notes fall |
+| Blackout Swap | red/blue | the lights go out and your SOUL swaps between red and blue; only glowing hazards show |
 | Final Encore | all | everything at once, with fast SOUL swaps |
 
-Its ACTs are a gamble. **Applaud** gives a safe +6% MERCY (5% on Hard). **Cry Encore!** gives +14% (11%), but its next attack comes at full fury. Its theme is **The Last Encore**, a restless B-minor medley that speeds up when it turns frantic.
+Encore's MERCY bar runs to **200%**, and it can only be spared once the bar is full (a tick marks the halfway point). Its ACTs are a gamble. **Applaud** gives a safe +6% MERCY (5% on Hard). **Cry Encore!** gives +14% (11%), but its next attack comes at full fury. Its theme is **The Last Encore**, a restless B-minor medley that speeds up when it turns frantic.
 
 ## Hard Mode
 
