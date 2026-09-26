@@ -177,6 +177,16 @@ Encore's MERCY bar runs to **200%**, and it can only be spared once the bar is f
 - The item bag holds 3 Glow Berries, 1 Honey Loaf and 1 Phoenix Tea.
 - The heart's invincibility after a hit is shorter.
 
+## Extreme Mode
+
+Pick **EXTREME** in the MODE row of the title screen (NORMAL / HARD / EXTREME / ENDLESS). It works against every boss and keeps all of Hard Mode's rules (more boss HP, full fury from turn one, faster bullets, the smaller item bag, shorter invincibility and slower MERCY), then adds three more:
+
+- **All damage taken is doubled** (still halved by DEFEND).
+- **Lune's healing is halved:** Moonbeam heals 22 HP, Mend 42 HP and Aurora 35 HP to each hero. The spell descriptions show the reduced numbers.
+- **Downed heroes stay down.** They no longer recover between turns, and Mend, items and Phoenix Tea can't target them: the target menu says "can't be revived". Once all three are down, it's game over.
+
+Winning shows "YOU WON ON EXTREME!".
+
 ## Endless Mode
 
 Pick **ENDLESS** in the MODE row of the title screen (the enemy choice is ignored). There are no menus: attacks from all four bosses, 71 in total, come one after another in a completely random order (never the same attack twice in a row), and a timer shows how long the party has survived. The boss that owns the current attack appears on stage.
