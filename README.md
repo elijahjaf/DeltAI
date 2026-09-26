@@ -176,3 +176,12 @@ Encore's MERCY bar runs to **200%**, and it can only be spared once the bar is f
 - MERCY rises more slowly: 15% per correct ACT against Marionette NEO (instead of 18%) and 6% per Keep Vigil against Candlemaw (instead of 8%).
 - The item bag holds 3 Glow Berries, 1 Honey Loaf and 1 Phoenix Tea.
 - The heart's invincibility after a hit is shorter.
+
+## Endless Mode
+
+Pick **ENDLESS** in the MODE row of the title screen (the enemy choice is ignored). There are no menus: attacks from all four bosses, 71 in total, come one after another in a completely random order (never the same attack twice in a row), and a timer shows how long the party has survived. The boss that owns the current attack appears on stage.
+
+- **DANGER** starts at 1 and rises every 30 seconds. Each level makes bullets 8% faster (capped at +80%) and hit 10% harder, and from DANGER 3 (one minute in) every attack uses its frantic pattern. At DANGER 4 the music speeds up.
+- The panel under the boss shows the timer, the wave count, the DANGER level with a bar filling toward the next level, and your best time.
+- Between waves each hero recovers 8% of their max HP, so downed heroes slowly get back up.
+- The run ends when all three heroes are down. The game-over screen shows your time and waves, and your best time is saved in the browser (localStorage).

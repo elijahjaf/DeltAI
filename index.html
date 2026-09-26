@@ -201,7 +201,7 @@
     <section>
       <h2>Getting started</h2>
       <ol>
-        <li>On the title screen, use <b>Up/Down</b> to pick a row and <b>Left/Right</b> to choose an <b>enemy</b> and a <b>mode</b> (Normal or Hard).</li>
+        <li>On the title screen, use <b>Up/Down</b> to pick a row and <b>Left/Right</b> to choose an <b>enemy</b> and a <b>mode</b> (Normal, Hard or Endless).</li>
         <li>Press <b>Z</b> to begin. Your first key press also starts the music.</li>
         <li>Each round, choose an action for each hero. Then survive the enemy's attack by steering your heart inside the green box.</li>
         <li>Win by bringing the enemy's HP to 0, or by raising its MERCY to 100% and sparing it.</li>
@@ -275,6 +275,11 @@
     <section>
       <h2>Hard Mode</h2>
       <p>Pick HARD on the title screen. Enemies have more HP, hit harder, and attack at full fury from the first turn. Bullets are faster, the item bag is smaller, you recover less time after a hit, and MERCY rises more slowly.</p>
+    </section>
+    <section>
+      <h2>Endless Mode</h2>
+      <p>Pick ENDLESS on the title screen (the enemy choice doesn't matter). There are no menus: attacks from <b>every boss</b> come one after another in a completely <b>random order</b>, forever, and the timer counts how long you survive. Whichever boss owns the current attack appears on stage.</p>
+      <p><b>DANGER</b> rises every 30 seconds: each level makes bullets 8% faster (up to 80%) and hit 10% harder, and from DANGER 3 every attack uses its frantic pattern. Between waves each hero recovers 8% HP, and downed heroes slowly get back up. The run ends when all three are down. Your best time is saved in this browser.</p>
     </section>
   </div>
 </div>
@@ -680,10 +685,10 @@ const HARD_ITEMS = [3, 1, 1];
 
 // ---------------------------------------------------------------- state
 let G;
-function newGame(state = 'title', hard = false, bossId = 'neo') {
-  const boss = BOSSES[bossId], hp = hard ? boss.hpHard : boss.hp;
+function newGame(state = 'title', hard = false, bossId = 'neo', endless = false) {
+  const boss = endless ? BOSSES.endless : BOSSES[bossId], hp = hard ? boss.hpHard : boss.hp;
   G = {
-    state, hard, boss, bossId, titleRow: 0, t: 0, turn: 0, exp: 0, shake: 0, phase2: false,
+    state, hard, endless, boss, bossId, titleRow: 0, t: 0, turn: 0, exp: 0, shake: 0, phase2: false,
     party: PARTY_DEF.map(d => ({ ...d, hp: d.maxHp, defending: false, action: null, flash: 0, anim: 0 })),
     items: ITEM_DEF.map((i, k) => ({ ...i, qty: hard ? HARD_ITEMS[k] : i.qty })),
     enemy: { name: boss.name, maxHp: hp, hp, shownHp: hp, mercy: 0, shownMercy: 0, spared: false, shake: 0, flash: 0, fade: 0 },
@@ -754,7 +759,7 @@ function hurtParty(dmg) {
     c.hp = -Math.round(c.maxHp * 0.25);
     popup(p.x - 60, p.y, 'DOWN', COL.red);
     sfx('down');
-    if (!G.party.some(isUp)) G.gameOverAt = G.t + 45;
+    if (!G.party.some(isUp)) { G.gameOverAt = G.t + 45; G.endAt = G.t; }
   }
 }
 
@@ -1905,6 +1910,57 @@ function drawLantern(b) {
   ctx.save(); ctx.scale(0.6, 0.6); blit((b.blue ? SPR2.fireB : SPR2.fireO)[(G.t >> 3) % 2]); ctx.restore();
 }
 
+// ---------------------------------------------------------------- ENDLESS mode
+// Every attack from every boss in random order, forever. Danger rises every
+// 30 seconds; the timer shows how long the party has survived.
+const BEST_KEY = 'lastwish-endless-best', DANGER_EVERY = 1800;
+BOSSES.endless = {
+  id: 'endless', name: 'ENDLESS', song: 'encore', song2: 'encore2', hp: 1, hpHard: 1, attacks: [], acts: [],
+  draw: () => BOSSES[G.endlessOwner || 'encore'].draw(),
+  get light() { return BOSSES[G.endlessOwner || 'encore'].light; },
+  blurb: 'Every attack from every boss, in random order, forever. Survive!',
+};
+let ENDLESS_POOL = null;
+const endlessFrames = () => G.endlessStart === undefined ? 0 : (G.endAt || G.t) - G.endlessStart;
+const dangerLevel = () => 1 + Math.floor(endlessFrames() / DANGER_EVERY);
+function endlessBest() { try { return +localStorage.getItem(BEST_KEY) || 0; } catch (e) { return 0; } }
+function fmtTime(f) {
+  const s = f / 60, m = Math.floor(s / 60);
+  return `${m}:${(s - m * 60).toFixed(2).padStart(5, '0')}`;
+}
+function beginBattle() { if (G.endless) startEndless(); else startRound(); }
+function startEndless() {
+  G.endlessStart = G.t; G.wave = 0; G.endAt = 0; G.danger = 1;
+  startEnemyTurn();
+}
+function pickEndless() {
+  ENDLESS_POOL ||= BOSS_IDS.flatMap(id => [...BOSSES[id].attacks, ...(BOSSES[id].attacks2 || [])].map(atk => ({ atk, id })));
+  let e;
+  do e = choice(ENDLESS_POOL); while (G.atk && e.atk === G.atk);
+  const lv = dangerLevel();
+  if (lv > G.danger) { popup(320, 60, 'DANGER UP!', COL.red, 20); sfx('zap'); }
+  G.danger = lv; G.wave++; G.endlessOwner = e.id; G.phase2 = lv >= 4;
+  return e.atk;
+}
+// a breather between waves: every hero recovers a little, and downed heroes slowly get back up
+function endlessRegen() {
+  G.party.forEach((c, i) => {
+    const before = c.hp;
+    c.hp = Math.min(c.maxHp, c.hp + Math.ceil(c.maxHp * 0.08));
+    if (before <= 0 && c.hp > 0) popup(cardPos(i).x - 60, cardPos(i).y, 'UP', COL.gold);
+  });
+}
+function drawEndlessPanel() {
+  // right-aligned so wide battle boxes never cover it
+  const right = 616, lv = dangerLevel(), col = lv >= 5 ? COL.red : lv >= 3 ? COL.orange : COL.gold;
+  txt(fmtTime(endlessFrames()), right, 240, { size: 16, align: 'right', color: COL.white });
+  txt('DANGER ' + lv, right, 259, { size: 11, align: 'right', color: col });
+  txt('WAVE ' + (G.wave || 0), right - 84, 259, { size: 11, align: 'right', color: COL.dim });
+  pixelBar(right - 136, 274, 136, 4, (endlessFrames() % DANGER_EVERY) / DANGER_EVERY, col, '#2a1640');
+  const best = endlessBest();
+  if (best) txt('BEST ' + fmtTime(best), right, 281, { size: 9, align: 'right', color: COL.dim });
+}
+
 // most foes can be SPARED at 100% MERCY; ENCORE demands 200%
 const mercyMax = () => G.boss.mercyMax || 100;
 const curActs = () => G.boss.simpleAct ? [BASE_ACTS[0], ...G.boss.acts] : [...BASE_ACTS, ...G.boss.acts];
@@ -2157,15 +2213,17 @@ function updateFight() {
 
 // ENEMY TURN: dodge inside the box
 function startEnemyTurn(chain = false) {
-  const atk = curAttack();
+  const atk = G.endless ? pickEndless() : curAttack();
   const frantic = G.phase2 && !G.boss.attacks2 && !G.boss.ecstatic, fury = !!G.furyNext;
   G.furyNext = false;
   // hardBase bosses (ENCORE) always perform at full strength, a little faster
   const base = !!G.boss.hardBase;
-  const lvl = frantic || fury || G.hard || base ? 2 : 1;
-  const spd = (G.hard ? (frantic ? 1.2 : 1.1) : 1) * (fury ? 1.15 : 1) * (base ? 1.1 : 1);
+  let lvl = frantic || fury || G.hard || base ? 2 : 1;
+  let spd = (G.hard ? (frantic ? 1.2 : 1.1) : 1) * (fury ? 1.15 : 1) * (base ? 1.1 : 1), mul = 1;
+  // ENDLESS: danger rises every 30 seconds, whatever the attack
+  if (G.endless) { const lv = dangerLevel(); lvl = lv >= 3 ? 2 : 1; spd = Math.min(1.8, 1 + 0.08 * (lv - 1)); mul = 1 + 0.1 * (lv - 1); }
   G.atk = atk;
-  G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1) * (base ? 1.2 : 1) * (1 + (G.dmgBonus || 0) / 100)) };
+  G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * mul * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1) * (base ? 1.2 : 1) * (1 + (G.dmgBonus || 0) / 100)) };
   G.boxFrom = chain ? { ...G.box } : { ...TEXTBOX };
   G.boxTo = { x: 320 - atk.w / 2, y: BOX_CY - atk.h / 2, w: atk.w, h: atk.h };
   G.bullets = [];
@@ -2266,6 +2324,7 @@ function updateDodge() {
   if (G.gameOverAt && G.t >= G.gameOverAt) { gameOver(); return; }
   if (A.t >= A.dur) {
     G.bullets = [];
+    if (G.endless) { if (!G.gameOverAt) { endlessRegen(); startEnemyTurn(true); } return; }
     // an ECSTATIC boss can't stop at one: a second, different act follows right away
     if (G.phase2 && G.boss.ecstatic && !A.encore) {
       G.turn++;
@@ -2291,7 +2350,14 @@ function victory(spared = false) {
   G.enemy.hp = 0;
   setMsg(`${G.boss.winFight} YOU WON${G.hard ? ' ON HARD' : ''}! Turns: ${G.turn + 1}   Damage: ${s.damage}   Grazes: ${s.grazes}   EXP earned: ${Math.round(s.expGained)}%`);
 }
-function gameOver() { G.bullets = []; setState('gameover'); sfx('lose'); }
+function gameOver() {
+  G.bullets = []; setState('gameover'); sfx('lose');
+  if (G.endless) {
+    const f = endlessFrames(), best = endlessBest();
+    G.newBest = f > best;
+    if (G.newBest) try { localStorage.setItem(BEST_KEY, String(f)); } catch (e) {}
+  }
+}
 
 // ---------------------------------------------------------------- update
 function step() {
@@ -2315,11 +2381,11 @@ function step() {
       if (P('up') || P('down')) { G.titleRow = 1 - G.titleRow; sfx('move'); }
       if (P('left') || P('right')) {
         const t = G.t, row = G.titleRow;
-        if (row === 0) newGame('title', G.hard, BOSS_IDS[(BOSS_IDS.indexOf(G.bossId) + 1) % BOSS_IDS.length]);
-        else newGame('title', !G.hard, G.bossId);
+        if (row === 0) newGame('title', G.hard, BOSS_IDS[(BOSS_IDS.indexOf(G.bossId) + 1) % BOSS_IDS.length], G.endless);
+        else { const m = ((G.endless ? 2 : G.hard ? 1 : 0) + (P('left') ? 2 : 1)) % 3; newGame('title', m === 1, G.bossId, m === 2); }
         G.t = t; G.titleRow = row; sfx('move');
       }
-      if (P('ok')) { newGame('menu', G.hard, G.bossId); sfx('select'); startRound(); }
+      if (P('ok')) { newGame('menu', G.hard, G.bossId, G.endless); sfx('select'); beginBattle(); }
       break;
     case 'menu':
       G.msg.shown = Math.min(G.msg.text.length, G.msg.shown + 1.5);
@@ -2347,8 +2413,8 @@ function step() {
       if (P('ok') && G.stateT > 60) { newGame('title', G.hard, G.bossId); sfx('select'); }
       break;
     case 'gameover':
-      if (P('ok') && G.stateT > 40) { newGame('menu', G.hard, G.bossId); startRound(); sfx('select'); }
-      else if (P('back') && G.stateT > 40) { newGame('title', G.hard, G.bossId); sfx('back'); }
+      if (P('ok') && G.stateT > 40) { newGame('menu', G.hard, G.bossId, G.endless); beginBattle(); sfx('select'); }
+      else if (P('back') && G.stateT > 40) { newGame('title', G.hard, G.bossId, G.endless); sfx('back'); }
       break;
   }
 }
@@ -3655,6 +3721,7 @@ function drawCandle() {
 
 // HP and MERCY bars under the enemy; the name turns yellow once it can be spared
 function drawEnemyPanel() {
+  if (G.endless) { drawEndlessPanel(); return; }
   const e = G.enemy;
   const bx = 432, bw = 184, barX = 482, barW = 104;
   const spareable = e.mercy >= mercyMax();
@@ -4006,9 +4073,10 @@ function drawTitle() {
     });
   };
   row(306, 'ENEMY', BOSS_IDS.map(id => [BOSSES[id].name, COL.gold]), BOSS_IDS.indexOf(G.bossId), G.titleRow === 0);
-  row(346, 'MODE', [['NORMAL', COL.gold], ['HARD', COL.red]], G.hard ? 1 : 0, G.titleRow === 1);
+  row(346, 'MODE', [['NORMAL', COL.gold], ['HARD', COL.red], ['ENDLESS', '#c77dff']], G.endless ? 2 : G.hard ? 1 : 0, G.titleRow === 1);
   txt(G.boss.blurb, W / 2, 388, { size: 14, align: 'center', color: COL.dim });
-  txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. ${G.boss.attacks2 ? 'Your SOUL turns BLUE at half HP or half MERCY.' : G.boss.ecstatic ? 'ECSTATIC at 30% HP or 70% MERCY: two acts a turn.' : 'It gets frantic below half HP.'}`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
+  if (G.endless) txt(endlessBest() ? `Your best: ${fmtTime(endlessBest())}. Danger rises every 30 seconds.` : 'Danger rises every 30 seconds. How long can you last?', W / 2, 406, { size: 14, align: 'center', color: '#c77dff' });
+  else txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. ${G.boss.attacks2 ? 'Your SOUL turns BLUE at half HP or half MERCY.' : G.boss.ecstatic ? 'ECSTATIC at 30% HP or 70% MERCY: two acts a turn.' : 'It gets frantic below half HP.'}`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
   if ((G.t >> 5) % 2 === 0) txt('UP/DOWN PICK A ROW   LEFT/RIGHT CHOOSE   Z BEGIN', W / 2, 440, { size: 12, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 4 });
 }
 function drawGameOver() {
@@ -4017,7 +4085,10 @@ function drawGameOver() {
   heart(W / 2 - 12, 250, 6, 'red');
   ctx.fillStyle = '#000';
   for (let k = 0; k < 6; k++) ctx.fillRect(W / 2 - 16 + (k % 2) * 4, 226 + k * 8, 4, 8);
-  txt(`${G.enemy.name} had ${G.enemy.hp} HP left.`, W / 2, 300, { size: 18, align: 'center', color: COL.dim });
+  if (G.endless) {
+    txt(`YOU SURVIVED ${fmtTime(endlessFrames())}`, W / 2, 292, { size: 20, font: HEAD_FONT, align: 'center', color: '#c77dff' });
+    txt(G.newBest ? 'NEW BEST!' : `${G.wave} waves.  Best: ${fmtTime(endlessBest())}`, W / 2, 318, { size: 16, align: 'center', color: G.newBest ? COL.gold : COL.dim });
+  } else txt(`${G.enemy.name} had ${G.enemy.hp} HP left.`, W / 2, 300, { size: 18, align: 'center', color: COL.dim });
   if (G.stateT > 40) {
     txt('Z: TRY AGAIN', W / 2, 346, { size: 18, font: HEAD_FONT, align: 'center', color: COL.gold });
     txt('X: TITLE SCREEN', W / 2, 376, { size: 14, font: HEAD_FONT, align: 'center', color: COL.dim });
@@ -4031,7 +4102,7 @@ function draw() {
   if (G.shake > 0) ctx.translate(snap(rnd(-G.shake, G.shake) * 0.5), snap(rnd(-G.shake, G.shake) * 0.5));
   drawBackground();
   G.boss.draw();
-  if (G.bossId === 'neo') neoGlitch();
+  if ((G.endless ? G.endlessOwner : G.bossId) === 'neo') neoGlitch();
   drawEnemyPanel();
   G.party.forEach(drawHero);
   drawExpGauge();
