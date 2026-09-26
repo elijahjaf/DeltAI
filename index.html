@@ -250,7 +250,7 @@
       <ul>
         <li><span class="tag blue">BLUE</span> bullets only hurt while you move. Stand still and let them pass.</li>
         <li><span class="tag orange">ORANGE</span> bullets only hurt while you stand still. Keep moving through them.</li>
-        <li><span class="tag yellow">YELLOW HEART</span> The heart flips upside down and <b>Z fires shots upward</b>. Yellow objects break when shot. Yellow <b>TNT</b> freezes in place, flashes a warning cross, then blasts its whole row and column. The blast only hurts you, so stay out of the lines!</li>
+        <li><span class="tag yellow">YELLOW HEART</span> The heart flips upside down and <b>Z fires shots upward</b> (hold it for rapid fire). Yellow objects break when shot. Yellow <b>TNT</b> freezes in place, flashes a warning cross, then blasts its whole row and column. The blast only hurts you, so stay out of the lines!</li>
         <li><span class="tag blue">BLUE HEART</span> Gravity pulls the heart down. <b>Tap Z</b> for a short hop and <b>hold Z</b> for a full jump. You can land on platforms. If gravity flips, Z jumps away from whichever side you're standing on.</li>
         <li><span class="tag red">HAZARDS</span> Some attacks add darkness, reversed controls, strings that drag you, wind, slowing wax puddles, or a shrinking box. The <b>Attack guide</b> below explains each one.</li>
       </ul>
@@ -282,7 +282,7 @@
       <ul>
         <li><b>All damage taken is doubled.</b></li>
         <li><b>Lune's healing is halved:</b> Moonbeam heals 22 HP, Mend 42 HP and Aurora 35 HP to each hero.</li>
-        <li><b>Downed heroes can't be revived.</b> Mend, items and Phoenix Tea can't target them, and they don't get back up between turns.</li>
+        <li><b>Downed heroes drop to -150 HP and stay down</b>, except <b>ASTRA</b>, who can still be revived by healing and slowly recovers between turns. Mend, items and Phoenix Tea can't target anyone else who is down.</li>
       </ul>
     </section>
     <section>
@@ -695,7 +695,7 @@ const HARD_ITEMS = [3, 1, 1];
 // ---------------------------------------------------------------- state
 let G;
 function newGame(state = 'title', hard = false, bossId = 'neo', endless = false, extreme = false) {
-  // EXTREME is Hard Mode plus: half-strength Lune heals, no revives, double damage taken
+  // EXTREME is Hard Mode plus: half-strength Lune heals, only ASTRA revives, double damage taken
   if (extreme) hard = true;
   const boss = endless ? BOSSES.endless : BOSSES[bossId], hp = hard ? boss.hpHard : boss.hp;
   G = {
@@ -732,9 +732,10 @@ function sparkle(x, y, color, n = 8, spread = 2) {
 
 // EXTREME halves Lune's healing magic and rewrites the descriptions to match
 const spellPower = s => G.extreme && s.type !== 'dmg' ? Math.floor(s.power / 2) : s.power;
-const canHeal = c => !(G.extreme && c.hp <= 0);
-function spellDesc(s) { return G.extreme && s.type !== 'dmg' ? s.desc.replace(/\d+ HP/, spellPower(s) + ' HP').replace(' Can revive.', '') : s.desc; }
-function itemDesc(it) { return G.extreme ? it.desc.replace(' and revives', '') : it.desc; }
+// in EXTREME only ASTRA can be brought back once downed
+const canHeal = c => !(G.extreme && c.hp <= 0 && c.name !== 'ASTRA');
+function spellDesc(s) { return G.extreme && s.type !== 'dmg' ? s.desc.replace(/\d+ HP/, spellPower(s) + ' HP').replace(' Can revive.', ' Can revive ASTRA only.') : s.desc; }
+function itemDesc(it) { return G.extreme ? it.desc.replace(' and revives', ' (revives ASTRA only)') : it.desc; }
 function healChar(c, n) {
   const i = G.party.indexOf(c);
   if (!canHeal(c)) { popup(cardPos(i).x - 60, cardPos(i).y, 'NO REVIVE', COL.red, 14); return 0; }
@@ -773,7 +774,7 @@ function hurtParty(dmg) {
   popup(p.x, p.y, String(d), COL.red);
   sfx('hurt');
   if (c.hp <= 0) {
-    c.hp = -Math.round(c.maxHp * 0.25);
+    c.hp = G.extreme ? -150 : -Math.round(c.maxHp * 0.25);
     popup(p.x - 60, p.y, 'DOWN', COL.red);
     sfx('down');
     if (!G.party.some(isUp)) { G.gameOverAt = G.t + 45; G.endAt = G.t; }
@@ -2282,7 +2283,8 @@ function updateDodge() {
   // YELLOW SOUL: Z fires a shot straight up
   if (S.mode === 'yellow') {
     if (S.cool > 0) S.cool--;
-    if (P('ok') && S.cool === 0 && G.shots.length < 5) { G.shots.push({ x: S.x, y: S.y - 10 }); S.cool = 6; sfx('shot'); }
+    // holding Z fires as fast as the cooldown allows, same as mashing it
+    if (held.has('ok') && S.cool === 0 && G.shots.length < 5) { G.shots.push({ x: S.x, y: S.y - 10 }); S.cool = 6; sfx('shot'); }
   }
   // "moving" means the player moved the heart, not wind or strings
   S.moving = S.x !== px || S.y !== py;
@@ -4096,7 +4098,7 @@ function drawTitle() {
   row(346, 'MODE', [['NORMAL', COL.gold], ['HARD', COL.red], ['EXTREME', '#ff2a3d'], ['ENDLESS', '#c77dff']], modeIndex(), G.titleRow === 1);
   txt(G.boss.blurb, W / 2, 388, { size: 14, align: 'center', color: COL.dim });
   if (G.endless) txt(endlessBest() ? `Your best: ${fmtTime(endlessBest())}. Danger rises every 30 seconds.` : 'Danger rises every 30 seconds. How long can you last?', W / 2, 406, { size: 14, align: 'center', color: '#c77dff' });
-  else if (G.extreme) txt(`EXTREME: Hard rules, damage x2, half healing, no revives.`, W / 2, 406, { size: 14, align: 'center', color: '#ff2a3d' });
+  else if (G.extreme) txt(`EXTREME: Hard rules, damage x2, half healing, only ASTRA revives.`, W / 2, 406, { size: 14, align: 'center', color: '#ff2a3d' });
   else txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. ${G.boss.attacks2 ? 'Your SOUL turns BLUE at half HP or half MERCY.' : G.boss.ecstatic ? 'ECSTATIC at 30% HP or 70% MERCY: two acts a turn.' : 'It gets frantic below half HP.'}`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
   if ((G.t >> 5) % 2 === 0) txt('UP/DOWN PICK A ROW   LEFT/RIGHT CHOOSE   Z BEGIN', W / 2, 440, { size: 12, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 4 });
 }

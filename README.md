@@ -114,7 +114,7 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 
 A towering skeletal ghost gunslinger, the largest boss on the stage. It wears a bullet-riddled hat and a tattered poncho torn open over its ribs, and a long tail of smoke full of drifting lost souls trails where its legs should be. Fire burns in its eye sockets and it is fully animated: its jaw chatters and cackles, its skull twitches, one revolver stays aimed at the party and kicks back with a muzzle flash as it fires, the other twirls overhead, and vultures circle above. Its eyes and aura burn red, then blue in the second half. Deadeye changes how your heart works, the way Undertale's colored SOULs do.
 
-**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line. The blast doesn't affect anything else: rocks, bullets and other TNT are untouched.
+**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Holding Z fires continuously at the fastest rate, the same as mashing it. Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line. The blast doesn't affect anything else: rocks, bullets and other TNT are untouched.
 
 | Attack | What happens |
 | --- | --- |
@@ -183,7 +183,7 @@ Pick **EXTREME** in the MODE row of the title screen (NORMAL / HARD / EXTREME / 
 
 - **All damage taken is doubled** (still halved by DEFEND).
 - **Lune's healing is halved:** Moonbeam heals 22 HP, Mend 42 HP and Aurora 35 HP to each hero. The spell descriptions show the reduced numbers.
-- **Downed heroes stay down.** They no longer recover between turns, and Mend, items and Phoenix Tea can't target them: the target menu says "can't be revived". Once all three are down, it's game over.
+- **Downed heroes drop to -150 HP and stay down.** Only **ASTRA** can come back: healing her works as normal and she recovers 1/8 of her max HP each round. TERRIO and LUNE no longer recover between turns, and Mend, items and Phoenix Tea can't target them (the target menu says "can't be revived"). Once all three are down, it's game over.
 
 Winning shows "YOU WON ON EXTREME!".
 
