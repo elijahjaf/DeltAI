@@ -39,17 +39,17 @@ A **MOVE WITH** switch above the game chooses **Arrow keys** or an on-screen **J
 | Hero | HP | Fight power | Spells (EXP cost) |
 | --- | --- | --- | --- |
 | ASTRA, star knight | 150 | 64 | None. Astra has **ACT** instead of MAGIC |
-| TERRESTRO, cave dweller | 200 | 80 | Crystal Spike (25%, damage), Quake (55%, big damage) |
+| TERRIO, cave dweller | 200 | 80 | Crystal Spike (25%, damage), Quake (55%, big damage) |
 | LUNE, moon seer | 110 | 36 | Moonbeam (15%, small heal on one hero), Mend (25%, heals one hero and can revive), Aurora (65%, heals everyone) |
 
 - **Astra**: a knight with galaxy-colored skin and silver hair. Stars orbit her and a blue halo floats above her head.
-- **Terrestro**: a hulking, dark blue cave monster with glowing crystals along his spine, dragging a stone club.
+- **Terrio**: a hulking, dark blue cave monster with glowing crystals along his spine, dragging a stone club.
 - **Lune**: a hooded seer with pale, cratered moon skin and a crescent-moon staff.
 
 ## Actions
 
 - **FIGHT**: a timing bar slides toward a mark. Press Z as it crosses. The closer you are, the more damage you deal, and a dead-center hit is a 1.5x critical.
-- **MAGIC** (Terrestro and Lune): spends shared EXP, which works like Deltarune's TP. Terrestro only has damage spells and Lune only has healing spells.
+- **MAGIC** (Terrio and Lune): spends shared EXP, which works like Deltarune's TP. Terrio only has damage spells and Lune only has healing spells.
 - **ACT** (Astra): the peaceful way to progress. Against Marionette NEO, the flavor text hints each turn at what it wants. Pick the matching ACT to raise its **MERCY** by 18% (15% on Hard). A wrong ACT does nothing.
   - *Applaud*: it's playing to the crowd or waiting for applause.
   - *Dance*: it holds out a hand or looks for a partner.
@@ -116,7 +116,9 @@ A skeletal ghost gunslinger in a wide-brim hat and striped poncho, trailing smok
 | Target Practice | rows of yellow bottles drift down; stray white bullets cross the box |
 | TNT Wall | walls of rocks descend with one gap, plugged by TNT; shoot it, dodge its blast, then slip through |
 | Six Shooter | aimed volleys of yellow slugs to shoot down or dodge |
+| Dynamite Toss | TNT lobbed in arcs lights itself on landing; shoot it mid-air to set it off elsewhere |
 | Tumbleweeds | bouncing yellow tumbleweeds |
+| Ricochet | yellow slugs bounce off the walls and speed up with each bounce |
 | Outlaw Gang | a Space Invaders-style gang of yellow outlaws (some are TNT) that fires back |
 | High Noon | bottles, TNT and slugs together |
 
@@ -126,7 +128,9 @@ A skeletal ghost gunslinger in a wide-brim hat and striped poncho, trailing smok
 | --- | --- |
 | Cactus Run | short and tall cacti slide along the floor |
 | Dust Devil | rolling tumbleweeds to hop over and bouncing ones to walk under |
+| Last Train | train cars roll along the floor; jump over them or ride on top |
 | Mine Carts | the floor fills with spikes; ride the moving carts |
+| Snake Pit | snakes lunge up from marked holes while hawks swoop in at an angle |
 | Low Ceiling | spikes hang from the ceiling over each cactus, so only a short hop fits |
 | Gravity Slam | you're slammed to the floor, then floor spikes rise |
 | Sundown | everything together |

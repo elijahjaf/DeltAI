@@ -226,7 +226,7 @@
       <h2>Your turn</h2>
       <div class="rules">
         <div class="rule"><b>FIGHT</b><span>A bar slides toward a mark. Press Z as it crosses. The closer you are, the more damage you do; dead center is a critical.</span></div>
-        <div class="rule"><b>MAGIC</b><span>Terrestro's spells deal damage and Lune's spells heal. Spells cost EXP from the orange meter on the left.</span></div>
+        <div class="rule"><b>MAGIC</b><span>Terrio's spells deal damage and Lune's spells heal. Spells cost EXP from the orange meter on the left.</span></div>
         <div class="rule"><b>ACT</b><span>Astra's peaceful option. It raises the enemy's MERCY; how it works depends on the boss (see below).</span></div>
         <div class="rule"><b>ITEM</b><span>A small shared bag of snacks. Heal any hero, including one who is down.</span></div>
         <div class="rule"><b>SPARE</b><span>Any hero can SPARE. It only works once MERCY is 100% and the enemy's name has turned yellow.</span></div>
@@ -239,7 +239,7 @@
       <h2>The party</h2>
       <div class="cards">
         <div class="card"><h3>ASTRA &middot; 150 HP</h3><p>A galaxy-skinned star knight. Has <b>ACT</b> instead of MAGIC.</p></div>
-        <div class="card"><h3>TERRESTRO &middot; 200 HP</h3><p>A cave monster and the hardest hitter. Damage spells: <b>Crystal Spike</b> (25% EXP) and <b>Quake</b> (55% EXP).</p></div>
+        <div class="card"><h3>TERRIO &middot; 200 HP</h3><p>A cave monster and the hardest hitter. Damage spells: <b>Crystal Spike</b> (25% EXP) and <b>Quake</b> (55% EXP).</p></div>
         <div class="card"><h3>LUNE &middot; 110 HP</h3><p>A moon seer and healer. <b>Moonbeam</b> (15%), <b>Mend</b> (25%, can revive) and <b>Aurora</b> (65%, heals everyone).</p></div>
       </div>
     </section>
@@ -656,7 +656,7 @@ function wantedSong() {
 // ---------------------------------------------------------------- data
 const PARTY_DEF = [
   { name: 'ASTRA', role: 'knight', maxHp: 150, atk: 64, color: '#a893ff', dark: '#2c2170', acts: true, spells: [] },
-  { name: 'TERRESTRO', role: 'brute', maxHp: 200, atk: 80, color: '#4fd6e8', dark: '#16254d',
+  { name: 'TERRIO', role: 'brute', maxHp: 200, atk: 80, color: '#4fd6e8', dark: '#16254d',
     spells: [
       { name: 'Crystal Spike', cost: 25, type: 'dmg', power: 130, desc: 'Rips a crystal from its back and hurls it.' },
       { name: 'Quake', cost: 55, type: 'dmg', power: 260, desc: 'Splits the stage floor. Huge damage.' },
@@ -1347,6 +1347,16 @@ const DEADEYE_YELLOW = [
       const white = A.lvl > 1 && Math.random() < 0.33;
       spawn({ x, y: B.y - 6, vx: Math.cos(a) * 2.4, vy: Math.sin(a) * 2.4, r: 4, yellow: !white, ang: a - Math.PI / 2, draw: drawSlug });
     } },
+  { name: 'DYNAMITE TOSS', soul: 'yellow', hint: '* DEADEYE lobs sticks of dynamite over its shoulder. It looks thirsty.', mood: 'water', w: 240, h: 200, dur: 420, dmg: 26,
+    tip: 'TNT lands and lights itself. Shoot it mid-air to set it off away from you.',
+    update(A) {
+      const B = G.box, every = A.lvl > 1 ? 30 : 42;
+      if (A.t % every !== 0 || A.t > A.dur - 110) return;
+      const left = Math.random() < 0.5, x0 = left ? B.x - 8 : B.x + B.w + 8, y0 = B.y + B.h - 24, T = 70, g = 0.09;
+      const tx = Math.random() < 0.5 ? soulClampX(20) : rnd(B.x + 20, B.x + B.w - 20), land = B.y + B.h - 10;
+      tnt({ x: x0, y: y0, vx: (tx - x0) / T, vy: (land - y0 - 0.5 * g * T * T) / T, ay: g, cull: false, life: 400,
+        upd: b => { if (b.vy > 0 && b.y >= G.box.y + G.box.h - 10) { b.y = G.box.y + G.box.h - 10; b.lit = G.t; b.vx = b.vy = b.ay = 0; sfx('crack'); } } });
+    } },
   { name: 'TUMBLEWEEDS', soul: 'yellow', hint: '* Tumbleweeds roll down the empty street. DEADEYE hums a lonesome tune.', mood: 'song', w: 240, h: 200, dur: 400, dmg: 22,
     tip: 'Shoot the tumbleweeds before they bounce into you.', tipColor: YELLOW_TIP,
     update(A) {
@@ -1361,6 +1371,23 @@ const DEADEYE_YELLOW = [
             b.ang += b.vx * 0.06;
           } });
       }
+    } },
+  { name: 'RICOCHET', soul: 'yellow', hint: '* DEADEYE fires trick shots that bounce off the walls. It hums as it reloads.', mood: 'song', w: 240, h: 200, dur: 420, dmg: 24,
+    tip: 'Yellow slugs bounce and speed up with every wall they hit. Shoot them down early.',
+    update(A) {
+      const B = G.box;
+      if (A.t % (A.lvl > 1 ? 24 : 32) !== 0 || A.t > A.dur - 60) return;
+      const a = rnd(0.35, 1.2) * (Math.random() < 0.5 ? 1 : -1) + Math.PI / 2;
+      spawn({ x: rnd(B.x + 20, B.x + B.w - 20), y: B.y + 8, vx: Math.cos(a) * 2, vy: Math.abs(Math.sin(a)) * 2, r: 4, yellow: true, cull: false, life: 500, draw: drawSlug, d: { hits: 0 },
+        upd: b => {
+          const B = G.box; let hit = false;
+          if (b.d.hits < 4) {
+            if (b.x < B.x + 4 || b.x > B.x + B.w - 4) { b.vx = -b.vx; b.x = clamp(b.x, B.x + 4, B.x + B.w - 4); hit = true; }
+            if (b.y < B.y + 4 || b.y > B.y + B.h - 4) { b.vy = -b.vy; b.y = clamp(b.y, B.y + 4, B.y + B.h - 4); hit = true; }
+            if (hit) { b.d.hits++; b.vx *= 1.12; b.vy *= 1.12; }
+          } else if (b.x < B.x - 20 || b.x > B.x + B.w + 20 || b.y < B.y - 20 || b.y > B.y + B.h + 20) b.dead = true;
+          b.ang = Math.atan2(b.vy, b.vx) - Math.PI / 2;
+        } });
     } },
   { name: 'OUTLAW GANG', soul: 'yellow', hint: '* A gang of paper outlaws marches in. DEADEYE sizes you up for a duel.', mood: 'duel', w: 260, h: 200, dur: 460, dmg: 24,
     tip: "Shoot the outlaws. Stay out of shot TNT's row and column!", tipColor: YELLOW_TIP,
@@ -1408,6 +1435,18 @@ const DEADEYE_BLUE = [
       spawn({ x: left ? B.x - 10 : B.x + B.w + 10, y: floorY() - 9, vx: (left ? 1 : -1) * rnd(2, 2.6), ay: bouncy ? 0.2 : 0, vy: bouncy ? -5.2 : 0, r: 9, draw: drawWeed,
         upd: b => { if (b.y > floorY() - 9) { b.y = floorY() - 9; if (b.ay) b.vy = -5.2; } b.ang += b.vx * 0.06; } });
     } },
+  { name: 'LAST TRAIN', soul: 'blue', hint: '* A ghost train whistles through the canyon. DEADEYE tips its hat to the conductor.', mood: 'tip', w: 300, h: 140, dur: 440, dmg: 26,
+    tip: 'Jump over the train cars, or land on top and ride them.',
+    update(A) {
+      const B = G.box, fy = floorY(), sp = (A.lvl > 1 ? 2.6 : 2.2) * A.spd;
+      if (A.t % (A.lvl > 1 ? 52 : 62) === 10 && A.t < A.dur - 120) {
+        const top = fy - 34, x = B.x + B.w + 36, first = !A.d.cars;
+        A.d.cars = (A.d.cars || 0) + 1;
+        spawn({ kind: 'rect', platform: true, solid: false, x, y: top + 4, w: 64, h: 8, vx: -sp / A.spd, draw: () => {} });
+        spawn({ kind: 'rect', x, y: fy - 14, w: 64, h: 28, vx: -sp / A.spd, draw: drawTrainCar, d: { engine: first } });
+      }
+      if (A.t % 34 === 0 && A.t > 60 && A.t < A.dur - 40) spawn({ x: rnd(B.x + 10, B.x + B.w - 10), y: B.y - 6, vy: 1.7, r: 3, draw: drawPellet });
+    } },
   { name: 'MINE CARTS', soul: 'blue', hint: '* A mine cart rattles past. DEADEYE tips its hat as it goes by.', mood: 'tip', w: 300, h: 150, dur: 440, dmg: 26,
     tip: 'The floor is spiked! Jump onto the carts.', tipColor: BLUE_SOUL_TIP,
     init(A) {
@@ -1420,6 +1459,19 @@ const DEADEYE_BLUE = [
     update(A) {
       const B = G.box;
       if (A.lvl > 1 && A.t % 50 === 0 && A.t > 80 && A.t < A.dur - 40) { const left = Math.random() < 0.5; spawn({ x: left ? B.x - 8 : B.x + B.w + 8, y: rnd(B.y + 10, floorY() - 40), vx: left ? 2 : -2, r: 4, draw: drawSlug }); }
+    } },
+  { name: 'SNAKE PIT', soul: 'blue', hint: '* Rattlesnakes stir in the sand. DEADEYE narrows its eyes for a duel.', mood: 'duel', w: 300, h: 140, dur: 420, dmg: 24,
+    tip: 'Snakes lunge from the marked holes. Hawks swoop in at an angle.',
+    update(A) {
+      const B = G.box, fy = floorY();
+      if (A.t % (A.lvl > 1 ? 30 : 40) === 10 && A.t < A.dur - 60) {
+        const x = Math.random() < 0.5 ? soulClampX(10) : rnd(B.x + 12, B.x + B.w - 12);
+        spawn({ kind: 'rect', x, y: fy - 25, w: 12, h: 50, warn: 34, life: 58, cull: false, draw: drawSnake, onArm: () => sfx('crack') });
+      }
+      if (A.t % (A.lvl > 1 ? 56 : 72) === 40 && A.t < A.dur - 60) {
+        const left = Math.random() < 0.5;
+        spawn({ x: left ? B.x - 10 : B.x + B.w + 10, y: B.y + 10, vx: (left ? 1 : -1) * 2.6, vy: 1.3, r: 7, draw: drawHawk });
+      }
     } },
   { name: 'LOW CEILING', soul: 'blue', hint: '* Gunsmoke hangs low. DEADEYE narrows its eyes for a showdown.', mood: 'duel', w: 300, h: 140, dur: 420, dmg: 24,
     tip: 'Tap Z for a short hop. A full jump hits the spikes!', tipColor: BLUE_SOUL_TIP,
@@ -1503,8 +1555,9 @@ const BOSSES = {
 BOSSES.deadeye = {
   id: 'deadeye', song: 'yellow', song2: 'blue', name: 'DEADEYE', hp: 3000, hpHard: 4200, attacks: DEADEYE_YELLOW, attacks2: DEADEYE_BLUE, mercySwitch: true,
   // One ACT: steady MERCY, but every use makes its attacks stronger.
+  // tuned so a pacifist run (15 turns Normal / 20 Hard) lasts about as long as a typical fight
   simpleAct: true, actStep: 7, actStepHard: 5, draw: () => drawDeadeye(),
-  blurb: 'A ghost gunslinger. YELLOW SOUL, then BLUE SOUL. 12 acts.',
+  blurb: 'A ghost gunslinger. YELLOW SOUL, then BLUE SOUL. 16 acts.',
   light: 'rgba(255,220,120,0.08)',
   check: '* DEADEYE - AT 26 DF 14. A gunslinger who never left the saloon. It just wants one fair fight.',
   intro: '* DEADEYE drifts in on a cold desert wind. Your SOUL turns YELLOW!',
@@ -2280,7 +2333,7 @@ function bakeAstra() {
     R(g, sk, 18, 19, 3, 3); R(g, skL, 18, 19, 1, 1); R(g, skD, 18, 21, 3, 1); R(g, st, 20, 20); R(g, neb, 19, 21);
   });
 }
-function bakeTerrestro() {
+function bakeTerrio() {
   // hulking blue cave dweller: crystal spine, long arms, stone club dragged along the ground
   const sk = '#27407a', skD = '#16254d', skDD = '#0d1733', skL = '#3f5fa8', skH = '#6a8ad0';
   const cr = '#6ff5ff', crD = '#2fb8d6', crL = '#e0ffff';
@@ -2383,7 +2436,7 @@ function heroShield(color) {
     '...xx...',
   ], { x: color, y: '#ffffff', w: '#ffffff' });
 }
-const HERO_SPR = [bakeAstra(), bakeTerrestro(), bakeLune()].map((s, i) => ({
+const HERO_SPR = [bakeAstra(), bakeTerrio(), bakeLune()].map((s, i) => ({
   base: s, down: rotatedCCW(s), shield: heroShield(PARTY_DEF[i].color),
   port: [{ x: 8, y: 0, w: 14, h: 16 }, { x: 23, y: 3, w: 15, h: 15 }, { x: 8, y: 1, w: 14, h: 16 }][i],
 }));
@@ -2644,6 +2697,8 @@ const SPR3 = (() => {
   S.weed = fromMap(WEED, { y: '#e8e0c8' }, null);
   S.outlaw = fromMap(['yyyyyyy', 'ykkkkky', 'yyyyyyy', 'yykykyy', 'yyyyyyy', 'yykkkyy', 'yyyyyyy', 'ydddddy'], { y: Y, d: YD, k: '#3a2a10' }, null);
   S.rock = fromMap(['..wwww..', '.wwwwwg.', 'wwlwwwgg', 'wwwwwwgg', 'wwwwwggg', '.wggggg.', '..gggg..'], { w: '#ffffff', l: '#ffffff', g: '#b8aecb' }, null);
+  S.hawk = [fromMap(['w.......w', 'ww.....ww', '.www.www.', '..wwwww..', '...wkw...', '....w....'], { w: '#ffffff', k: '#ff2a3d' }, null),
+             fromMap(['.........', '.........', 'wwww.wwww', '.wwwwwww.', '...wkw...', '....w....'], { w: '#ffffff', k: '#ff2a3d' }, null)];
   S.pellet = fromMap(['.w.', 'www', '.w.'], { w: '#ffffff' }, null);
   S.heartY = fromMap(['.rr...rr.', 'rlrr.rrrr', 'rlrrrrrrr', 'rrrrrrrrd', '.rrrrrrd.', '..rrrrd..', '...rrd...', '....d....'],
     { r: '#ffe14a', l: '#fff6c0', d: '#c9a21c' }, null);
@@ -2689,6 +2744,21 @@ function drawSpikes(b) {
     ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, b.h / 2 - 6, 6, 6); ctx.fillRect(x + 2, -b.h / 2 + 2, 4, b.h - 8); ctx.fillRect(x + 3, -b.h / 2, 2, 2);
   }
 }
+function drawTrainCar(b) {
+  const x0 = -b.w / 2, y0 = -b.h / 2;
+  ctx.fillStyle = '#8a1a1a'; ctx.fillRect(x0, y0 - 6, b.w, b.h + 2);
+  ctx.fillStyle = '#c0302a'; ctx.fillRect(x0, y0 - 6, b.w, 3);
+  ctx.fillStyle = '#ffe9a0'; for (let x = x0 + 8; x < b.w / 2 - 8; x += 16) ctx.fillRect(x, y0, 8, 8);
+  ctx.fillStyle = '#2a1a10'; ctx.fillRect(x0, b.h / 2 - 8, b.w, 4);
+  ctx.fillStyle = '#9aa0b0'; for (const x of [x0 + 12, b.w / 2 - 12]) { ctx.fillRect(x - 6, b.h / 2 - 6, 12, 6); }
+  if (b.d.engine) { ctx.fillStyle = '#3a3a4a'; ctx.fillRect(x0 + 4, y0 - 18, 10, 12); ctx.fillStyle = 'rgba(200,200,210,0.5)'; ctx.fillRect(x0 + 2 + ((G.t >> 2) % 3) * 2, y0 - 26, 8, 6); }
+}
+function drawSnake(b) {
+  const k = Math.min(1, (b.age - 34) / 5), h = snap(b.h * k), y0 = b.h / 2;
+  for (let y = 0; y < h; y += 4) { const sx = ((y / 4) % 2 ? 2 : -2); ctx.fillStyle = (y / 4) % 3 ? '#ffffff' : '#b8e0b0'; ctx.fillRect(-4 + sx, y0 - y - 4, 8, 4); }
+  if (h > 8) { ctx.fillStyle = '#ffffff'; ctx.fillRect(-6, y0 - h - 2, 12, 8); ctx.fillStyle = '#ff2a3d'; ctx.fillRect(-2, y0 - h - 6, 2, 4); ctx.fillStyle = '#140a10'; ctx.fillRect(-4, y0 - h, 2, 2); ctx.fillRect(2, y0 - h, 2, 2); }
+}
+function drawHawk(b) { blit(SPR3.hawk[(G.t >> 3) % 2]); }
 function drawCart(b) {
   const x0 = -b.w / 2, y0 = -b.h / 2;
   ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x0, y0, b.w, b.h + 4);
