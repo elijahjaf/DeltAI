@@ -16,7 +16,7 @@ Every screen has its own original chiptune track, synthesized live with the Web 
 | Strings Attached | Marionette NEO | funky, jazzy and glitchy, D minor; speeds up when it turns frantic |
 | Wax and Wane | Candlemaw | a grand, mournful march, C minor; speeds up when its flames turn blue |
 | High Noon | Deadeye, YELLOW SOUL half | a galloping western with a harmonica-like lead, E minor |
-| The Last Encore | Encore | a restless medley in B minor; speeds up when it turns frantic |
+| The Last Encore | Encore | a restless medley in B minor; speeds up when it turns ECSTATIC |
 | Sundown Drive | Deadeye, BLUE SOUL half | relentless spinning 16ths, E minor |
 
 Numbers in the game use a custom 5×7 pixel digit set so that every digit is easy to tell apart: 2 has a flat base and a diagonal, 8 has two loops, and 0 is slashed.
@@ -71,7 +71,7 @@ A hero at 0 HP is **downed**. They skip turns and regain 1/8 of their max HP eac
 
 Pick the enemy on the title screen: Up/Down picks a row, Left/Right picks an option.
 
-Attacks run in a fixed order, one per turn, and the flavor text before each one hints at the enemy's mood. Below half HP every boss turns frantic: attacks get denser and faster and deal 25% more damage.
+Attacks run in a fixed order, one per turn, and the flavor text before each one hints at the enemy's mood. Below half HP most bosses turn frantic: attacks get denser and faster and deal 25% more damage. (Deadeye switches SOULs instead, and Encore turns ECSTATIC.)
 
 Some attacks bend the rules:
 - **Blue** bullets only hurt while you move. **Orange** bullets only hurt while you stand still.
@@ -112,7 +112,7 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 
 ### Deadeye (3000 HP)
 
-A skeletal ghost gunslinger in a wide-brim hat and striped poncho, trailing smoke where its legs should be. Deadeye changes how your heart works, the way Undertale's colored SOULs do.
+A towering skeletal ghost gunslinger, the largest boss on the stage. It wears a bullet-riddled hat and a tattered poncho torn open over its ribs, and a long tail of smoke full of drifting lost souls trails where its legs should be. Fire burns in its eye sockets and it is fully animated: its jaw chatters and cackles, its skull twitches, one revolver stays aimed at the party and kicks back with a muzzle flash as it fires, the other twirls overhead, and vultures circle above. Its eyes and aura burn red, then blue in the second half. Deadeye changes how your heart works, the way Undertale's colored SOULs do.
 
 **First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line. The blast doesn't affect anything else: rocks, bullets and other TNT are untouched.
 
@@ -166,7 +166,7 @@ A phantom conductor in a star-lined cloak and a split comedy/tragedy mask, with 
 | Blackout Swap | red/blue | the lights go out and your SOUL swaps between red and blue; only glowing hazards show |
 | Final Encore | all | everything at once, with fast SOUL swaps |
 
-Encore's MERCY bar runs to **200%**, and it can only be spared once the bar is full (a tick marks the halfway point). Its ACTs are a gamble. **Applaud** gives a safe +6% MERCY (5% on Hard). **Cry Encore!** gives +14% (11%), but its next attack comes at full fury. Its theme is **The Last Encore**, a restless B-minor medley that speeds up when it turns frantic.
+Encore's MERCY bar runs to **200%**, and it can only be spared once the bar is full (a tick marks the halfway point). Its ACTs are a gamble. **Applaud** gives a safe +6% MERCY (5% on Hard). **Cry Encore!** gives +14% (11%), but its next attack comes at full fury. Encore never turns frantic. Instead, at **30% HP or 70% MERCY** it becomes **ECSTATIC**: confetti rains down, its HP bar turns pink, and every enemy turn it performs **two different attacks back to back** before the box closes. Its theme is **The Last Encore**, a restless B-minor medley that speeds up when it turns ECSTATIC.
 
 ## Hard Mode
 

@@ -261,8 +261,8 @@
       <div class="cards">
         <div class="card"><h3>MARIONETTE NEO</h3><p>A scrap-metal puppet with 21 attacks. It turns frantic below half HP.</p><p><b>ACT:</b> each turn's flavor text hints at its mood. Pick the matching ACT (Applaud, Dance, Oil Joints or Untangle) for +18% MERCY. <b>Reveal</b> shows the right answer next turn.</p></div>
         <div class="card"><h3>CANDLEMAW</h3><p>A haunted candle with 17 attacks built on <span class="tag blue">BLUE</span> and <span class="tag orange">ORANGE</span> fire.</p><p><b>ACT:</b> <b>Keep Vigil</b> always works: +8% MERCY every time.</p></div>
-        <div class="card"><h3>DEADEYE</h3><p>A ghost gunslinger. The first half uses the <span class="tag yellow">YELLOW HEART</span>. At half HP or half MERCY it switches to the <span class="tag blue">BLUE HEART</span>.</p><p><b>ACT:</b> <b>Accept Duel</b> gives +7% MERCY, but each use makes its attacks hit 5% harder.</p></div>
-        <div class="card"><h3>ENCORE</h3><p>A masked phantom that remixes every other boss's tricks and switches your heart between <span class="tag red">RED</span> <span class="tag yellow">YELLOW</span> and <span class="tag blue">BLUE</span>, sometimes mid-attack. Gravity can even flip. The hardest boss: all 17 attacks run at full strength from the first turn, faster and harder-hitting.</p><p><b>MERCY:</b> the bar runs to <b>200%</b>, and Encore can only be SPARED once it's full.</p><p><b>ACT:</b> <b>Applaud</b> gives a safe +6% MERCY. <b>Cry Encore!</b> gives +14%, but its next attack comes at full fury.</p></div>
+        <div class="card"><h3>DEADEYE</h3><p>A towering skeletal gunslinger with fire in its eyes. The first half uses the <span class="tag yellow">YELLOW HEART</span>. At half HP or half MERCY it switches to the <span class="tag blue">BLUE HEART</span>.</p><p><b>ACT:</b> <b>Accept Duel</b> gives +7% MERCY, but each use makes its attacks hit 5% harder.</p></div>
+        <div class="card"><h3>ENCORE</h3><p>A masked phantom that remixes every other boss's tricks and switches your heart between <span class="tag red">RED</span> <span class="tag yellow">YELLOW</span> and <span class="tag blue">BLUE</span>, sometimes mid-attack. Gravity can even flip. The hardest boss: all 17 attacks run at full strength from the first turn, faster and harder-hitting. At 30% HP or 70% MERCY it turns <b>ECSTATIC</b> and performs two different attacks every turn.</p><p><b>MERCY:</b> the bar runs to <b>200%</b>, and Encore can only be SPARED once it's full.</p><p><b>ACT:</b> <b>Applaud</b> gives a safe +6% MERCY. <b>Cry Encore!</b> gives +14%, but its next attack comes at full fury.</p></div>
       </div>
     </section>
 
@@ -1747,7 +1747,8 @@ BOSSES.encore = {
   light: 'rgba(200,140,255,0.08)',
   check: '* ENCORE - AT 30 DF 15. A phantom that wears the faces of old performers. It never wants the curtain to fall.',
   intro: '* The curtain rises on its own. ENCORE takes the stage!',
-  phase2: "* ENCORE's masks crack. The show goes into overtime!",
+  phase2: '* ENCORE is ECSTATIC! It performs two acts every turn!',
+  phaseHp: 0.3, phaseMercy: 70, ecstatic: true,
   winFight: "* ENCORE's masks fall away one by one. The curtain finally closes.",
   winSpare: '* ENCORE was SPARED! It takes one last, perfect bow.',
   acts: [
@@ -1922,7 +1923,9 @@ function startRound() {
   if (first < 0) { gameOver(); return; }
   G.menu = { ci: first, sub: 'action', sel: 0, subSel: 0, tSel: 0, pending: null };
   let prefix = '';
-  if (!G.phase2 && (G.enemy.hp <= G.enemy.maxHp / 2 || (G.boss.mercySwitch && G.enemy.mercy >= 50))) {
+  // most bosses change at half HP; ENCORE turns ECSTATIC at 30% HP or 70% MERCY
+  const b = G.boss, hpAt = b.phaseHp || 0.5, mercyAt = b.phaseMercy || (b.mercySwitch ? 50 : Infinity);
+  if (!G.phase2 && (G.enemy.hp <= G.enemy.maxHp * hpAt || G.enemy.mercy >= mercyAt)) {
     G.phase2 = true; G.phaseTurn = G.turn;
     prefix = G.boss.phase2 + ' ';
   }
@@ -2153,9 +2156,9 @@ function updateFight() {
 }
 
 // ENEMY TURN: dodge inside the box
-function startEnemyTurn() {
+function startEnemyTurn(chain = false) {
   const atk = curAttack();
-  const frantic = G.phase2 && !G.boss.attacks2, fury = !!G.furyNext;
+  const frantic = G.phase2 && !G.boss.attacks2 && !G.boss.ecstatic, fury = !!G.furyNext;
   G.furyNext = false;
   // hardBase bosses (ENCORE) always perform at full strength, a little faster
   const base = !!G.boss.hardBase;
@@ -2163,7 +2166,7 @@ function startEnemyTurn() {
   const spd = (G.hard ? (frantic ? 1.2 : 1.1) : 1) * (fury ? 1.15 : 1) * (base ? 1.1 : 1);
   G.atk = atk;
   G.A = { t: 0, lvl, spd, d: {}, dur: atk.dur, dmg: Math.round(atk.dmg * (lvl > 1 ? 1.25 : 1) * (G.hard ? 1.15 : 1) * (base ? 1.2 : 1) * (1 + (G.dmgBonus || 0) / 100)) };
-  G.boxFrom = { ...TEXTBOX };
+  G.boxFrom = chain ? { ...G.box } : { ...TEXTBOX };
   G.boxTo = { x: 320 - atk.w / 2, y: BOX_CY - atk.h / 2, w: atk.w, h: atk.h };
   G.bullets = [];
   G.soul = { x: 320, y: G.boxTo.y + atk.h - (atk.soul === 'blue' ? 8 : 18), iframes: 0, graze: 0, moving: false, blueSafe: 0, mode: atk.soul || 'red', vy: 0, ground: true, cool: 0 };
@@ -2261,7 +2264,19 @@ function updateDodge() {
   G.bullets = G.bullets.filter(b => !b.dead);
 
   if (G.gameOverAt && G.t >= G.gameOverAt) { gameOver(); return; }
-  if (A.t >= A.dur) { G.bullets = []; G.boxEnd = { ...G.box }; setState('boxOut'); }
+  if (A.t >= A.dur) {
+    G.bullets = [];
+    // an ECSTATIC boss can't stop at one: a second, different act follows right away
+    if (G.phase2 && G.boss.ecstatic && !A.encore) {
+      G.turn++;
+      startEnemyTurn(true);
+      G.A.encore = true;
+      popup(ENEMY_POS.x, ENEMY_POS.y - 100, 'ENCORE!', COL.gold, 20);
+      sfx('select');
+      return;
+    }
+    G.boxEnd = { ...G.box }; setState('boxOut');
+  }
 }
 
 function victory(spared = false) {
@@ -2793,41 +2808,72 @@ const SPR2 = (() => {
 // ---------------------------------------------------------------- DEADEYE parts + bullet art
 const DE = (() => {
   const D = {};
-  const bone = '#e8e0c8', boneD = '#b0a88c', boneDD = '#7a7258', dark = '#140a10';
-  const hat = '#6a4a2a', hatL = '#8a6a3a', hatD = '#3a2814';
-  D.hat = bake(46, 16, g => {
-    R(g, hat, 13, 1, 20, 10); R(g, hatL, 14, 1, 6, 2); R(g, hatD, 28, 2, 5, 9); R(g, hatD, 21, 0, 4, 2);
-    R(g, '#8a1a1a', 13, 8, 20, 2); R(g, '#c0302a', 13, 8, 6, 1);
-    R(g, hat, 0, 11, 46, 3); R(g, hatL, 2, 11, 16, 1); R(g, hatD, 0, 13, 46, 1);
-    R(g, hat, 0, 9, 3, 2); R(g, hat, 43, 9, 3, 2);
+  const bone = '#e8e0c8', boneD = '#b0a88c', boneDD = '#7a7258', boneL = '#fffaf0', dark = '#140a10';
+  const hat = '#5a3c22', hatL = '#7a5a32', hatD = '#2e1e10';
+  // a battered, bullet-riddled hat with a torn, drooping brim
+  D.hat = bake(72, 24, g => {
+    poly(g, hat, [[24, 3], [30, 0], [36, 2], [42, 0], [48, 3], [50, 16], [22, 16]]);
+    R(g, hatL, 25, 3, 5, 12); R(g, hatD, 44, 3, 5, 13); R(g, hatD, 34, 2, 4, 3);
+    R(g, '#3a1010', 22, 12, 28, 4);
+    for (let x = 24; x < 49; x += 4) { R(g, '#d4af37', x, 12, 2, 3); R(g, '#fff0a0', x, 12, 1, 1); }
+    poly(g, hat, [[0, 13], [8, 16], [22, 15], [50, 15], [64, 16], [72, 13], [70, 20], [58, 22], [14, 22], [2, 20]]);
+    R(g, hatL, 6, 16, 20, 1); R(g, hatD, 10, 21, 52, 1);
+    for (const [x, y, w, h] of [[12, 19, 3, 4], [60, 18, 2, 5], [33, 21, 3, 2], [45, 20, 2, 3]]) g.clearRect(x, y, w, h);
+    for (const [x, y] of [[28, 7], [40, 5], [46, 10]]) { R(g, dark, x, y, 2, 2); R(g, hatL, x - 1, y - 1, 1, 1); }
   });
-  D.skull = bake(20, 20, g => {
-    oval(g, bone, 10, 8.5, 9, 8.5); R(g, bone, 4, 12, 12, 6);
-    R(g, boneD, 1, 5, 2, 8); R(g, boneD, 15, 4, 3, 10); R(g, '#fffaf0', 5, 2, 5, 2);
-    R(g, dark, 3, 7, 5, 5); R(g, dark, 11, 7, 5, 5);
-    poly(g, dark, [[9, 12], [11, 12], [10, 14.5]]);
-    R(g, dark, 4, 15, 12, 1); for (let x = 5; x < 16; x += 2) R(g, dark, x, 16, 1, 2);
-    R(g, boneDD, 4, 18, 12, 1);
-    R(g, dark, 13, 2, 1, 3); R(g, dark, 14, 4, 1, 2);
+  // a cracked skull with deep, slanted sockets
+  D.skull = bake(32, 30, g => {
+    oval(g, bone, 16, 12, 15, 12);
+    R(g, bone, 4, 12, 24, 10);
+    poly(g, bone, [[6, 20], [26, 20], [23, 28], [9, 28]]);
+    R(g, boneD, 25, 6, 4, 14); R(g, boneD, 27, 12, 2, 10); R(g, boneL, 7, 3, 8, 2); R(g, boneL, 5, 5, 3, 3); R(g, boneD, 1, 10, 2, 8);
+    line(g, dark, 18, 0, 20, 5); line(g, dark, 20, 5, 17, 9); line(g, dark, 20, 5, 24, 7); line(g, dark, 6, 4, 9, 7);
+    poly(g, boneDD, [[3, 9], [14, 12], [14, 14], [3, 12]]); poly(g, boneDD, [[29, 9], [18, 12], [18, 14], [29, 12]]);
+    poly(g, dark, [[4, 12], [14, 14], [13, 20], [6, 20], [3, 16]]);
+    poly(g, dark, [[28, 12], [18, 14], [19, 20], [26, 20], [29, 16]]);
+    poly(g, dark, [[14, 21], [18, 21], [17, 24], [16, 25], [15, 24]]);
+    R(g, dark, 8, 25, 16, 1);
+    for (let x = 9; x < 24; x += 2) R(g, dark, x, 26, 1, 3);
+    R(g, '#d4af37', 19, 26, 2, 3);
+    R(g, boneDD, 8, 28, 16, 1);
   });
-  const stripes = ['#b8402a', '#e0a030', '#2a8a8a', '#e8e0c8', '#6a2a4a'];
-  D.poncho = bake(42, 32, g => {
-    for (let y = 4; y < 30; y++) {
-      const hw = 8 + (y - 4) * 0.5, col = stripes[Math.floor((y - 4) / 3) % stripes.length];
-      R(g, col, Math.round(21 - hw), y, Math.round(hw * 2), 1);
-      R(g, 'rgba(0,0,0,0.25)', Math.round(21 + hw - 5), y, 5, 1);
+  // the lower jaw hangs loose so it can chatter
+  D.jaw = bake(24, 10, g => {
+    poly(g, bone, [[0, 0], [24, 0], [22, 6], [16, 10], [8, 10], [2, 6]]);
+    R(g, boneD, 18, 1, 4, 6); R(g, boneL, 3, 3, 4, 1);
+    for (let x = 3; x < 22; x += 2) R(g, dark, x, 0, 1, 2);
+    R(g, dark, 2, 2, 20, 1);
+  });
+  D.stripes = ['#8a2a1a', '#c08020', '#1e6a6a', '#d8d0b8', '#4a1a36'];
+  // a tattered poncho with a torn hole over the ribs and a bandolier
+  D.poncho = bake(64, 48, g => {
+    for (let y = 6; y < 44; y++) {
+      const hw = 12 + (y - 6) * 0.52, col = D.stripes[Math.floor((y - 6) / 4) % D.stripes.length];
+      R(g, col, Math.round(32 - hw), y, Math.round(hw * 2), 1);
+      R(g, 'rgba(0,0,0,0.3)', Math.round(32 + hw - 7), y, 7, 1);
     }
-    for (let x = 6; x < 36; x += 3) R(g, '#e0a030', x, 30, 1, 2);
-    poly(g, '#8a1a1a', [[13, 0], [29, 0], [21, 9]]); R(g, '#c0302a', 15, 0, 6, 1);
+    for (let x = 12; x < 52; x += 4) R(g, D.stripes[(x / 4 | 0) % 5], x, 44, 3, 2 + (x * 7) % 5);
+    poly(g, dark, [[14, 28], [24, 26], [26, 38], [18, 40], [12, 34]]);
+    for (let y = 29; y < 39; y += 3) R(g, bone, 15, y, 9, 1);
+    R(g, boneD, 19, 27, 1, 12);
+    for (let i = 0; i < 24; i++) { const x = Math.round(24 + i * 1.3), y = Math.round(8 + i * 1.3); R(g, '#3a2414', x, y, 4, 3); if (i % 3 === 0) R(g, '#d4af37', x + 1, y - 1, 2, 3); }
+    poly(g, '#7a0e0e', [[20, 0], [44, 0], [32, 14]]); R(g, '#b01818', 22, 0, 8, 1); R(g, '#4a0606', 36, 1, 5, 6);
   });
-  D.arm = bake(8, 18, g => {
-    R(g, '#5a3a22', 1, 0, 6, 11); R(g, '#7a5a32', 1, 0, 2, 11); R(g, '#3a2814', 6, 0, 1, 11);
-    R(g, bone, 2, 11, 4, 5); R(g, boneD, 5, 11, 1, 5); R(g, bone, 2, 16, 1, 2); R(g, bone, 4, 16, 1, 2);
+  // a long skeletal arm in a frayed sleeve
+  D.arm = bake(10, 34, g => {
+    R(g, '#4a3020', 1, 0, 8, 13); R(g, '#6a4a2a', 1, 0, 2, 13); R(g, '#2a1a10', 7, 0, 2, 13);
+    for (let x = 1; x < 9; x += 3) R(g, '#4a3020', x, 13, 2, 3);
+    R(g, bone, 3, 14, 2, 13); R(g, bone, 6, 14, 2, 13); R(g, boneD, 5, 16, 1, 10);
+    R(g, bone, 2, 26, 6, 1); R(g, bone, 2, 28, 6, 3); R(g, boneD, 7, 28, 1, 3);
+    for (let x = 2; x < 8; x += 2) R(g, bone, x, 31, 1, 3);
   });
-  D.gun = bake(18, 9, g => {
-    R(g, '#c9ccdf', 0, 1, 11, 3); R(g, '#ffffff', 0, 1, 11, 1); R(g, '#8a8fb3', 0, 3, 11, 1);
-    R(g, '#9aa0b0', 9, 0, 5, 5); R(g, '#6f7390', 10, 2, 3, 1);
-    R(g, '#6a4a2a', 13, 3, 4, 6); R(g, '#8a6a3a', 13, 3, 1, 5); R(g, '#3a2814', 11, 5, 2, 1);
+  // a long-barrelled revolver with a bone grip
+  D.gun = bake(28, 12, g => {
+    R(g, '#9aa0b0', 0, 2, 16, 3); R(g, '#e0e4f0', 0, 2, 16, 1); R(g, '#5a5e74', 0, 4, 16, 1); R(g, '#5a5e74', 0, 1, 2, 1);
+    R(g, '#8a8fb3', 13, 1, 7, 6); R(g, '#c9ccdf', 14, 1, 5, 1); R(g, '#4a4e64', 14, 3, 5, 1); R(g, '#4a4e64', 14, 5, 5, 1);
+    R(g, '#6f7390', 19, 2, 3, 4); R(g, '#3a3a4a', 21, 0, 2, 2);
+    poly(g, '#4a2a18', [[20, 5], [26, 6], [27, 12], [22, 12]]); R(g, '#7a4a28', 21, 6, 2, 5); R(g, '#e8e0c8', 23, 8, 2, 2);
+    R(g, '#3a3a4a', 17, 7, 2, 3);
   });
   return D;
 })();
@@ -2915,36 +2961,92 @@ function drawCart(b) {
 function drawDeadeye() {
   const e = G.enemy;
   if (e.fade >= 1) return;
-  const t = G.t, blue = G.phase2;
+  const t = G.t, blue = G.phase2, dodge = G.state === 'dodge';
   const shx = e.shake > 0 ? rnd(-e.shake, e.shake) * 0.5 : 0;
-  const ex = snap(ENEMY_POS.x + shx), ey = snap(ENEMY_POS.y - 4 + Math.sin(t * 0.045) * 6 - (e.spared ? 0 : e.fade * 40));
+  const ex = snap(ENEMY_POS.x + 8 + shx), ey = snap(ENEMY_POS.y + 2 + Math.sin(t * 0.045) * 5 - (e.spared ? 0 : e.fade * 40));
   const white = e.flash > 0 && (e.flash >> 1) % 2;
+  const glow = blue ? ['#2ea8ff', '46,168,255', '#dff6ff'] : ['#ff3a1f', '255,58,31', '#ffe14a'];
+  const smoke = blue ? '120,180,255' : '200,205,225';
+  const fade = 1 - e.fade;
   ctx.save();
-  ctx.globalAlpha = 1 - e.fade;
-  // ghostly tail trailing into smoke
+  ctx.globalAlpha = fade;
+  // a pulsing aura of dread
+  const pulse = 0.5 + 0.5 * Math.sin(t * (dodge ? 0.12 : 0.05));
+  for (let r = 4; r > 0; r--) { ctx.fillStyle = `rgba(${glow[1]},${0.03 + pulse * 0.025})`; ctx.beginPath(); ctx.arc(ex, ey - 30, 50 + r * 20, 0, Math.PI * 2); ctx.fill(); }
+  // vultures circling overhead
+  for (let k = 0; k < 3; k++) {
+    const a = t * 0.018 + k * 2.1, vx = snap(ex + Math.cos(a) * 74), vy = snap(46 + Math.sin(a) * 10 + k * 6), up = ((t >> 3) + k) % 2 ? -2 : 2;
+    ctx.fillStyle = '#3a3040'; ctx.fillRect(vx - 3, vy, 8, 3); ctx.fillRect(vx - 11, vy + up, 8, 2); ctx.fillRect(vx + 5, vy + up, 8, 2);
+    ctx.fillStyle = glow[0]; ctx.fillRect(Math.cos(a + Math.PI / 2) > 0 ? vx + 3 : vx - 3, vy, 2, 2);
+  }
+  // a long ghostly tail boiling into smoke, with lost souls drifting in it
   for (let i = 0; i < 26; i++) {
-    const y = ey + 22 + i * 2, w = 64 - i * 2.2, sw = Math.sin(t * 0.07 + i * 0.25) * i * 0.35;
-    ctx.fillStyle = blue ? `rgba(120,180,255,${0.55 - i * 0.02})` : `rgba(200,210,230,${0.55 - i * 0.02})`;
+    const y = ey + 34 + i * 2, w = 104 - i * 3.2, sw = Math.sin(t * 0.07 + i * 0.25) * i * 0.5;
+    ctx.fillStyle = `rgba(${smoke},${0.6 - i * 0.02})`;
     ctx.fillRect(snap(ex - w / 2 + sw), snap(y), snap(Math.max(2, w)), 2);
   }
-  // back arm hanging
-  spr(DE.arm, ex + 26, ey - 30, { ox: DE.arm.w / 2, oy: 1, ang: -0.25 + Math.sin(t * 0.05) * 0.1, white });
-  spr(DE.poncho, ex, ey - 42, { ox: DE.poncho.w / 2, oy: 1, white });
-  // gun arm aimed at the party, twirling the revolver now and then
-  const aim = Math.PI * 0.92 + Math.sin(t * 0.04) * 0.08, twirl = (t % 240) < 30 ? (t % 240) / 30 * Math.PI * 2 : 0;
-  const sx = ex - 24, sy = ey - 32, hx = sx + Math.cos(aim) * 30, hy = sy + Math.sin(aim) * 30;
-  spr(DE.arm, snap(sx), snap(sy), { ox: DE.arm.w / 2, oy: 1, ang: aim - Math.PI / 2, white });
-  spr(DE.gun, snap(hx), snap(hy), { ox: DE.gun.w - 3, oy: 4, ang: aim - Math.PI + twirl, white });
-  // skull and hat
-  const hy2 = ey - 62;
-  spr(DE.skull, ex, hy2, { white });
-  spr(DE.hat, ex - 2, hy2 - 22, { white, ang: Math.sin(t * 0.03) * 0.04 });
-  if (!white) {
-    const [lx, ly] = at(DE.skull, ex, hy2, 4, 8), [rx, ry] = at(DE.skull, ex, hy2, 12, 8);
-    const c = blue ? ['#2ea8ff', 'rgba(46,168,255,0.3)'] : ['#ffe14a', 'rgba(255,225,74,0.3)'];
-    for (const [x, y] of [[lx, ly], [rx, ry]]) { ctx.fillStyle = c[1]; ctx.fillRect(x - 4, y - 4, 14, 14); ctx.fillStyle = c[0]; ctx.fillRect(x, y, 6, 6); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 2, y + 2, 2, 2); }
-    if (G.state === 'dodge' && (t % 30) < 4) { ctx.fillStyle = '#fff6b0'; ctx.fillRect(snap(hx - (DE.gun.w - 3) * PX) - 6, snap(hy) - 6, 12, 12); }
+  for (let k = 0; k < 7; k++) {
+    const p = ((t * 0.6 + k * 36) % 240) / 240, wx = ex + Math.sin(k * 1.7 + p * 6) * (30 + p * 46), wy = ey + 74 - p * 160;
+    ctx.fillStyle = `rgba(${smoke},${0.3 * (1 - p)})`; ctx.fillRect(snap(wx), snap(wy), 6, 4);
   }
+  for (let k = 0; k < 3; k++) {
+    const a = Math.sin(((t + k * 80) % 240) / 240 * Math.PI), fx = snap(ex + (k - 1) * 28 + Math.sin(t * 0.03 + k) * 4), fy = snap(ey + 50 + (k % 2) * 12);
+    ctx.fillStyle = `rgba(20,10,30,${0.55 * a})`; ctx.fillRect(fx - 6, fy, 4, 4); ctx.fillRect(fx + 2, fy, 4, 4); ctx.fillRect(fx - 2, fy + 6, 4, 6);
+  }
+  // back arm raised high, twirling a second revolver
+  const ra = -2.55 + Math.sin(t * 0.05) * 0.12, rsx = ex + 36, rsy = ey - 22;
+  const rhx = rsx - Math.sin(ra) * 62, rhy = rsy + Math.cos(ra) * 62;
+  spr(DE.arm, rsx, rsy, { ox: DE.arm.w / 2, oy: 1, ang: ra, white });
+  const spin = (t % 180) < 40 ? (t % 180) / 40 * Math.PI * 4 : 0;
+  spr(DE.gun, snap(rhx), snap(rhy), { ox: DE.gun.w - 5, oy: 7, ang: Math.PI / 2 + 0.25 + spin, white });
+  // poncho with fluttering tatters
+  spr(DE.poncho, ex, ey - 30, { ox: DE.poncho.w / 2, oy: 1, white });
+  for (let i = 0; i < 9; i++) {
+    const x0 = ex - 40 + i * 10, len = 8 + ((i * 5) % 4) * 4 + Math.sin(t * 0.09 + i) * 4;
+    ctx.fillStyle = white ? '#ffffff' : DE.stripes[(i * 2) % 5];
+    for (let y = 0; y < len; y += 2) ctx.fillRect(snap(x0 + Math.sin(t * 0.1 + i + y * 0.2) * y * 0.2), snap(ey + 62 + y), 4, 2);
+  }
+  // front arm aims at the party; it kicks back when it fires
+  const shot = dodge && (t % 40) < 6, recoil = shot ? 0.22 * (1 - (t % 40) / 6) : 0;
+  const aim = Math.PI * 0.94 + Math.sin(t * 0.04) * 0.06 + recoil;
+  const sx = ex - 40, sy = ey - 26, hx = sx + Math.cos(aim) * 62, hy = sy + Math.sin(aim) * 62;
+  spr(DE.arm, snap(sx), snap(sy), { ox: DE.arm.w / 2, oy: 1, ang: aim - Math.PI / 2, white });
+  spr(DE.gun, snap(hx), snap(hy), { ox: DE.gun.w - 5, oy: 7, ang: aim - Math.PI, white });
+  if (shot && !white) {
+    const mx = snap(hx + Math.cos(aim) * 46), my = snap(hy + Math.sin(aim) * 46 - 4);
+    ctx.fillStyle = glow[2]; ctx.fillRect(mx - 8, my - 8, 16, 16); ctx.fillStyle = '#ffffff'; ctx.fillRect(mx - 4, my - 4, 8, 8);
+    ctx.fillStyle = `rgba(${smoke},0.5)`; ctx.fillRect(mx - 12, my - 16 - (t % 40) * 2, 10, 6);
+  }
+  // skull: it twitches, and its jaw chatters and cackles
+  const twitch = (t % 150) < 8 ? ((t >> 1) % 2 ? 0.14 : -0.14) : Math.sin(t * 0.03) * 0.05;
+  const cackle = dodge || (t % 220) < 50, open = cackle ? ((t >> 2) % 2 ? 8 : 2) : 2 + Math.round(Math.sin(t * 0.05) + 1);
+  const kx = ex, ky = ey - 58, c = Math.cos(twitch), s = Math.sin(twitch);
+  const rot = (dx, dy) => [kx + dx * c - dy * s, ky + dx * s + dy * c];
+  const [mx, my] = rot(0, 26);
+  if (!white) { ctx.fillStyle = `rgba(${glow[1]},0.6)`; ctx.fillRect(snap(mx) - 16, snap(my) - 6, 32, open + 8); }
+  const [jx, jy] = rot(0, 22 + open);
+  spr(DE.jaw, snap(jx), snap(jy), { ox: DE.jaw.w / 2, oy: 1, ang: twitch, white });
+  spr(DE.skull, kx, ky, { ang: twitch, white });
+  if (!white) {
+    // the brim throws the eyes into shadow, so only the fire shows
+    ctx.fillStyle = 'rgba(10,4,12,0.4)'; ctx.fillRect(kx - 30, ky - 16, 60, 12);
+    const glare = (t % 260) < 24, gs = glare ? 1.6 : 1;
+    for (const [dx, dy] of [[-16, 2], [16, 2]]) {
+      const [x, y] = rot(dx, dy), px = snap(x), py = snap(y);
+      ctx.fillStyle = `rgba(${glow[1]},${glare ? 0.45 : 0.28})`; ctx.fillRect(px - 9 * gs, py - 7 * gs, 18 * gs, 14 * gs);
+      ctx.fillStyle = glow[0]; ctx.fillRect(px - 4, py - 3, 8, 6);
+      ctx.fillStyle = glow[2]; ctx.fillRect(px - 2, py - 1, 4, 2);
+      for (let k = 0; k < 4; k++) {
+        const fh = (t * 0.5 + k * 7) % 14;
+        ctx.globalAlpha = fade * (1 - fh / 14); ctx.fillStyle = k % 2 ? glow[0] : glow[2];
+        ctx.fillRect(snap(x - 4 + k * 2 + Math.sin(t * 0.3 + k) * 2), snap(y - 6 - fh), 2, 2);
+      }
+      ctx.globalAlpha = fade;
+      if (glare) { ctx.fillStyle = `rgba(${glow[1]},0.35)`; ctx.fillRect(px - 26, py - 1, 52, 2); }
+    }
+  }
+  const [hx2, hy2] = rot(-2, -32);
+  spr(DE.hat, snap(hx2), snap(hy2), { white, ang: twitch * 0.6 + Math.sin(t * 0.03) * 0.03 });
   ctx.restore();
 }
 
@@ -3057,7 +3159,14 @@ function drawEncore() {
       ctx.fillStyle = eyeCol; ctx.globalAlpha = (1 - e.fade) * 0.35; ctx.fillRect(snap(x) - 6, snap(y) - 5, 12, 10);
       ctx.globalAlpha = 1 - e.fade; ctx.fillRect(snap(x) - 2, snap(y) - 2, 4, 4);
     }
-    if (p2) { ctx.fillStyle = '#140a1c'; ctx.fillRect(ex - 2, ey - 90, 2, 10); ctx.fillRect(ex, ey - 82, 2, 8); }
+    if (p2) {
+      // ECSTATIC: a shower of confetti and a grin that won't stop
+      const cols = ['#ffe14a', '#ff4fb8', '#6fd0ff', '#c77dff', '#ffffff'];
+      for (let i = 0; i < 18; i++) {
+        const cx = ex + Math.sin(i * 12.9) * 80, cy = 40 + ((t * (0.6 + (i % 4) * 0.2) + i * 23) % 190);
+        ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(snap(cx + Math.sin(t * 0.08 + i) * 6), snap(cy), (t + i) % 16 < 8 ? 4 : 2, 2);
+      }
+    }
   }
   orbit(false);
   ctx.restore();
@@ -3554,7 +3663,7 @@ function drawEnemyPanel() {
   txt('HP', bx, 258, { size: 9, font: HEAD_FONT, color: COL.dim });
   pixelBar(barX, 258, barW, 6, e.shownHp / e.maxHp, '#ffffff');
   const fw = Math.round(barW * e.hp / e.maxHp / 2) * 2;
-  ctx.fillStyle = G.phase2 ? COL.red : COL.gold; ctx.fillRect(barX, 258, fw, 6);
+  ctx.fillStyle = G.phase2 ? (G.boss.ecstatic ? '#ff4fb8' : COL.red) : COL.gold; ctx.fillRect(barX, 258, fw, 6);
   ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(barX, 258, fw, 2);
   txt(Math.round(e.hp / e.maxHp * 100) + '%', bx + bw, 256, { size: 11, align: 'right', color: COL.white });
   txt('MERCY', bx, 270, { size: 9, font: HEAD_FONT, color: spareable ? COL.gold : COL.dim });
@@ -3899,7 +4008,7 @@ function drawTitle() {
   row(306, 'ENEMY', BOSS_IDS.map(id => [BOSSES[id].name, COL.gold]), BOSS_IDS.indexOf(G.bossId), G.titleRow === 0);
   row(346, 'MODE', [['NORMAL', COL.gold], ['HARD', COL.red]], G.hard ? 1 : 0, G.titleRow === 1);
   txt(G.boss.blurb, W / 2, 388, { size: 14, align: 'center', color: COL.dim });
-  txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. ${G.boss.attacks2 ? 'Your SOUL turns BLUE at half HP or half MERCY.' : 'It gets frantic below half HP.'}`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
+  txt(G.hard ? `HARD: ${G.boss.hpHard} HP, full fury from turn one, fewer items.` : `NORMAL: ${G.boss.hp} HP. ${G.boss.attacks2 ? 'Your SOUL turns BLUE at half HP or half MERCY.' : G.boss.ecstatic ? 'ECSTATIC at 30% HP or 70% MERCY: two acts a turn.' : 'It gets frantic below half HP.'}`, W / 2, 406, { size: 14, align: 'center', color: G.hard ? '#ff8a8a' : COL.dim });
   if ((G.t >> 5) % 2 === 0) txt('UP/DOWN PICK A ROW   LEFT/RIGHT CHOOSE   Z BEGIN', W / 2, 440, { size: 12, font: HEAD_FONT, align: 'center', color: COL.gold, outline: 4 });
 }
 function drawGameOver() {
