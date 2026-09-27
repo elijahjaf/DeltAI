@@ -240,7 +240,7 @@
       <div class="cards">
         <div class="card"><h3>ASTRA &middot; 150 HP</h3><p>A galaxy-skinned star knight. Has <b>ACT</b> instead of MAGIC.</p></div>
         <div class="card"><h3>TERRIO &middot; 200 HP</h3><p>A cave monster and the hardest hitter. Damage spells: <b>Crystal Spike</b> (25% EXP) and <b>Quake</b> (55% EXP).</p></div>
-        <div class="card"><h3>LUNE &middot; 110 HP</h3><p>A moon seer and healer. <b>Moonbeam</b> (15%), <b>Mend</b> (25%, can revive) and <b>Aurora</b> (65%, heals everyone).</p></div>
+        <div class="card"><h3>LUNE &middot; 110 HP</h3><p>A moon seer and healer. <b>Moonbeam</b> (30%), <b>Mend</b> (50%, can revive) and <b>Aurora</b> (65%, heals everyone).</p></div>
       </div>
     </section>
 
@@ -677,8 +677,8 @@ const PARTY_DEF = [
     ] },
   { name: 'LUNE', role: 'seer', maxHp: 110, atk: 36, color: '#78f59a', dark: '#2a7a44',
     spells: [
-      { name: 'Moonbeam', cost: 15, type: 'heal', power: 45, desc: 'A soft ray of moonlight. Heals one hero 45 HP.' },
-      { name: 'Mend', cost: 25, type: 'heal', power: 85, desc: 'Heals one hero 85 HP. Can revive.' },
+      { name: 'Moonbeam', cost: 30, type: 'heal', power: 45, desc: 'A soft ray of moonlight. Heals one hero 45 HP.' },
+      { name: 'Mend', cost: 50, type: 'heal', power: 85, desc: 'Heals one hero 85 HP. Can revive.' },
       { name: 'Aurora', cost: 65, type: 'healAll', power: 70, desc: 'Heals every hero for 70 HP.' },
     ] },
 ];
@@ -2284,7 +2284,7 @@ function updateDodge() {
   if (S.mode === 'yellow') {
     if (S.cool > 0) S.cool--;
     // holding Z fires as fast as the cooldown allows, same as mashing it
-    if (held.has('ok') && S.cool === 0 && G.shots.length < 5) { G.shots.push({ x: S.x, y: S.y - 10 }); S.cool = 6; sfx('shot'); }
+    if (held.has('ok') && S.cool === 0 && G.shots.length < 5) { G.shots.push({ x: S.x, y: S.y - 10 }); S.cool = 12; sfx('shot'); }
   }
   // "moving" means the player moved the heart, not wind or strings
   S.moving = S.x !== px || S.y !== py;

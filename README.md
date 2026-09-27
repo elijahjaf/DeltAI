@@ -40,7 +40,7 @@ A **MOVE WITH** switch above the game chooses **Arrow keys** or an on-screen **J
 | --- | --- | --- | --- |
 | ASTRA, star knight | 150 | 64 | None. Astra has **ACT** instead of MAGIC |
 | TERRIO, cave dweller | 200 | 80 | Crystal Spike (25%, damage), Quake (55%, big damage) |
-| LUNE, moon seer | 110 | 36 | Moonbeam (15%, small heal on one hero), Mend (25%, heals one hero and can revive), Aurora (65%, heals everyone) |
+| LUNE, moon seer | 110 | 36 | Moonbeam (30%, small heal on one hero), Mend (50%, heals one hero and can revive), Aurora (65%, heals everyone) |
 
 - **Astra**: a knight with galaxy-colored skin and silver hair. Stars orbit her and a blue halo floats above her head.
 - **Terrio**: a hulking, dark blue cave monster with glowing crystals along his spine, dragging a stone club.
@@ -114,7 +114,7 @@ Candlemaw's fire comes in two colors, so nearly every attack is a test of **blue
 
 A towering skeletal ghost gunslinger, the largest boss on the stage. It wears a bullet-riddled hat and a tattered poncho torn open over its ribs, and a long tail of smoke full of drifting lost souls trails where its legs should be. Fire burns in its eye sockets and it is fully animated: its jaw chatters and cackles, its skull twitches, one revolver stays aimed at the party and kicks back with a muzzle flash as it fires, the other twirls overhead, and vultures circle above. Its eyes and aura burn red, then blue in the second half. Deadeye changes how your heart works, the way Undertale's colored SOULs do.
 
-**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Holding Z fires continuously at the fastest rate, the same as mashing it. Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line. The blast doesn't affect anything else: rocks, bullets and other TNT are untouched.
+**First half: YELLOW SOUL.** The heart flips upside down and turns yellow. It moves freely, and **Z fires a shot straight up** (up to five on screen). Holding Z fires continuously at the fastest rate (about five shots a second), the same as mashing it. Yellow objects break when shot. **Yellow TNT explodes** in a + shape across the entire box: it freezes in place where it was hit while a short warning flashes along its row and column, then the blast hurts you if you're still in line. The blast doesn't affect anything else: rocks, bullets and other TNT are untouched.
 
 | Attack | What happens |
 | --- | --- |
