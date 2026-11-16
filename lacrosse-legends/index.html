@@ -671,16 +671,50 @@ function buildArena(){
 }
 
 /* ---- character models ---- */
-function buildStickParts(S,E,P,ringR,shaftR,col,mat){
+let NET_TEX=null;
+function netTexture(){
+  if(NET_TEX)return NET_TEX;
+  const cv=document.createElement("canvas");cv.width=cv.height=32;const c=cv.getContext("2d");
+  c.strokeStyle="#fff";c.lineWidth=4;c.beginPath();
+  c.moveTo(0,0);c.lineTo(32,32);c.moveTo(-16,16);c.lineTo(16,48);c.moveTo(16,-16);c.lineTo(48,16);
+  c.moveTo(32,0);c.lineTo(0,32);c.moveTo(48,16);c.lineTo(16,48);c.moveTo(16,-16);c.lineTo(-16,16);
+  c.stroke();
+  NET_TEX=new THREE.CanvasTexture(cv);NET_TEX.wrapS=NET_TEX.wrapT=THREE.RepeatWrapping;NET_TEX.repeat.set(1/6,1/6);
+  return NET_TEX;
+}
+// teardrop lacrosse head: narrow throat at the shaft, wide scoop at the top
+const HEAD_L=32;
+function headHalfWidth(u){return u<.85?3.6+6.4*Math.sin(u/.85*PI/2):10*Math.sqrt(Math.max(0,1-Math.pow((u-.85)/.15,2)));}
+function headShape(inset,u0,u1){
+  const sh=new THREE.Shape(),pts=[];
+  const N=24;
+  for(let i=0;i<=N;i++){const u=u0+(u1-u0)*i/N;pts.push([headHalfWidth(u)-inset,(u-.5)*HEAD_L]);}
+  sh.moveTo(pts[0][0]*-1,pts[0][1]);
+  for(const p of pts)sh.lineTo(p[0],p[1]);
+  for(let i=pts.length-1;i>=0;i--)sh.lineTo(-pts[i][0],pts[i][1]);
+  return sh;
+}
+// black = player's stick, otherwise white (opponent). S = grip point, P = pocket centre.
+function buildStick(S,P,black,noDepth,shaftR){
+  const o=noDepth?{depthTest:false,depthWrite:false}:{};
+  const frameM=LM(black?0x15171c:0xf4f6f9,o),shaftM=LM(black?0x1b1d23:0xcfd5dc,o);
+  const netM=BM(black?0x0b0c0f:0xffffff,Object.assign({map:netTexture(),transparent:true,side:THREE.DoubleSide,alphaTest:.35},o));
   const g=new THREE.Group();
+  const a=P.clone().sub(S).normalize();
+  const E=P.clone().addScaledVector(a,-HEAD_L/2+1);
   const d=E.clone().sub(S),len=d.length();
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(shaftR,shaftR,len,8),mat||LM(0xc3cad4,{depthTest:true}));
-  shaft.position.copy(S).addScaledVector(d,.5);shaft.quaternion.setFromUnitVectors(V3(0,1,0),d.normalize());g.add(shaft);
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(ringR,ringR*.15,6,16),mat?mat:LM(col));ring.rotation.y=PI/2;ring.position.copy(P);g.add(ring);
-  const nm=new THREE.Mesh(new THREE.CircleGeometry(ringR*.95,14),mat?mat:BM(0xffffff,{transparent:true,opacity:.35,side:THREE.DoubleSide,depthWrite:false}));
-  nm.rotation.y=PI/2;nm.position.copy(P);g.add(nm);
-  const neck=new THREE.Mesh(new THREE.CylinderGeometry(shaftR,shaftR*1.3,ringR*1.4,8),mat||LM(0xc3cad4));
-  neck.position.copy(P).add(V3(0,-ringR*.4,-ringR*.9));neck.quaternion.setFromUnitVectors(V3(0,1,0),V3(0,.5,1).normalize());g.add(neck);
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(shaftR||1.8,shaftR||1.8,len,8),shaftM);
+  shaft.position.copy(S).addScaledVector(d,.5);shaft.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize());g.add(shaft);
+  // head frame (extruded outline with the pocket cut out) + mesh
+  const outer=headShape(0,0,1),hole=headShape(2.4,.16,.95);
+  outer.holes.push(new THREE.Path(hole.getPoints()));
+  const frame=new THREE.Mesh(new THREE.ExtrudeGeometry(outer,{depth:3.2,bevelEnabled:false}),frameM);
+  frame.position.z=-1.6;
+  const net=new THREE.Mesh(new THREE.ShapeGeometry(hole),netM);net.position.z=0;
+  const hg=new THREE.Group();hg.add(frame);hg.add(net);
+  const T=V3(1,0,0),Wv=new THREE.Vector3().crossVectors(T,a).normalize(),Zv=new THREE.Vector3().crossVectors(Wv,a).normalize();
+  hg.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(Wv,a,Zv));hg.position.copy(P);
+  g.add(hg);
   return g;
 }
 function addHair(head,L,R,hairM){
@@ -743,7 +777,7 @@ function buildModel(op){
   if(L.freckles){for(let i=0;i<16;i++){const x=(R()*2-1)*.05,y=-.02+R()*.03,z=Math.sqrt(Math.max(.0001,.0064-x*x-y*y));const f=new THREE.Mesh(new THREE.SphereGeometry(.0055,5,4),LM(0xa55f35));f.position.set(x,y,z*.99);head.add(f);}}
   // stick (absolute px units)
   const hy=H*.5,stick=new THREE.Group();
-  stick.add(buildStickParts(V3(10,H*.62,-4),V3(0,hy+2,26),V3(0,hy,36),9,1.6,0xffffff));
+  stick.add(buildStick(V3(10,H*.62,-4),V3(0,hy,36),false,false,1.7));
   root.add(stick);
   const blob=new THREE.Mesh(new THREE.CircleGeometry(20*b,16),BM(0x000000,{transparent:true,opacity:.32,depthWrite:false}));blob.rotation.x=-PI/2;blob.position.y=.4;root.add(blob);
   scene.add(root);
@@ -756,15 +790,14 @@ let vmBall=null;
 function buildViewmodel(){
   vm=new THREE.Group();camera.add(vm);
   const dm=c=>LM(c,{depthTest:false,depthWrite:false});
-  const shaftM=dm(0xc3cad4);
-  const S=V3(36,-54,-24),E=V3(15,-26,-84),P=V3(13,-23,-96);
-  const st=buildStickParts(S,E,P,9,1.9,0xffffff,shaftM);
+  const S=V3(36,-54,-24),P=V3(13,-23,-92);
+  const st=buildStick(S,P,true,true,2.1);
   st.traverse(o=>{o.renderOrder=20;});vm.add(st);
   const gm=dm(0x2a2f3d);
   const g1=new THREE.Mesh(new THREE.SphereGeometry(6.5,10,8),gm);g1.position.copy(S);g1.renderOrder=21;vm.add(g1);
   const g2=new THREE.Mesh(new THREE.SphereGeometry(5.8,10,8),gm);g2.position.set(27,-42,-46);g2.renderOrder=21;vm.add(g2);
   const ar=new THREE.Mesh(new THREE.CylinderGeometry(5,6,80,8),dm(hex("#3b82f6")));ar.position.set(44,-80,-6);ar.rotation.x=.9;ar.renderOrder=19;vm.add(ar);
-  vmBall=new THREE.Mesh(new THREE.SphereGeometry(6.2,12,10),dm(0xe8ff4a));vmBall.position.set(13,-24,-96);vmBall.renderOrder=22;vm.add(vmBall);
+  vmBall=new THREE.Mesh(new THREE.SphereGeometry(6.2,12,10),dm(0xe8ff4a));vmBall.position.set(13,-23,-92);vmBall.renderOrder=22;vm.add(vmBall);
 }
 function makeBall(){
   const m=new THREE.Mesh(new THREE.SphereGeometry(BR*1.15,14,12),LM(0xe8ff4a,{emissive:0x4a5a00}));scene.add(m);
