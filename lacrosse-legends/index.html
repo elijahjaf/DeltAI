@@ -63,6 +63,7 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
     <div>Hold <kbd>J</kbd> with the ball</div><div><b>Cradle: protects you from stick checks, but slows you and stops shooting</b></div>
     <div>Tap <kbd>J</kbd> without the ball</div><div><b>Stick check (knocks the ball loose)</b></div>
     <div><kbd>K</kbd></div><div><b>Dash</b></div>
+    <div><kbd>Space</kbd></div><div><b>Catch a flying ball (every 2 seconds). Opponents catch too</b></div>
     <div><kbd>P</kbd> / <kbd>Esc</kbd></div><div><b>Pause</b></div>
   </div>
   <button id="btnPlay">Choose Opponent</button>
@@ -96,6 +97,7 @@ const FL = 60, FR = 1140, FT = 70, FB = 650;       // field bounds
 const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 120;  // goal half-mouth, crease radius
 const BR = 7, PR = 16;                              // ball + player radius
 const MAX_LEVEL = 25;
+const CATCH_R = 68, CATCH_CD = 2.0, CATCH_WINDOW = .35;
 const MIDLINE_LOCK = 1.5;
 const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
 const PLAYER_SPEED = 300;
@@ -197,7 +199,7 @@ const store={get(){try{return JSON.parse(localStorage.getItem("lacrosseLegends")
 function mkEnt(x,y,color,isAI){
   return {x,y,vx:0,vy:0,r:PR,aim:isAI?Math.PI:0,color,ai:isAI,hasBall:false,
     charge:0,charging:false,dashT:0,dashCD:0,dx:0,dy:0,checkT:0,checkCD:0,checkHit:false,
-    stun:0,imm:0,noPick:0,speed:PLAYER_SPEED,trail:[]};
+    stun:0,imm:0,noPick:0,catchT:0,catchCD:0,speed:PLAYER_SPEED,trail:[]};
 }
 
 function newMatch(op){
@@ -216,7 +218,7 @@ function newMatch(op){
 function faceoff(who,animate){
   // who: 0 = player gets the ball, 1 = opponent gets the ball
   const {p,a,ball}=G;
-  const blank={possT:0,vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
+  const blank={catchT:0,catchCD:0,possT:0,vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
   if(animate&&camera){G.from={x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw:G.camYaw,pitch:camera.rotation.x};}
   Object.assign(p,blank,who===0?{x:W/2-190,y:CY,aim:0}:{x:W/2-70,y:CY,aim:0});
   Object.assign(a,blank,who===1?{x:W/2+190,y:CY,aim:Math.PI}:{x:W/2+70,y:CY,aim:Math.PI});
@@ -267,7 +269,7 @@ addEventListener("keydown",e=>{
   const k=e.key.toLowerCase();
   if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();
   if((k==="escape"||k==="p")&&!e.repeat)togglePause();
-  if(!e.repeat){ if(k==="k")keys.__dash=true; if(k==="j")keys.__check=true; }
+  if(!e.repeat){ if(k==="k")keys.__dash=true; if(k==="j")keys.__check=true; if(k===" ")keys.__catch=true; }
   keys[k]=true;
 });
 addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false;});
@@ -283,14 +285,14 @@ function playerInput(){
   const p=G.p,a=G.a;
   // auto-aim: goal when attacking, opponent otherwise
   const aim=p.hasBall?Math.atan2(CY-p.y,FR-p.x):Math.atan2(a.y-p.y,a.x-p.x);
-  const inp={mx,my,aim,shoot:!!keys.l,check:!!keys.__check,dash:!!keys.__dash,cradle:!!keys.j};
-  keys.__check=false; keys.__dash=false; return inp;
+  const inp={mx,my,aim,shoot:!!keys.l,check:!!keys.__check,dash:!!keys.__dash,cradle:!!keys.j,catch:!!keys.__catch};
+  keys.__check=false; keys.__dash=false; keys.__catch=false; return inp;
 }
 
 /* ========================= AI ========================= */
 function aiInput(dt){
   const {a,p,ball,prof:P,ai:S}=G;
-  const inp={mx:0,my:0,aim:a.aim,shoot:false,check:false,dash:false};
+  const inp={mx:0,my:0,aim:a.aim,shoot:false,check:false,dash:false,catch:false};
   // delayed perception of the player
   let seen={x:p.x,y:p.y};
   for(let i=G.hist.length-1;i>=0;i--){ if(G.t-G.hist[i].t>=P.react){seen=G.hist[i];break;} }
@@ -298,6 +300,17 @@ function aiInput(dt){
   S.shotCD-=dt; S.dumbT-=dt;
   if(S.dumbT<=0 && Math.random()<P.dumb*dt*1.2){S.dumbT=rnd(.25,.6);S.wx=rnd(-1,1);S.wy=rnd(-1,1);}
   let tx=a.x,ty=a.y,wantAim=a.aim,speedMul=1;
+  // is the player's shot heading at my goal? every opponent is good at catching these
+  let inc=null;
+  const bs=Math.hypot(ball.vx,ball.vy);
+  if(!ball.owner&&bs>280&&ball.vx>60&&G.state==="play"){
+    const tg=(FR-ball.x)/ball.vx,yg=ball.y+ball.vy*tg;
+    if(Math.abs(yg-CY)<MOUTH+40){
+      const s=Math.max(0,((a.x-ball.x)*ball.vx+(a.y-ball.y)*ball.vy)/(bs*bs));
+      const cx=ball.x+ball.vx*s,cy=ball.y+ball.vy*s;
+      inc={s,cx:clamp(cx,FL,FR),cy:clamp(cy,FT,FB),dmin:Math.hypot(a.x-cx,a.y-cy)};
+    }
+  }
 
   if(a.hasBall){
     const gx=FL, gy=CY, dg=Math.hypot(a.x-gx,a.y-gy);
@@ -346,6 +359,15 @@ function aiInput(dt){
       wantAim=Math.atan2(p.y-a.y,p.x-a.x)+gauss()*P.checkErr; a.aim=wantAim; inp.check=true;
     }
   }
+  else if(inc){
+    // an on-target shot is coming: run to the line of the shot and catch it
+    tx=inc.cx;ty=inc.cy;
+    const d=Math.hypot(tx-a.x,ty-a.y)||1;inp.mx=(tx-a.x)/d;inp.my=(ty-a.y)/d;
+    if(d<6){inp.mx*=d/6;inp.my*=d/6;}
+    wantAim=Math.atan2(ball.y-a.y,ball.x-a.x);
+    if(d>90&&inc.s<.7&&a.dashCD<=0)inp.dash=true;
+    if(inc.dmin<CATCH_R-10&&inc.s<.2&&a.catchCD<=0)inp.catch=true;
+  }
   else{
     // loose ball
     const lead=.08+.3*P.t;
@@ -385,6 +407,11 @@ function updEnt(e,o,inp,dt){
   if(inp.dash&&e.dashCD<=0&&!stunned){
     let dx=inp.mx,dy=inp.my; if(Math.hypot(dx,dy)<.1){dx=Math.cos(e.aim);dy=Math.sin(e.aim);}
     const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=e.ai?1.5:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
+  }
+  // catch (flying ball)
+  e.catchCD=Math.max(0,e.catchCD-dt);e.catchT=Math.max(0,e.catchT-dt);
+  if(inp.catch&&!e.hasBall&&e.catchCD<=0&&!stunned&&e.catchT<=0){
+    e.catchT=CATCH_WINDOW;e.catchCD=CATCH_CD;e.charging=false;e.charge=0;sfx("swing");
   }
   // cradle (ball carrier only)
   e.cradle=!!(inp.cradle&&e.hasBall&&!stunned&&e.checkT<=0);
@@ -510,6 +537,17 @@ function updBall(dt){
   }
   // blocks
   const spd=Math.hypot(b.vx,b.vy);
+  if(G.state==="play"){
+    for(const e of [p,a]){
+      if(e.catchT<=0||e.stun>0||e.hasBall)continue;
+      if(e===b.shooter&&b.age<.2)continue;
+      if(dist(e,b)<CATCH_R){
+        giveBall(e);b.shooter=null;e.catchT=0;
+        popup("CAUGHT!",e.x,e.y-40,"#4ade80");burst(e.x,e.y,12,"#4ade80",220,.4);G.shake=Math.max(G.shake,5);
+        return;
+      }
+    }
+  }
   if(spd>300&&G.state==="play"){
     for(const e of [p,a]){
       if(e===b.shooter&&b.age<.3)continue;
@@ -840,7 +878,7 @@ function animActor(m,e,dt){
   m.body.position.y=Math.abs(Math.sin(m.phase))*.008*amp;
   m.body.rotation.x=e.dashT>0?.4:e.stun>0?-.28:.07*amp+(e.cradle?.12:0);
   let sw=0;if(e.checkT>0)sw=-(1-e.checkT/.15-.5)*2.1;
-  m.stick.rotation.y=sw+(e.cradle?.25:0);m.stick.rotation.z=e.charging?-e.charge*.25:0;
+  m.stick.rotation.y=sw+(e.cradle?.25:0);m.stick.rotation.z=e.charging?-e.charge*.25:0;m.stick.rotation.x=e.catchT>0?-.5:0;
 }
 function updateScene(dt){
   TT+=dt;
@@ -883,6 +921,7 @@ function updateScene(dt){
     if(p.cradle){T.x=-26;T.y=14;T.z=18;T.rz=.5;T.rx=.15;T.ry=.3;}
     if(p.checkT>0){T.ry=-(1-p.checkT/.15-.5)*2.1;T.z-=6;T.x-=10;}
     if(G.kick>0){const kk=G.kick/.2;T.z-=14*kk;T.rx-=.35*kk;G.kick=Math.max(0,G.kick-dt);}
+    if(p.catchT>0){T.y+=12;T.rx+=.4;T.z-=10;T.x-=8;}
     if(p.stun>0)T.rz+=Math.sin(G.t*40)*.06;
     const k=Math.min(1,dt*22);for(const q in T)vmS[q]+=(T[q]-vmS[q])*k;
     vm.position.set(vmS.x,vmS.y,vmS.z);vm.rotation.set(vmS.rx,vmS.ry,vmS.rz);
@@ -941,7 +980,7 @@ function drawHUD(){
     text(label,x+62,H-29,13,"#fff","center",false);
   };
   cd(24,"DASH [K]",p.dashCD,1.35);cd(156,p.hasBall?"CRADLE [J]":"CHECK [J]",p.checkCD,1);
-  cd(288,"SHOOT [L]",0,1);
+  cd(288,"SHOOT [L]",0,1);cd(420,"CATCH [SPACE]",p.catchCD,CATCH_CD);
   drawRadar();
 }
 function drawReticle(){
