@@ -2,12 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Lacrosse Legends</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1220;--panel:#121c33;--line:#26365c;--txt:#e8eefc;--dim:#8fa0c8;--acc:#ffd23f;--blue:#3b82f6}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden;user-select:none}
+body{touch-action:none;-webkit-user-select:none;-webkit-touch-callout:none}
+section{z-index:10}
+#touch{position:fixed;inset:0;z-index:5;display:none;pointer-events:none}
+#touch.on{display:block}
+#touch>*{pointer-events:auto;touch-action:none}
+#joy{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.1);border:3px solid rgba(255,255,255,.35)}
+#joy i{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(255,255,255,.45);border:3px solid rgba(255,255,255,.8)}
+.tb{position:absolute;display:grid;place-items:center;border-radius:50%;font-weight:900;font-size:13px;letter-spacing:.5px;color:#fff;text-align:center;line-height:1.1;background:rgba(20,32,64,.72);border:3px solid rgba(255,255,255,.55);overflow:hidden;--cd:0}
+.tb::after{content:"";position:absolute;left:0;right:0;bottom:0;height:calc(var(--cd)*100%);background:rgba(0,0,0,.55)}
+.tb span{position:relative;z-index:1}
+.tb.down{background:rgba(255,210,63,.6);border-color:#ffd23f}
+#tShoot{width:98px;height:98px;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));background:rgba(200,50,50,.72);font-size:15px}
+#tCheck{width:80px;height:80px;right:calc(max(20px,env(safe-area-inset-right,0px)) + 112px);bottom:max(22px,env(safe-area-inset-bottom,0px))}
+#tDash{width:80px;height:80px;right:max(24px,env(safe-area-inset-right,0px));bottom:calc(max(20px,env(safe-area-inset-bottom,0px)) + 112px)}
+#tCatch{width:80px;height:80px;right:calc(max(20px,env(safe-area-inset-right,0px)) + 100px);bottom:calc(max(20px,env(safe-area-inset-bottom,0px)) + 104px)}
+#tPause{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:max(12px,env(safe-area-inset-top,0px));width:44px;height:44px;border-radius:12px;background:rgba(20,32,64,.72);border:2px solid rgba(255,255,255,.5);color:#fff;font-size:18px;font-weight:900;display:grid;place-items:center}
 canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #select{align-items:stretch;justify-content:flex-start;background:none;padding:0;overflow:hidden}
 #select .panel{width:min(600px,100%);height:100%;overflow:auto;background:rgba(8,13,26,.93);padding:20px 22px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid var(--line)}
@@ -53,6 +69,14 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
 <canvas id="gl"></canvas>
 <canvas id="c"></canvas>
 
+<div id="touch">
+  <div id="tPause">II</div>
+  <div id="joy"><i></i></div>
+  <div class="tb" id="tCheck"><span>CHECK</span></div>
+  <div class="tb" id="tCatch"><span>CATCH</span></div>
+  <div class="tb" id="tDash"><span>DASH</span></div>
+  <div class="tb" id="tShoot"><span>HOLD TO<br>SHOOT</span></div>
+</div>
 <section id="title" class="on">
   <h1>Lacrosse<br><span>Legends</span></h1>
   <p class="sub">Fast-paced 1v1 box lacrosse. Dodge, check, rip it top-corner. First to 7 goals — or lead when the 3:00 clock runs out.</p>
@@ -65,6 +89,7 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
     <div><kbd>K</kbd></div><div><b>Dash</b></div>
     <div><kbd>Space</kbd></div><div><b>Catch a flying ball (every 2 seconds). Opponents catch too</b></div>
     <div><kbd>P</kbd> / <kbd>Esc</kbd></div><div><b>Pause</b></div>
+    <div><kbd>Touch</kbd></div><div><b>Joystick on the left, buttons on the right. Hold the check button to cradle</b></div>
   </div>
   <button id="btnPlay">Choose Opponent</button>
 </section>
@@ -282,11 +307,62 @@ function playerInput(){
   const cy=G.camYaw;
   let mx=Math.cos(cy)*fwd-Math.sin(cy)*str, my=Math.sin(cy)*fwd+Math.cos(cy)*str;
   const l=Math.hypot(mx,my); if(l>0){mx/=l;my/=l;}
+  if(touch.joyOn){   // analog joystick: up = forward, sideways = strafe
+    const f=-touch.jy,st=touch.jx;
+    mx=Math.cos(cy)*f-Math.sin(cy)*st; my=Math.sin(cy)*f+Math.cos(cy)*st;
+    const m=Math.hypot(mx,my); if(m>1){mx/=m;my/=m;}
+  }
   const p=G.p,a=G.a;
   // auto-aim: goal when attacking, opponent otherwise
   const aim=p.hasBall?Math.atan2(CY-p.y,FR-p.x):Math.atan2(a.y-p.y,a.x-p.x);
-  const inp={mx,my,aim,shoot:!!keys.l,check:!!keys.__check,dash:!!keys.__dash,cradle:!!keys.j,catch:!!keys.__catch};
+  const inp={mx,my,aim,shoot:!!(keys.l||touch.shoot),check:!!keys.__check,dash:!!keys.__dash,cradle:!!(keys.j||touch.cradle),catch:!!keys.__catch};
   keys.__check=false; keys.__dash=false; keys.__catch=false; return inp;
+}
+
+/* ========================= TOUCH CONTROLS ========================= */
+const touch={enabled:false,joyOn:false,jx:0,jy:0,shoot:false,cradle:false};
+function enableTouch(){ if(touch.enabled)return; touch.enabled=true; document.body.classList.add("touchmode"); }
+try{ if(matchMedia("(pointer:coarse)").matches)touch.enabled=true; }catch(e){}
+addEventListener("touchstart",enableTouch,{passive:true});
+(function(){
+  const joy=$("joy"),knob=joy.firstElementChild;let jid=null;
+  const R=55;
+  function move(e){
+    const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+    let dx=e.clientX-cx,dy=e.clientY-cy;const d=Math.hypot(dx,dy);
+    if(d>R){dx*=R/d;dy*=R/d;}
+    knob.style.transform=`translate(${dx}px,${dy}px)`;
+    const m=Math.hypot(dx,dy)/R;
+    if(m<.15){touch.jx=touch.jy=0;}else{touch.jx=dx/R;touch.jy=dy/R;}
+    touch.joyOn=true;
+  }
+  joy.addEventListener("pointerdown",e=>{e.preventDefault();initAudio();jid=e.pointerId;try{joy.setPointerCapture(jid);}catch(_){}move(e);});
+  joy.addEventListener("pointermove",e=>{if(e.pointerId===jid)move(e);});
+  const end=e=>{if(e.pointerId!==jid)return;jid=null;touch.joyOn=false;touch.jx=touch.jy=0;knob.style.transform="";};
+  joy.addEventListener("pointerup",end);joy.addEventListener("pointercancel",end);
+  function btn(id,down,up){
+    const el=$(id);
+    el.addEventListener("pointerdown",e=>{e.preventDefault();initAudio();try{el.setPointerCapture(e.pointerId);}catch(_){}el.classList.add("down");down();});
+    const rel=e=>{el.classList.remove("down");if(up)up();};
+    el.addEventListener("pointerup",rel);el.addEventListener("pointercancel",rel);
+    el.addEventListener("contextmenu",e=>e.preventDefault());
+  }
+  btn("tShoot",()=>{touch.shoot=true;},()=>{touch.shoot=false;});
+  btn("tCheck",()=>{keys.__check=true;touch.cradle=true;},()=>{touch.cradle=false;});
+  btn("tDash",()=>{keys.__dash=true;});
+  btn("tCatch",()=>{keys.__catch=true;});
+  $("tPause").addEventListener("pointerdown",e=>{e.preventDefault();togglePause();});
+})();
+function updateTouchUI(){
+  const on=touch.enabled&&mode==="match"&&G&&G.state!=="over"&&G.state!=="paused";
+  $("touch").classList.toggle("on",!!on);
+  if(!on){touch.joyOn=false;touch.shoot=false;touch.cradle=false;return;}
+  const p=G.p;
+  $("tDash").style.setProperty("--cd",Math.min(1,p.dashCD/1.35));
+  $("tCatch").style.setProperty("--cd",Math.min(1,p.catchCD/CATCH_CD));
+  $("tCheck").style.setProperty("--cd",p.hasBall?0:Math.min(1,p.checkCD/1));
+  const lab=p.hasBall?"CRADLE":"CHECK",sp=$("tCheck").firstElementChild;
+  if(sp.textContent!==lab)sp.textContent=lab;
 }
 
 /* ========================= AI ========================= */
@@ -946,7 +1022,7 @@ function text(t,x,y,size,col,align="center",stroke=true){
   ctx.fillStyle=col;ctx.fillText(t,x,y);
 }
 function drawRadar(){
-  const x0=W-232,y0=H-136,w=204,h=110,mx=x=>x0+(x-FL)/(FR-FL)*w,my=y=>y0+(y-FT)/(FB-FT)*h;
+  const x0=W-232,y0=touch.enabled?80:H-136,w=204,h=110,mx=x=>x0+(x-FL)/(FR-FL)*w,my=y=>y0+(y-FT)/(FB-FT)*h;
   ctx.fillStyle="rgba(10,18,36,.85)";rr(x0-6,y0-6,w+12,h+12,10);ctx.fill();
   ctx.fillStyle="#2a7239";ctx.fillRect(x0,y0,w,h);
   ctx.strokeStyle="rgba(255,255,255,.6)";ctx.lineWidth=1;ctx.strokeRect(x0,y0,w,h);
@@ -979,8 +1055,10 @@ function drawHUD(){
     ctx.fillStyle=cdv<=0?"#4ade80":"#3b4a73";rr(x,H-44,124*(1-cdv/max),30,10);ctx.fill();
     text(label,x+62,H-29,13,"#fff","center",false);
   };
-  cd(24,"DASH [K]",p.dashCD,1.35);cd(156,p.hasBall?"CRADLE [J]":"CHECK [J]",p.checkCD,1);
-  cd(288,"SHOOT [L]",0,1);cd(420,"CATCH [SPACE]",p.catchCD,CATCH_CD);
+  if(!touch.enabled){
+    cd(24,"DASH [K]",p.dashCD,1.35);cd(156,p.hasBall?"CRADLE [J]":"CHECK [J]",p.checkCD,1);
+    cd(288,"SHOOT [L]",0,1);cd(420,"CATCH [SPACE]",p.catchCD,CATCH_CD);
+  }
   drawRadar();
 }
 function drawReticle(){
@@ -1041,7 +1119,7 @@ let last=performance.now();
 function frame(now){
   const dt=Math.min(1/30,(now-last)/1000);last=now;
   if(G&&mode==="match")update(dt);
-  try{render(dt);}catch(err){console.error(err);}
+  try{render(dt);updateTouchUI();}catch(err){console.error(err);}
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
