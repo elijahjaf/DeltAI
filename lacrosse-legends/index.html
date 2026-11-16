@@ -96,6 +96,7 @@ const FL = 60, FR = 1140, FT = 70, FB = 650;       // field bounds
 const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 92;  // goal half-mouth, crease radius
 const BR = 7, PR = 16;                              // ball + player radius
 const MAX_LEVEL = 25;
+const MIDLINE_LOCK = 3;
 const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
 const PLAYER_SPEED = 300;
 
@@ -215,7 +216,7 @@ function newMatch(op){
 function faceoff(who,animate){
   // who: 0 = player gets the ball, 1 = opponent gets the ball
   const {p,a,ball}=G;
-  const blank={vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
+  const blank={possT:0,vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
   if(animate&&camera){G.from={x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw:G.camYaw,pitch:camera.rotation.x};}
   Object.assign(p,blank,who===0?{x:W/2-190,y:CY,aim:0}:{x:W/2-70,y:CY,aim:0});
   Object.assign(a,blank,who===1?{x:W/2+190,y:CY,aim:Math.PI}:{x:W/2+70,y:CY,aim:Math.PI});
@@ -413,7 +414,11 @@ function updEnt(e,o,inp,dt){
   e.vx+=(tvx-e.vx)*k; e.vy+=(tvy-e.vy)*k;
   let mvx=e.vx,mvy=e.vy;
   if(e.dashT>0){e.dashT-=dt;mvx=e.dx*760;mvy=e.dy*760;e.vx=e.dx*420;e.vy=e.dy*420;}
+  const px=e.x;
   e.x+=mvx*dt; e.y+=mvy*dt;
+  if(e.hasBall)e.possT=(e.possT||0)+dt;
+  // the player may not carry the ball past the midline until 3s into the possession
+  if(!e.ai&&e.hasBall&&e.possT<MIDLINE_LOCK&&px<=W/2-e.r+.01)e.x=Math.min(e.x,W/2-e.r);
   e.trail.push({x:e.x,y:e.y}); if(e.trail.length>7)e.trail.shift();
   // field + crease
   e.x=clamp(e.x,FL+e.r,FR-e.r); e.y=clamp(e.y,FT+e.r,FB-e.r);
@@ -460,7 +465,7 @@ function shoot(e){
 
 /* ========================= BALL ========================= */
 function giveBall(e){
-  const b=G.ball;b.owner=e;e.hasBall=true;e.imm=.28;e.charge=0;e.charging=false;G.clock=SHOT_CLOCK;
+  const b=G.ball;b.owner=e;e.hasBall=true;e.possT=0;e.imm=.28;e.charge=0;e.charging=false;G.clock=SHOT_CLOCK;
   const other=e===G.p?G.a:G.p; other.hasBall=false;sfx("pick");
 }
 function updBall(dt){
@@ -805,11 +810,14 @@ function makeBall(){
   return {m,sh};
 }
 
+let barrier=null;
 const models={};let worldBall=null,ringMesh=null,actor=null,menuView="title",bh=BR;
 if(renderer){
   buildArena();
   OPPONENTS.forEach(o=>{models[o.name]=buildModel(o);models[o.name].root.visible=false;});
   buildViewmodel();worldBall=makeBall();
+  barrier=new THREE.Mesh(new THREE.PlaneGeometry(FB-FT,90),BM(0xff4d4d,{transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}));
+  barrier.rotation.y=PI/2;barrier.position.set(W/2,45,CY);barrier.visible=false;scene.add(barrier);
   ringMesh=new THREE.Mesh(new THREE.RingGeometry(20,25,32),BM(0xffd23f,{side:THREE.DoubleSide}));ringMesh.rotation.x=-PI/2;ringMesh.position.y=.6;scene.add(ringMesh);
 }
 
@@ -839,7 +847,7 @@ function updateScene(dt){
   const inMatch=!!(G&&mode==="match");
   const view=inMatch?"match":(menuView==="select"?"lineup":"orbit");
   for(const o of OPPONENTS){const m=models[o.name];m.root.visible=view==="lineup"||(view==="match"&&m===actor);}
-  vm.visible=view==="match";worldBall.m.visible=view==="match";worldBall.sh.visible=view==="match";ringMesh.visible=view==="lineup";
+  vm.visible=view==="match";if(view!=="match")barrier.visible=false;worldBall.m.visible=view==="match";worldBall.sh.visible=view==="match";ringMesh.visible=view==="lineup";
   if(view==="orbit"){
     clearOffset();setFov(55);const a=TT*.15;
     camera.position.set(W/2+Math.cos(a)*720,230,CY+Math.sin(a)*620);camera.lookAt(W/2,25,CY);
@@ -879,6 +887,7 @@ function updateScene(dt){
     const k=Math.min(1,dt*22);for(const q in T)vmS[q]+=(T[q]-vmS[q])*k;
     vm.position.set(vmS.x,vmS.y,vmS.z);vm.rotation.set(vmS.rx,vmS.ry,vmS.rz);
     vmBall.visible=p.hasBall;
+    barrier.visible=p.hasBall&&p.possT<MIDLINE_LOCK&&G.state==="play";
     // ball
     const spd=Math.hypot(b.vx,b.vy);
     let target=BR*1.1;if(b.owner===a)target=actor.hy;else if(!b.owner&&spd>240)target=50;
@@ -925,6 +934,7 @@ function drawHUD(){
   ctx.fillStyle="#0b1220";rr(W/2-70,44,140,10,5);ctx.fill();
   ctx.fillStyle=sc<.3?"#ff6b6b":"#4ade80";rr(W/2-70,44,140*sc,10,5);ctx.fill();
   const p=G.p;
+  if(p.hasBall&&p.possT<MIDLINE_LOCK&&G.state==="play")text(`MIDLINE LOCKED  ${(MIDLINE_LOCK-p.possT).toFixed(1)}s`,W/2,86,18,"#ff6b6b");
   const cd=(x,label,cdv,max)=>{
     ctx.fillStyle="rgba(10,18,36,.92)";rr(x,H-44,124,30,10);ctx.fill();
     ctx.fillStyle=cdv<=0?"#4ade80":"#3b4a73";rr(x,H-44,124*(1-cdv/max),30,10);ctx.fill();
