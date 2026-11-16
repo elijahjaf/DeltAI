@@ -238,7 +238,7 @@ function buildSelect(){
     c.appendChild(d);
   });
   const o=OPPONENTS[selected], p=profile(o);
-  $("bio").innerHTML=`<b>${o.name} — Level ${o.lv}</b>${o.bio}<span class="ht">${o.look.label.toUpperCase()}</span>`;
+  $("bio").innerHTML=`<b>${o.name} — Level ${o.lv}</b>${o.bio}`;
   const bars=[["SPEED",(p.speed-195)/125],["AIM",1-p.err/0.26],["POWER",p.chargeMax],["CHECK",p.checkRate/5.5],["REFLEX",1-(p.react-.05)/.4],["DASH",p.dash/1.9]];
   $("bars").innerHTML=bars.map(([n,v])=>`<div class="bar"><em>${n}</em><i><u style="width:${clamp(v,.04,1)*100}%"></u></i></div>`).join("");
 }
@@ -940,7 +940,6 @@ function render(dt){
       const m=models[o.name],s=project(m.root.position.x,0,CY+10);if(!s||innerWidth<=900)return;
       const sel=i===selected;
       text(o.name,s.x,s.y+14,sel?17:13,sel?"#ffd23f":"#c9d6f5");
-      text(o.look.label.split(" · ")[0],s.x,s.y+32,12,"#8fa0c8","center",false);
     });
   }
 }
