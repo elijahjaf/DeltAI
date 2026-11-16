@@ -95,6 +95,7 @@ const W = 1200, H = 680;
 const FL = 60, FR = 1140, FT = 70, FB = 650;       // field bounds
 const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 92;  // goal half-mouth, crease radius
 const BR = 7, PR = 16;                              // ball + player radius
+const MAX_LEVEL = 25;
 const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
 const PLAYER_SPEED = 300;
 
@@ -116,7 +117,7 @@ const OPPONENTS = [
 ];
 
 function profile(op){
-  const t=(op.lv-1)/13, m=op.mod||{};
+  const t=(op.lv-1)/(MAX_LEVEL-1), m=op.mod||{};
   return {
     t,
     speed:(205+100*t)*(m.speed||1),
@@ -238,7 +239,7 @@ function buildSelect(){
     c.appendChild(d);
   });
   const o=OPPONENTS[selected], p=profile(o);
-  $("bio").innerHTML=`<b>${o.name} — Level ${o.lv}</b>${o.bio}`;
+  $("bio").innerHTML=`<b>${o.name} — Level ${o.lv} of ${MAX_LEVEL}</b>${o.bio}`;
   const bars=[["SPEED",(p.speed-195)/125],["AIM",1-p.err/0.26],["POWER",p.chargeMax],["CHECK",p.checkRate/5.5],["REFLEX",1-(p.react-.05)/.4],["DASH",p.dash/1.9]];
   $("bars").innerHTML=bars.map(([n,v])=>`<div class="bar"><em>${n}</em><i><u style="width:${clamp(v,.04,1)*100}%"></u></i></div>`).join("");
 }
