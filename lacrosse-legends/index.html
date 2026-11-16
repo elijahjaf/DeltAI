@@ -49,10 +49,11 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
   <p class="sub">Fast-paced 1v1 box lacrosse. Dodge, check, rip it top-corner. First to 7 goals — or lead when the 3:00 clock runs out.</p>
   <div class="keys">
     <div><kbd>W A S D</kbd> / <kbd>Arrows</kbd></div><div><b>Move</b></div>
-    <div><kbd>Mouse</kbd></div><div><b>Aim your stick</b></div>
-    <div>Hold <kbd>Left Click</kbd> / <kbd>J</kbd></div><div><b>Charge shot — release to fire</b></div>
-    <div><kbd>Space</kbd> / <kbd>Shift</kbd></div><div><b>Dash</b></div>
-    <div><kbd>Right Click</kbd> / <kbd>F</kbd> / <kbd>K</kbd></div><div><b>Stick check (knocks the ball loose)</b></div>
+    <div><kbd>Auto-aim</kbd></div><div><b>Stick locks onto the goal when you have the ball, and onto your opponent when you don't</b></div>
+    <div>Hold <kbd>L</kbd></div><div><b>Charge shot, release to fire. Longer charge = more accurate. A quick tap sprays wildly</b></div>
+    <div>Hold <kbd>J</kbd> with the ball</div><div><b>Cradle: protects you from stick checks, but slows you and stops shooting</b></div>
+    <div>Tap <kbd>J</kbd> without the ball</div><div><b>Stick check (knocks the ball loose)</b></div>
+    <div><kbd>K</kbd></div><div><b>Dash</b></div>
     <div><kbd>P</kbd> / <kbd>Esc</kbd></div><div><b>Pause</b></div>
   </div>
   <button id="btnPlay">Choose Opponent</button>
@@ -172,7 +173,7 @@ function resize(){
 }
 addEventListener("resize",resize); resize();
 
-const keys={}; const mouse={x:W/2,y:H/2,down:false};
+const keys={};
 let G=null;                // current match
 let selected=0, mode="menu"; // menu | match
 const store={get(){try{return JSON.parse(localStorage.getItem("lacrosseLegends")||"{}")}catch(e){return{}}},set(v){try{localStorage.setItem("lacrosseLegends",JSON.stringify(v))}catch(e){}}};
@@ -242,21 +243,21 @@ addEventListener("keydown",e=>{
   const k=e.key.toLowerCase();
   if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();
   if((k==="escape"||k==="p")&&!e.repeat)togglePause();
-  keys[k]=true; if(k===" "||k==="shift")keys.__dash=true;
-  if(k==="f"||k==="k")keys.__check=true;
+  if(!e.repeat){ if(k==="k")keys.__dash=true; if(k==="j")keys.__check=true; }
+  keys[k]=true;
 });
 addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false;});
-function setMouse(e){mouse.x=(e.clientX-offX)/scale;mouse.y=(e.clientY-offY)/scale;}
-canvas.addEventListener("mousemove",setMouse);
-canvas.addEventListener("mousedown",e=>{setMouse(e);initAudio();if(e.button===0)mouse.down=true;if(e.button===2)keys.__check=true;});
-addEventListener("mouseup",e=>{if(e.button===0)mouse.down=false;});
+canvas.addEventListener("mousedown",()=>initAudio());
 canvas.addEventListener("contextmenu",e=>e.preventDefault());
 
 function playerInput(){
   let mx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
   let my=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
   const l=Math.hypot(mx,my); if(l>0){mx/=l;my/=l;}
-  const inp={mx,my,aim:Math.atan2(mouse.y-G.p.y,mouse.x-G.p.x),shoot:mouse.down||!!keys.j,check:!!keys.__check,dash:!!keys.__dash};
+  const p=G.p,a=G.a;
+  // auto-aim: goal when attacking, opponent otherwise
+  const aim=p.hasBall?Math.atan2(CY-p.y,FR-p.x):Math.atan2(a.y-p.y,a.x-p.x);
+  const inp={mx,my,aim,shoot:!!keys.l,check:!!keys.__check,dash:!!keys.__dash,cradle:!!keys.j};
   keys.__check=false; keys.__dash=false; return inp;
 }
 
@@ -329,6 +330,13 @@ function aiInput(dt){
     // nudge opponent if they're closer to ball and in range
     if(dist(a,p)<a.r+p.r+50&&a.checkCD<=0&&Math.random()<P.checkRate*dt*.5){wantAim=Math.atan2(p.y-a.y,p.x-a.x);a.aim=wantAim;inp.check=true;}
   }
+  // cradle when a check is incoming
+  if(a.hasBall&&p.swingN!==S.seenSwing&&p.checkT>0){
+    S.seenSwing=p.swingN;
+    if(dist(a,p)<130&&Math.random()<.1+.85*P.t){S.cradleT=.4;}
+  }
+  S.cradleT=Math.max(0,(S.cradleT||0)-dt);
+  if(S.cradleT>0){inp.cradle=true;inp.shoot=false;if(a.charging){a.charging=false;a.charge=0;}}
   if(S.dumbT>0){inp.mx=S.wx;inp.my=S.wy;inp.shoot=false;if(a.charging){a.charging=false;a.charge=0;}}
   inp.mx*=speedMul;inp.my*=speedMul;
   a.aim+=angDiff(wantAim,a.aim)*Math.min(1,dt*P.turn);
@@ -352,9 +360,12 @@ function updEnt(e,o,inp,dt){
     let dx=inp.mx,dy=inp.my; if(Math.hypot(dx,dy)<.1){dx=Math.cos(e.aim);dy=Math.sin(e.aim);}
     const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=e.ai?1.5:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
   }
-  // check
-  if(inp.check&&e.checkCD<=0&&e.checkT<=0&&!stunned){
-    e.checkT=.15;e.checkCD=.6;e.checkHit=false;e.charging=false;e.charge=0;sfx("swing");
+  // cradle (ball carrier only)
+  e.cradle=!!(inp.cradle&&e.hasBall&&!stunned&&e.checkT<=0);
+  if(e.cradle){e.charging=false;e.charge=0;}
+  // check (only without the ball)
+  if(inp.check&&!e.hasBall&&e.checkCD<=0&&e.checkT<=0&&!stunned){
+    e.checkT=.15;e.checkCD=.6;e.checkHit=false;e.charging=false;e.charge=0;e.swingN=(e.swingN||0)+1;sfx("swing");
   }
   if(e.checkT>0){
     e.checkT-=dt;
@@ -365,12 +376,12 @@ function updEnt(e,o,inp,dt){
     if(e.checkT<=0&&!e.checkHit)e.checkCD+=.4;
   }
   // charging / shooting
-  if(e.hasBall&&!stunned&&e.checkT<=0){
+  if(e.hasBall&&!stunned&&e.checkT<=0&&!e.cradle){
     if(inp.shoot){ if(!e.charging){e.charging=true;e.charge=0;} e.charge=Math.min(1,e.charge+dt/.9); }
     else if(e.charging){ shoot(e); }
   } else if(e.charging&&!e.hasBall){e.charging=false;e.charge=0;}
   // movement
-  let sp=e.speed*(e.hasBall?.93:1)*(e.charging?.68:1)*(e.checkT>0?.55:1);
+  let sp=e.speed*(e.hasBall?.93:1)*(e.charging?.68:1)*(e.checkT>0?.55:1)*(e.cradle?.55:1);
   if(stunned)sp=0;
   const tvx=inp.mx*sp,tvy=inp.my*sp;
   const k=Math.min(1,dt*(e.ai?11:15));
@@ -390,7 +401,9 @@ function doCheck(e,o){
   e.checkHit=true;
   const dx=o.x-e.x,dy=o.y-e.y,l=Math.hypot(dx,dy)||1,nx=dx/l,ny=dy/l;
   o.vx+=nx*340;o.vy+=ny*340;
-  if(o.hasBall&&o.imm<=0){
+  if(o.hasBall&&o.cradle){
+    e.stun=.25;e.vx-=nx*220;e.vy-=ny*220;burst(o.x+nx*-14,o.y,8,"#7dd3fc",150,.3);sfx("block");popup("CRADLED!",o.x,o.y-34,"#7dd3fc");
+  } else if(o.hasBall&&o.imm<=0){
     o.hasBall=false;o.charging=false;o.charge=0;o.stun=.38;o.noPick=.55;
     G.ball.owner=null;G.ball.vx=nx*260+rnd(-80,80);G.ball.vy=ny*260+rnd(-80,80);G.ball.shooter=null;
     G.clock=SHOT_CLOCK;G.shake=Math.max(G.shake,9);
@@ -399,9 +412,9 @@ function doCheck(e,o){
   } else { o.stun=Math.max(o.stun,.12);burst(o.x,o.y,5,"#fff",120,.25);sfx("block");popup(o.imm>0?"SOLID":"BUMP",o.x,o.y-34,"#cfe3ff"); }
 }
 function shoot(e){
-  const b=G.ball,c=Math.max(.12,e.charge);
+  const b=G.ball,c=e.ai?Math.max(.12,e.charge):e.charge;
   let ang=e.aim;
-  if(e.ai)ang+=gauss()*G.prof.err; else ang+=gauss()*(.012+.03*c);
+  if(e.ai)ang+=gauss()*G.prof.err; else ang+=gauss()*(.01+.75*Math.pow(1-c,2));
   const sp=520+640*c, pk=pocket(e);
   b.owner=null;b.x=pk.x;b.y=pk.y;b.vx=Math.cos(ang)*sp;b.vy=Math.sin(ang)*sp;b.shooter=e;b.age=0;
   e.hasBall=false;e.charging=false;e.charge=0;e.noPick=.35;G.clock=SHOT_CLOCK;
@@ -603,6 +616,7 @@ function drawEnt(e,label){
     ctx.strokeStyle="rgba(0,0,0,.4)";ctx.lineWidth=6;ctx.beginPath();ctx.arc(e.x,e.y,e.r+8,0,6.283);ctx.stroke();
     ctx.strokeStyle=e.charge>.85?"#ff5b3a":"#ffd23f";ctx.beginPath();ctx.arc(e.x,e.y,e.r+8,-Math.PI/2,-Math.PI/2+6.283*e.charge);ctx.stroke();
   }
+  if(e.cradle){ctx.strokeStyle="rgba(125,211,252,.9)";ctx.lineWidth=5;ctx.beginPath();ctx.arc(e.x,e.y,e.r+7,e.aim-1.4,e.aim+1.4);ctx.stroke();}
   if(e.imm>0&&e.hasBall){ctx.strokeStyle="rgba(255,255,255,.5)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r+4,0,6.283);ctx.stroke();}
 }
 function drawBall(){
@@ -638,7 +652,7 @@ function drawHUD(){
     ctx.fillStyle=cdv<=0?"#4ade80":"#3b4a73";rr(x,H-44,110*(1-cdv/max),30,10);ctx.fill();
     text(label,x+55,H-29,13,"#fff","center",false);
   };
-  cd(FL,"DASH [SPACE]",p.dashCD,1.35);cd(FL+122,"CHECK [F]",p.checkCD,1);
+  cd(FL,"DASH [K]",p.dashCD,1.35);cd(FL+122,p.hasBall?"CRADLE [J]":"CHECK [J]",p.checkCD,1);
   text(`First to ${WIN_GOALS}`,FR,H-29,13,"#8fa0c8","right",false);
   // possession arrow
   if(G.ball.owner){const o=G.ball.owner;ctx.fillStyle=o.color;ctx.beginPath();ctx.moveTo(o.x,o.y-o.r-22);ctx.lineTo(o.x-7,o.y-o.r-32);ctx.lineTo(o.x+7,o.y-o.r-32);ctx.fill();}
