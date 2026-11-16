@@ -83,7 +83,7 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
 /* ========================= CONSTANTS ========================= */
 const W = 1200, H = 680;
 const FL = 60, FR = 1140, FT = 70, FB = 650;       // field bounds
-const CY = (FT + FB) / 2, MOUTH = 64, CREASE = 92;  // goal half-mouth, crease radius
+const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 92;  // goal half-mouth, crease radius
 const BR = 7, PR = 16;                              // ball + player radius
 const WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
 const PLAYER_SPEED = 300;
@@ -288,7 +288,7 @@ function aiInput(dt){
     }
     // shoot decision
     if(!a.charging && S.shotCD<=0 && dg<P.range && dg>CREASE+10){
-      const offs=[-48,0,48]; let best=0,bestC=-1;
+      const offs=[-34,0,34]; let best=0,bestC=-1;
       offs.forEach((o,i)=>{const c=segDist(seen.x,seen.y,a.x,a.y,gx,gy+o);if(c>bestC){bestC=c;best=o;}});
       const lowIQ=Math.random()<P.dumb*2;
       if(bestC>40||lowIQ||(dd<70&&P.t>.5)){
@@ -414,7 +414,7 @@ function doCheck(e,o){
 function shoot(e){
   const b=G.ball,c=e.ai?Math.max(.12,e.charge):e.charge;
   let ang=e.aim;
-  if(e.ai)ang+=gauss()*G.prof.err; else ang+=gauss()*(.01+.75*Math.pow(1-c,2));
+  if(e.ai)ang+=gauss()*G.prof.err; else ang+=gauss()*(.01+.95*Math.pow(1-c,1.25));
   const sp=520+640*c, pk=pocket(e);
   b.owner=null;b.x=pk.x;b.y=pk.y;b.vx=Math.cos(ang)*sp;b.vy=Math.sin(ang)*sp;b.shooter=e;b.age=0;
   e.hasBall=false;e.charging=false;e.charge=0;e.noPick=.35;G.clock=SHOT_CLOCK;
@@ -457,15 +457,17 @@ function updBall(dt){
     }
   }
   // goals
-  const inMouth=Math.abs(b.y-CY)<MOUTH-2;
+  const inMouth=Math.abs(b.y-CY)<MOUTH;
   if(G.state==="goal"){ b.x=clamp(b.x,FL-32,FR+32); return; }
-  if(inMouth&&b.x<=FL-2){ return scored(1); }
-  if(inMouth&&b.x>=FR+2){ return scored(0); }
+  if(inMouth&&b.x<=FL){ return scored(1); }
+  if(inMouth&&b.x>=FR){ return scored(0); }
   // walls
   if(b.y<FT+BR){b.y=FT+BR;b.vy=Math.abs(b.vy)*.75;}
   if(b.y>FB-BR){b.y=FB-BR;b.vy=-Math.abs(b.vy)*.75;}
-  if(b.x<FL+BR){b.x=FL+BR;b.vx=Math.abs(b.vx)*.75;}
-  if(b.x>FR-BR){b.x=FR-BR;b.vx=-Math.abs(b.vx)*.75;}
+  if(!inMouth){
+    if(b.x<FL+BR){b.x=FL+BR;b.vx=Math.abs(b.vx)*.75;}
+    if(b.x>FR-BR){b.x=FR-BR;b.vx=-Math.abs(b.vx)*.75;}
+  }
   // blocks
   const spd=Math.hypot(b.vx,b.vy);
   if(spd>300&&G.state==="play"){
