@@ -416,6 +416,7 @@ function updEnt(e,o,inp,dt){
   // field + crease
   e.x=clamp(e.x,FL+e.r,FR-e.r); e.y=clamp(e.y,FT+e.r,FB-e.r);
   for(const gx of [FL,FR]){
+    if(gx===(e.ai?FR:FL))continue;   // you may enter your own crease, never the opponent's
     const dx=e.x-gx,dy=e.y-CY,d=Math.hypot(dx,dy);
     if(d<CREASE){const nx=d?dx/d:(gx===FL?1:-1),ny=d?dy/d:0;e.x=gx+nx*CREASE;e.y=CY+ny*CREASE;}
   }
