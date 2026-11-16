@@ -95,7 +95,7 @@ const W = 1200, H = 680;
 const FL = 60, FR = 1140, FT = 70, FB = 650;       // field bounds
 const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 92;  // goal half-mouth, crease radius
 const BR = 7, PR = 16;                              // ball + player radius
-const WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
+const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
 const PLAYER_SPEED = 300;
 
 const OPPONENTS = [
@@ -106,7 +106,7 @@ const OPPONENTS = [
   {name:"Elijah", lv:4,  title:"The Playmaker",  color:"#a78bfa", mod:{dash:1.4},
    look:{h:78,label:"6'6\" · tan · short wavy dark brown",skin:0xc68a5b,build:.93,hair:{style:"wavy",color:0x2a1a11}},   bio:"Loves a fancy dodge. Will juke you out of your cleats if you let him."},
   {name:"Mason",  lv:5,  title:"The Enforcer",   color:"#fb923c", mod:{check:1.7,err:1.1},
-   look:{h:63,label:"5'3\" · tan · wavy brown, stubble",skin:0xcd9768,build:1.22,brow:1.5,stubble:true,hair:{style:"wavyCrop",color:0x4b2f1d}},   bio:"Lives to lay the lumber. Don't cradle too long around Mason."},
+   look:{h:63,label:"5'3\" · tan · wavy brown hair",skin:0xcd9768,build:1.22,brow:1.5,hair:{style:"wavyCrop",color:0x4b2f1d}},   bio:"Lives to lay the lumber. Don't cradle too long around Mason."},
   {name:"Landon", lv:9,  title:"The Sniper",     color:"#f43f5e", mod:{err:.55,range:70,speed:.96},
    look:{h:68,label:"5'8\" · tan · ginger curly hair",skin:0xdcb18a,build:1.0,freckles:true,hair:{style:"curlyMed",color:0xc9561f}},   bio:"Cold-blooded finisher. Give him a sliver of daylight and it's in the pipe."},
   {name:"Brayden",lv:9,  title:"The Speedster",  color:"#facc15", mod:{speed:1.06,dash:1.7,err:1.15},
@@ -206,15 +206,23 @@ function newMatch(op){
     stats:{shots:0,hits:0,checks:0,aiShots:0}, ai:{side:1,sideT:0,shotCD:1,dumbT:0,wander:0,wx:0,wy:0,target:null,chargeGoal:0,dashLook:0}
   };
   G.a.speed=G.prof.speed;G.camYaw=0;G.kick=0;if(typeof boardR!=="undefined"&&boardR)boardR.color.set(op.color);
-  faceoff();
+  faceoff(1,false);
   mode="match";
 }
-function faceoff(){
+function faceoff(who,animate){
+  // who: 0 = player gets the ball, 1 = opponent gets the ball
   const {p,a,ball}=G;
-  Object.assign(p,{x:W/2-130,y:CY,vx:0,vy:0,aim:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0});
-  Object.assign(a,{x:W/2+130,y:CY,vx:0,vy:0,aim:Math.PI,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0});
-  Object.assign(ball,{x:W/2,y:CY,vx:0,vy:0,owner:null,shooter:null,age:0,trail:[]});
-  G.clock=SHOT_CLOCK; G.hist=[]; G.state="countdown"; G.stT=2.4; G.lastBeep=3;
+  const blank={vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
+  if(animate&&camera){G.from={x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw:G.camYaw,pitch:camera.rotation.x};}
+  Object.assign(p,blank,who===0?{x:W/2-190,y:CY,aim:0}:{x:W/2-70,y:CY,aim:0});
+  Object.assign(a,blank,who===1?{x:W/2+190,y:CY,aim:Math.PI}:{x:W/2+70,y:CY,aim:Math.PI});
+  const h=who===0?p:a;
+  Object.assign(ball,{vx:0,vy:0,owner:h,shooter:null,age:0,trail:[]});
+  h.hasBall=true;h.imm=.6;const pk=pocket(h);ball.x=pk.x;ball.y=pk.y;
+  G.ai.shotCD=.7;G.ai.dumbT=0;G.ai.cradleT=0;
+  G.clock=SHOT_CLOCK;G.hist=[];
+  if(animate){G.state="reset";G.resetT=0;}
+  else{G.state="countdown";G.stT=1.6;G.camYaw=p.aim;}
 }
 
 /* ========================= UI FLOW ========================= */
@@ -520,9 +528,9 @@ function updBall(dt){
   }
 }
 function scored(who){ // who: 0 = player, 1 = AI
-  G.score[who]++;G.state="goal";G.stT=2.0;G.shake=18;
+  G.score[who]++;G.lastScorer=who;G.state="goal";G.stT=.5;G.shake=18;
   G.ball.owner=null;G.p.hasBall=false;G.a.hasBall=false;G.p.charging=G.a.charging=false;
-  G.banner="GOAL!";G.bannerT=2;G.bannerCol=who===0?"#60a5fa":G.op.color;
+  G.banner="GOAL!";G.bannerT=1.3;G.bannerCol=who===0?"#60a5fa":G.op.color;
   const bx=who===0?FR:FL;
   burst(bx,CY,40,who===0?"#60a5fa":G.op.color,420,.9);
   sfx(who===0?"goal":"lose");
@@ -538,11 +546,14 @@ function update(dt){
   G.bannerT=Math.max(0,G.bannerT-dt);
   if(G.state==="paused"||G.state==="over")return;
 
+  if(G.state==="reset"){
+    G.resetT+=dt;
+    if(G.resetT>=RESET_T){G.state="countdown";G.stT=.8;G.camYaw=G.p.aim;sfx("beep");}
+    return;
+  }
   if(G.state==="countdown"){
     G.stT-=dt;
-    const n=Math.ceil(G.stT);
-    if(n<G.lastBeep&&n>0){G.lastBeep=n;sfx("beep");}
-    G.banner=G.stT>0?String(Math.max(1,n)):"GO!";G.bannerT=.5;G.bannerCol="#ffd23f";
+    G.banner=G.stT>.35?"READY":"GO!";G.bannerT=.5;G.bannerCol="#ffd23f";
     if(G.stT<=0){G.state="play";G.banner="GO!";G.bannerT=.6;sfx("go");}
     return;
   }
@@ -552,7 +563,7 @@ function update(dt){
     if(G.stT<=0){
       const lead=G.score[0]!==G.score[1];
       if(G.score[0]>=WIN_GOALS||G.score[1]>=WIN_GOALS||(G.ot&&lead)||(G.time<=0&&lead))endMatch();
-      else faceoff();
+      else faceoff(G.lastScorer,true);
     }
     return;
   }
@@ -799,13 +810,22 @@ function updateScene(dt){
   } else {
     clearOffset();
     const {p,a,ball:b}=G;
-    G.camYaw+=angDiff(p.aim,G.camYaw)*Math.min(1,dt*9);
+    if(G.state!=="reset")G.camYaw+=angDiff(p.aim,G.camYaw)*Math.min(1,dt*9);
     actor=models[G.op.name];animActor(actor,a,dt);
     const sp=Math.hypot(p.vx,p.vy),sf=Math.min(1,sp/250);
     setFov(camFov+=((p.dashT>0?92:78)-camFov)*Math.min(1,dt*12));
     const sh=G.shake*.3,bob=Math.sin(G.t*10)*1.6*sf;
     camera.position.set(p.x-Math.cos(G.camYaw)*10+(Math.random()-.5)*sh,EYE+bob+(Math.random()-.5)*sh,p.y-Math.sin(G.camYaw)*10+(Math.random()-.5)*sh);
     camera.rotation.set(-.1,-G.camYaw-PI/2,0);
+    if(G.state==="reset"&&G.from){
+      // swoop from the last goal to the next possession
+      const u=clamp(G.resetT/RESET_T,0,1),e=u*u*(3-2*u),f=G.from;
+      const tx=p.x-Math.cos(p.aim)*10,tz=p.y-Math.sin(p.aim)*10;
+      const yaw=f.yaw+angDiff(p.aim,f.yaw)*e,arc=Math.sin(PI*e);
+      camera.position.set(f.x+(tx-f.x)*e,f.y+(EYE-f.y)*e+arc*170,f.z+(tz-f.z)*e);
+      camera.rotation.set(f.pitch+(-.1-f.pitch)*e-arc*.4,-yaw-PI/2,0);
+      G.camYaw=yaw;
+    }
     // first-person stick
     const T={x:Math.cos(G.t*5)*1.2*sf,y:bob*.6,z:0,rx:0,ry:0,rz:0};
     if(p.charging){const c=p.charge;T.z+=c*16;T.rz-=c*.4;T.rx+=c*.2;T.y-=c*4;if(c>.85){T.x+=Math.sin(G.t*60)*.8;}}
