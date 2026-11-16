@@ -425,10 +425,18 @@ function doCheck(e,o){
     if(!e.ai)G.stats.checks++;
   } else { o.stun=Math.max(o.stun,.12);burst(o.x,o.y,5,"#fff",120,.25);sfx("block");popup(o.imm>0?"SOLID":"BUMP",o.x,o.y-34,"#cfe3ff"); }
 }
+function shotStd(c){return .01+.7*Math.pow(1-c,1.25);}
 function shoot(e){
   const b=G.ball,c=e.ai?Math.max(.12,e.charge):e.charge;
   let ang=e.aim;
-  if(e.ai)ang+=gauss()*G.prof.err; else ang+=gauss()*(.01+.95*Math.pow(1-c,1.25));
+  if(e.ai)ang+=gauss()*G.prof.err; else{
+    ang+=gauss()*shotStd(c);
+    // a shot can never leave the player's field of view
+    if(camera&&G.camYaw!==undefined){
+      const lim=Math.atan(Math.tan(camera.fov*PI/360)*camera.aspect)*.85;
+      ang=G.camYaw+clamp(angDiff(ang,G.camYaw),-lim,lim);
+    }
+  }
   const sp=520+640*c, pk=pocket(e);
   b.owner=null;b.x=pk.x;b.y=pk.y;b.vx=Math.cos(ang)*sp;b.vy=Math.sin(ang)*sp;b.shooter=e;b.age=0;
   e.hasBall=false;e.charging=false;e.charge=0;e.noPick=.35;G.clock=SHOT_CLOCK;
@@ -868,7 +876,7 @@ function drawReticle(){
   ctx.strokeStyle="rgba(255,255,255,.85)";ctx.lineWidth=2;
   ctx.beginPath();ctx.arc(c.x,c.y,2.5,0,6.283);ctx.stroke();
   if(p.hasBall){
-    const ch=p.charging?p.charge:0,std=.01+.95*Math.pow(1-ch,1.25),r=clamp(std*2*480,9,170);
+    const ch=p.charging?p.charge:0,std=shotStd(ch),r=clamp(std*2*480,9,170);
     ctx.strokeStyle=ch>=.98?"#4ade80":"rgba(255,210,63,.9)";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(c.x,c.y,r,0,6.283);ctx.stroke();
     if(p.charging){ctx.strokeStyle="rgba(0,0,0,.45)";ctx.lineWidth=6;ctx.beginPath();ctx.arc(c.x,c.y+0,r+10,-PI/2,-PI/2+6.283);ctx.stroke();
       ctx.strokeStyle=ch>=.98?"#4ade80":"#ffd23f";ctx.beginPath();ctx.arc(c.x,c.y,r+10,-PI/2,-PI/2+6.283*ch);ctx.stroke();}
