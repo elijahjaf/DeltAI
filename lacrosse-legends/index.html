@@ -113,7 +113,9 @@ const OPPONENTS = [
   {name:"Brayden",lv:9,  title:"The Speedster",  color:"#facc15", mod:{speed:1.06,dash:1.7,err:1.15},
    look:{h:70,label:"5'10\" · tan · loose curly hair",skin:0xc9925e,build:.96,hair:{style:"curlyLoose",color:0x6a4429}},   bio:"Blink and he's behind you. Pure pace, relentless dashes, non-stop pressure."},
   {name:"Keegan", lv:14, title:"The Legend",     color:"#e879f9", mod:{speed:1.0,check:1.1,err:.8,dash:1.1},
-   look:{h:67,label:"5'7\" · very pale · blonde hair",skin:0xf7e4d7,build:1.06,hair:{style:"blond",color:0xe6cd7f}},   bio:"Hall of Fame. Reads your every move before you make it. Good luck."}
+   look:{h:67,label:"5'7\" · very pale · blonde hair",skin:0xf7e4d7,build:1.06,hair:{style:"blond",color:0xe6cd7f}},   bio:"Hall of Fame. Reads your every move before you make it. Good luck."},
+  {name:"Coach Joey", lv:25, title:"The Final Boss", color:"#64748b", mod:{speed:1.02,check:1.15,err:.75,dash:1.15,range:20},
+   look:{h:78,label:"6'6\" · tan · straight brown hair",skin:0xe0b38b,build:1.02,brow:1.25,face:1.16,whistle:true,mole:true,hair:{style:"straight",color:0x5b3a22}},   bio:"Has coached every one of them, and he's never lost a scrimmage. Whistle around his neck, game plan in his head."}
 ];
 
 function profile(op){
@@ -597,7 +599,7 @@ function endMatch(){
   $("rtitle").style.color=win?"#ffd23f":"#ff6b6b";
   $("rscore").textContent=`You ${G.score[0]} — ${G.score[1]} ${G.op.name} (Lv ${G.op.lv})`;
   const s=G.stats;
-  $("rstats").innerHTML=`Shots: ${s.shots} · Checks landed: ${s.checks} · ${G.op.name}'s shots: ${s.aiShots}<br>${win?(G.op.lv>=14?"You beat the Legend. You ARE a legend.":"Nice one! Try a tougher opponent."):"Shake it off and run it back."}`;
+  $("rstats").innerHTML=`Shots: ${s.shots} · Checks landed: ${s.checks} · ${G.op.name}'s shots: ${s.aiShots}<br>${win?(G.op.lv>=25?"You beat Coach Joey. You ARE a legend.":"Nice one! Try a tougher opponent."):"Shake it off and run it back."}`;
   setTimeout(()=>{if(G&&G.state==="over")show("result");},900);
 }
 
@@ -722,14 +724,20 @@ function buildModel(op){
   }
   const neck=new THREE.Mesh(new THREE.CylinderGeometry(.032*b,.036*b,.07,8),skin);neck.position.y=.825;body.add(neck);
   const head=new THREE.Group();head.position.y=.905;body.add(head);
-  const hd=new THREE.Mesh(new THREE.SphereGeometry(.08,20,16),skin);hd.scale.set(.95*(b>1.1?1.05:1),1.06,1);head.add(hd);
+  const hd=new THREE.Mesh(new THREE.SphereGeometry(.08,20,16),skin);hd.scale.set(.95*(b>1.1?1.05:1),1.06*(L.face||1),1);hd.position.y=-.085*((L.face||1)-1);head.add(hd);
   for(const s of [-1,1]){
     const ey=new THREE.Mesh(new THREE.SphereGeometry(.011,8,6),LM(0x14110f));ey.position.set(s*.03,.012,.072);head.add(ey);
     const ear=new THREE.Mesh(new THREE.SphereGeometry(.02,8,6),skin);ear.scale.set(.5,1,.8);ear.position.set(s*.08,0,0);head.add(ear);
     const br=new THREE.Mesh(new THREE.BoxGeometry(.03*(L.brow||1),.007*(L.brow||1),.008),hairM);br.position.set(s*.03,.036,.076);br.rotation.z=-s*.12;head.add(br);
   }
   const nose=new THREE.Mesh(new THREE.SphereGeometry(.014,8,6),LM(new THREE.Color(L.skin).multiplyScalar(.93).getHex()));nose.position.set(0,-.008,.081);head.add(nose);
-  const mouth=new THREE.Mesh(new THREE.BoxGeometry(.034,.006,.006),LM(0x9a4a4a));mouth.position.set(0,-.04,.076);head.add(mouth);
+  const mouth=new THREE.Mesh(new THREE.BoxGeometry(.034,.006,.006),LM(0x9a4a4a));mouth.position.set(0,-.04-.085*((L.face||1)-1)*.9,.076);head.add(mouth);nose.position.y-=.085*((L.face||1)-1)*.5;
+  if(L.mole){const mo=new THREE.Mesh(new THREE.SphereGeometry(.0065,6,5),LM(0x4a2c1a));mo.position.set(.042,-.02-.085*((L.face||1)-1)*.5,.067);head.add(mo);}
+  if(L.whistle){
+    const ly=new THREE.Mesh(new THREE.TorusGeometry(.052*b,.0045,5,18),LM(0x15181f));ly.rotation.x=PI/2;ly.position.y=.805;body.add(ly);
+    const cord=new THREE.Mesh(new THREE.BoxGeometry(.006,.09,.004),LM(0x15181f));cord.position.set(0,.76,.1*b);body.add(cord);
+    const wh=new THREE.Mesh(new THREE.BoxGeometry(.03,.02,.045),LM(0xd7dde6));wh.position.set(0,.71,.105*b);body.add(wh);
+  }
   addHair(head,L,R,hairM);
   if(L.stubble){const st=new THREE.Mesh(new THREE.SphereGeometry(.0815,16,8,PI/2-1.15,2.3,.58*PI,.34*PI),LM(0x3a2418,{transparent:true,opacity:.55}));st.scale.copy(hd.scale);head.add(st);}
   if(L.freckles){for(let i=0;i<16;i++){const x=(R()*2-1)*.05,y=-.02+R()*.03,z=Math.sqrt(Math.max(.0001,.0064-x*x-y*y));const f=new THREE.Mesh(new THREE.SphereGeometry(.0055,5,4),LM(0xa55f35));f.position.set(x,y,z*.99);head.add(f);}}
@@ -804,9 +812,9 @@ function updateScene(dt){
     camera.position.set(W/2+Math.cos(a)*720,230,CY+Math.sin(a)*620);camera.lookAt(W/2,25,CY);
   } else if(view==="lineup"){
     setFov(38);
-    if(innerWidth>900)camera.setViewOffset(innerWidth,innerHeight,-innerWidth*.22,0,innerWidth,innerHeight);else clearOffset();
-    camera.position.set(W/2,95,CY+640);camera.lookAt(W/2,60,CY);
-    OPPONENTS.forEach((o,i)=>{const m=models[o.name];m.root.position.set(W/2+(i-3)*54,0,CY);m.root.rotation.y=(i===selected?Math.sin(TT*.9)*.45:Math.sin(TT*.5+i)*.08);
+    if(innerWidth>900)camera.setViewOffset(innerWidth,innerHeight,-innerWidth*.23,0,innerWidth,innerHeight);else clearOffset();
+    camera.position.set(W/2,95,CY+720);camera.lookAt(W/2,60,CY);
+    OPPONENTS.forEach((o,i)=>{const m=models[o.name];m.root.position.set(W/2+(i-(OPPONENTS.length-1)/2)*45,0,CY);m.root.rotation.y=(i===selected?Math.sin(TT*.9)*.45:Math.sin(TT*.5+i)*.08);
       m.legs[0].rotation.x=m.legs[1].rotation.x=0;m.body.rotation.x=0;m.stick.rotation.y=0;m.stick.rotation.z=0;});
     const sm=models[OPPONENTS[selected].name];ringMesh.position.x=sm.root.position.x;ringMesh.position.z=CY;
   } else {
@@ -941,7 +949,7 @@ function render(dt){
     OPPONENTS.forEach((o,i)=>{
       const m=models[o.name],s=project(m.root.position.x,0,CY+10);if(!s||innerWidth<=900)return;
       const sel=i===selected;
-      text(o.name,s.x,s.y+14,sel?17:13,sel?"#ffd23f":"#c9d6f5");
+      text(o.name,s.x,s.y+14,sel?14:12,sel?"#ffd23f":"#c9d6f5");
     });
   }
 }
