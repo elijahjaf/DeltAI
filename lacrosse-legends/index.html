@@ -483,6 +483,11 @@ function updEnt(e,o,inp,dt){
   // dash
   if(inp.dash&&e.dashCD<=0&&!stunned){
     let dx=inp.mx,dy=inp.my; if(Math.hypot(dx,dy)<.1){dx=Math.cos(e.aim);dy=Math.sin(e.aim);}
+    // an opponent defending against the ball carrier may only dash somewhat toward them
+    if(e.ai&&o.hasBall){
+      const toP=Math.atan2(o.y-e.y,o.x-e.x),da=angDiff(Math.atan2(dy,dx),toP),lim=1.0;
+      if(Math.abs(da)>lim){const na=toP+Math.sign(da)*lim;dx=Math.cos(na);dy=Math.sin(na);}
+    }
     const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=e.ai?1.5:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
   }
   // catch (flying ball)
@@ -1145,7 +1150,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.LL={get G(){return G},update,startMatch,OPPONENTS,get actor(){return actor}};
+window.LL={get G(){return G},update,updEnt,startMatch,OPPONENTS,get actor(){return actor}};
 
 </script>
 </body>
