@@ -84,7 +84,7 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
     <div><kbd>W A S D</kbd> / <kbd>Arrows</kbd></div><div><b>Move</b></div>
     <div><kbd>Auto-aim</kbd></div><div><b>Stick locks onto the goal when you have the ball, and onto your opponent when you don't</b></div>
     <div>Hold <kbd>L</kbd></div><div><b>Charge shot, release to fire. Longer charge = more accurate. A quick tap sprays wildly</b></div>
-    <div>Tap <kbd>J</kbd> with the ball</div><div><b>Cradle for 0.3s: protects you from stick checks, but slows you and stops shooting</b></div>
+    <div>Tap <kbd>J</kbd> with the ball</div><div><b>Cradle for 0.15s: protects you from stick checks, but slows you and stops shooting</b></div>
     <div>Tap <kbd>J</kbd> without the ball</div><div><b>Stick check (knocks the ball loose)</b></div>
     <div><kbd>K</kbd></div><div><b>Dash</b></div>
     <div><kbd>Space</kbd></div><div><b>Catch a flying ball (every 2 seconds). Opponents catch too</b></div>
@@ -124,7 +124,7 @@ const BR = 7, PR = 16;                              // ball + player radius
 const MAX_LEVEL = 25;
 const CATCH_R = 68, CATCH_CD = 2.0, CATCH_WINDOW = .35;
 const FACEOFF_GAP = 104;   // just outside check reach (80)
-const CRADLE_TIME = .3;   // one tap = a 0.3s cradle
+const CRADLE_TIME = .15;   // one tap = a 0.15s cradle
 const DASH_LOCK = 1.5;   // no dashing for this long after getting the ball
 const MIDLINE_LOCK = 1.5;
 const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
