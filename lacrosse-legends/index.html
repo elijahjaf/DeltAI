@@ -142,12 +142,12 @@ const OPPONENTS = [
    look:{h:70,label:"5'10\" · tan · loose curly hair",skin:0xc9925e,build:.96,hair:{style:"curlyLoose",color:0x6a4429}},   bio:"Blink and he's behind you. Pure pace, relentless dashes, non-stop pressure."},
   {name:"Keegan", lv:14, title:"The Legend",     color:"#e879f9", mod:{speed:1.0,check:1.1,err:.8,dash:1.1},
    look:{h:67,label:"5'7\" · very pale · blonde hair",skin:0xf7e4d7,build:1.06,hair:{style:"blond",color:0xe6cd7f}},   bio:"Hall of Fame. Reads your every move before you make it. Good luck."},
-  {name:"Coach Joey", lv:25, title:"The Final Boss", color:"#64748b", mod:{check:.95,err:1.2,dash:.95},
+  {name:"Coach Joey", lv:25, title:"The Final Boss", color:"#64748b", mod:{check:1.1,err:.9,dash:1.1,range:10},
    look:{h:78,label:"6'6\" · tan · straight brown hair",skin:0xe0b38b,build:1.02,brow:1.25,face:1.16,whistle:true,mole:true,hair:{style:"straight",color:0x5b3a22}},   bio:"Has coached every one of them, and he's never lost a scrimmage. Whistle around his neck, game plan in his head."}
 ];
 
 function profile(op){
-  const t=(op.lv-1)/(MAX_LEVEL-1), m=op.mod||{};
+  const t=clamp(.08+1.2*(op.lv-1)/(MAX_LEVEL-1),0,1), m=op.mod||{};   // skill: every opponent gets a boost
   return {
     t,
     speed:Math.min(PLAYER_SPEED,(205+100*t)*(m.speed||1)),   // nobody out-runs the player
