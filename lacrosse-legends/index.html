@@ -772,7 +772,7 @@ function endWall(){
   const t=Math.floor(G.time),clock=Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
   $("rtitle").textContent="Practice Over";$("rtitle").style.color="#ffd23f";
   $("rscore").textContent=`${wb.catches} catches in ${clock}`;
-  $("rstats").innerHTML=`The ball got past you. Avg passes/sec: ${(wb.catches/Math.max(1,G.time)).toFixed(2)} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
+  $("rstats").innerHTML=`The ball got past you. Avg passes/min: ${(wb.catches/Math.max(1,G.time)*60).toFixed(1)} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
   setTimeout(()=>{if(G&&G.state==="over")show("result");},700);
 }
 function endMatch(){
@@ -1168,7 +1168,7 @@ function drawWallHUD(){
   const tm=Math.floor(G.time);
   text(Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,26,"#ffd23f","center",false);
   text("WALL BALL · LV 0",W/2,50,13,"#c9d6f5","center",false);
-  text("PASSES / SEC",W/2+225,24,15,"#9db8ff","center",false);text((wb.catches/Math.max(1,G.time)).toFixed(2),W/2+225,46,30,"#fff","center",false);
+  text("PASSES / MIN",W/2+225,24,15,"#9db8ff","center",false);text((wb.catches/Math.max(1,G.time)*60).toFixed(1),W/2+225,46,30,"#fff","center",false);
   if(G.time<5){
     const msg=touch.enabled?"Hold SHOOT to throw at the wall, then walk in front of the rebound to catch it":"Hold L to throw at the wall · walk in front of the rebound to catch it · WASD to move";
     text(msg,W/2,H-110,18,"#fff");
