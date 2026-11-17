@@ -87,7 +87,7 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
 <section id="select">
   <h2>Choose Your Opponent</h2>
   <div id="detail"><div id="bio"></div><div class="bars" id="bars"></div></div>
-  <div id="selHint">Click an opponent to face them &nbsp;·&nbsp; <a id="selBack">Back</a> (Esc)</div>
+  <div id="selHint">Click an opponent to face them, or the wall for Wall Ball &nbsp;·&nbsp; <a id="selBack">Back</a> (Esc)</div>
 </section>
 
 <section id="pause">
@@ -111,6 +111,7 @@ const FL = 60, FR = 1140, FT = 70, FB = 650;       // field bounds
 const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 120;  // goal half-mouth, crease radius
 const BR = 7, PR = 16;                              // ball + player radius
 const MAX_LEVEL = 25;
+const WALL_TIME = 60, CATCH_CD_WALL = .45;
 const CATCH_R = 68, CATCH_CD = 2.0, CATCH_WINDOW = .35;
 const FACEOFF_GAP = 104;   // just outside check reach (80)
 const CRADLE_TIME = .15;   // one tap = a 0.15s cradle
@@ -210,7 +211,7 @@ addEventListener("resize",resize); resize();
 
 const keys={};
 let G=null;                // current match
-let selected=-1, mode="menu"; // menu | match
+let selected=-1, wallHot=false, mode="menu"; // menu | match
 const store={get(){try{return JSON.parse(localStorage.getItem("lacrosseLegends")||"{}")}catch(e){return{}}},set(v){try{localStorage.setItem("lacrosseLegends",JSON.stringify(v))}catch(e){}}};
 
 function mkEnt(x,y,color,isAI){
@@ -252,8 +253,13 @@ function faceoff(who,animate){
 function show(id){ if(id&&typeof menuView!=="undefined")menuView=id; for(const s of document.querySelectorAll("section"))s.classList.toggle("on",s.id===id); }
 function hideAll(){ show(""); }
 function buildSelect(){
+  if(wallHot){
+    const best=store.get().wallBest;
+    $("bio").innerHTML=`<b>Wall Ball — Level 0</b>Warm up on the wall. Throw the ball at it, catch the rebound, and go again as fast as you can. How many catches in ${WALL_TIME} seconds?${best?" Your best: "+best+".":""}`;
+    $("bars").innerHTML="";return;
+  }
   if(selected<0){
-    $("bio").innerHTML="<b>Pick your opponent</b>Hover over an opponent to see their level and stats, then click them to start the match.";
+    $("bio").innerHTML="<b>Pick your opponent</b>Hover over an opponent to see their level and stats, then click them to start the match. Click the wall behind them for Wall Ball.";
     $("bars").innerHTML="";return;
   }
   const o=OPPONENTS[selected], p=profile(o), beaten=store.get()[o.name];
@@ -262,12 +268,12 @@ function buildSelect(){
   $("bars").innerHTML=bars.map(([n,v])=>`<div class="bar"><em>${n}</em><i><u style="width:${clamp(v,.04,1)*100}%"></u></i></div>`).join("");
 }
 function startMatch(){ initAudio(); newMatch(OPPONENTS[selected]); hideAll(); }
-$("btnPlay").onclick=()=>{initAudio();selected=-1;buildSelect();show("select");};
+$("btnPlay").onclick=()=>{initAudio();selected=-1;wallHot=false;buildSelect();show("select");};
 $("selBack").onclick=()=>show("title");
-$("btnRematch").onclick=startMatch;
-$("btnOpp").onclick=()=>{mode="menu";selected=-1;buildSelect();show("select");};
+$("btnRematch").onclick=()=>{ if(G&&G.wall)startWall(); else startMatch(); };
+$("btnOpp").onclick=()=>{mode="menu";selected=-1;wallHot=false;buildSelect();show("select");};
 $("btnResume").onclick=()=>togglePause(false);
-$("btnQuit").onclick=()=>{G=null;mode="menu";selected=-1;buildSelect();show("select");};
+$("btnQuit").onclick=()=>{G=null;mode="menu";selected=-1;wallHot=false;buildSelect();show("select");};
 function togglePause(force){
   if(mode!=="match"||!G||G.state==="over")return;
   const want=force===undefined?G.state!=="paused":force;
@@ -302,7 +308,7 @@ function playerInput(){
   }
   const p=G.p,a=G.a;
   // auto-aim: goal when attacking, opponent otherwise
-  const aim=p.hasBall?Math.atan2(CY-p.y,FR-p.x):Math.atan2(a.y-p.y,a.x-p.x);
+  const aim=G.wall?0:p.hasBall?Math.atan2(CY-p.y,FR-p.x):Math.atan2(a.y-p.y,a.x-p.x);
   const inp={mx,my,aim,shoot:!!(keys.l||touch.shoot),check:!!keys.__check,dash:!!keys.__dash,cradle:!!keys.__cradle,catch:!!keys.__catch};
   keys.__cradle=false;keys.__check=false; keys.__dash=false; keys.__catch=false; return inp;
 }
@@ -347,7 +353,7 @@ function updateTouchUI(){
   if(!on){touch.joyOn=false;touch.shoot=false;touch.cradle=false;return;}
   const p=G.p;
   $("tDash").style.setProperty("--cd",Math.min(1,p.dashCD/1.35));
-  $("tCatch").style.setProperty("--cd",Math.min(1,p.catchCD/CATCH_CD));
+  $("tCatch").style.setProperty("--cd",Math.min(1,p.catchCD/(G.wall?CATCH_CD_WALL:CATCH_CD)));
   $("tCheck").style.setProperty("--cd",p.hasBall?0:Math.min(1,p.checkCD/1));
   const lab=p.hasBall?"CRADLE":"CHECK",sp=$("tCheck").firstElementChild;
   if(sp.textContent!==lab)sp.textContent=lab;
@@ -478,7 +484,7 @@ function updEnt(e,o,inp,dt){
   // catch (flying ball)
   e.catchCD=Math.max(0,e.catchCD-dt);e.catchT=Math.max(0,e.catchT-dt);
   if(inp.catch&&!e.hasBall&&e.catchCD<=0&&!stunned&&e.catchT<=0){
-    e.catchT=CATCH_WINDOW;e.catchCD=CATCH_CD;e.charging=false;e.charge=0;sfx("swing");
+    e.catchT=CATCH_WINDOW;e.catchCD=G.wall?CATCH_CD_WALL:CATCH_CD;e.charging=false;e.charge=0;sfx("swing");
   }
   // cradle (ball carrier only)
   e.cradleT=Math.max(0,(e.cradleT||0)-dt);
@@ -514,12 +520,12 @@ function updEnt(e,o,inp,dt){
   e.x+=mvx*dt; e.y+=mvy*dt;
   if(e.hasBall)e.possT=(e.possT||0)+dt;
   // the player may not carry the ball past the midline until 3s into the possession
-  if(!e.ai&&e.hasBall&&e.possT<MIDLINE_LOCK&&px<=W/2-e.r+.01)e.x=Math.min(e.x,W/2-e.r);
+  if(!G.wall&&!e.ai&&e.hasBall&&e.possT<MIDLINE_LOCK&&px<=W/2-e.r+.01)e.x=Math.min(e.x,W/2-e.r);
   e.trail.push({x:e.x,y:e.y}); if(e.trail.length>7)e.trail.shift();
   // field + crease
   e.x=clamp(e.x,FL+e.r,FR-e.r); e.y=clamp(e.y,FT+e.r,FB-e.r);
   for(const gx of [FL,FR]){
-    if(gx===(e.ai?FR:FL))continue;   // you may enter your own crease, never the opponent's
+    if(G.wall||gx===(e.ai?FR:FL))continue;   // you may enter your own crease, never the opponent's
     const dx=e.x-gx,dy=e.y-CY,d=Math.hypot(dx,dy);
     if(d<CREASE){const nx=d?dx/d:(gx===FL?1:-1),ny=d?dy/d:0;e.x=gx+nx*CREASE;e.y=CY+ny*CREASE;}
   }
@@ -543,7 +549,7 @@ function shoot(e){
   const b=G.ball,c=e.ai?Math.max(.12,e.charge):e.charge;
   let ang=e.aim;
   if(e.ai)ang+=gauss()*G.prof.err; else{
-    ang+=gauss()*shotStd(c);
+    ang+=gauss()*shotStd(c)*(G.wall?.25:1);
     // a shot can never leave the player's field of view
     if(camera&&G.camYaw!==undefined){
       const lim=Math.atan(Math.tan(camera.fov*PI/360)*camera.aspect)*.85;
@@ -661,6 +667,7 @@ function update(dt){
   G.shake=Math.max(0,G.shake-dt*40);
   G.bannerT=Math.max(0,G.bannerT-dt);
   if(G.state==="paused"||G.state==="over")return;
+  if(G.wall&&G.state==="play"){updateWall(dt);return;}
 
   if(G.state==="reset"){
     G.resetT+=dt;
@@ -702,6 +709,66 @@ function update(dt){
   if(d<min&&d>0){const push=(min-d)/2,nx=dx/d,ny=dy/d;G.a.x+=nx*push;G.a.y+=ny*push;G.p.x-=nx*push;G.p.y-=ny*push;}
   updBall(dt);
   if(G.shake>0&&Math.random()<.0)G.shake=0;
+}
+/* ========================= WALL BALL (LEVEL 0) ========================= */
+function newWallBall(){
+  actor=null;
+  G={
+    wall:true, op:{name:"Wall Ball",lv:0,color:"#94a3b8"}, prof:profile(OPPONENTS[0]),
+    p:mkEnt(FR-380,CY,"#3b82f6",false), a:mkEnt(-5000,-5000,"#999",true),
+    ball:{x:0,y:0,vx:0,vy:0,owner:null,shooter:null,age:0,trail:[]},
+    score:[0,0], time:WALL_TIME, ot:false, state:"countdown", stT:1.4, lastBeep:3,
+    clock:99, popups:[], parts:[], shake:0, banner:"", bannerT:0, hist:[], t:0, camYaw:0, kick:0,
+    stats:{shots:0,hits:0,checks:0,aiShots:0}, ai:{side:1,sideT:0,shotCD:1,dumbT:0},
+    wb:{catches:0,streak:0,best:0,drops:0}
+  };
+  const p=G.p,b=G.ball;
+  p.aim=0;p.hasBall=true;b.owner=p;const pk=pocket(p);b.x=pk.x;b.y=pk.y;
+  mode="match";
+}
+function startWall(){ initAudio(); newWallBall(); hideAll(); }
+function updateWall(dt){
+  const {p,ball:b,wb}=G;
+  G.time-=dt;
+  if(G.time<=0){G.time=0;endWall();return;}
+  G.hist.push({t:G.t,x:p.x,y:p.y});
+  updEnt(p,G.a,playerInput(),dt);
+  if(b.owner===p){const pk=pocket(p);b.x=pk.x;b.y=pk.y;b.vx=b.vy=0;return;}
+  b.age+=dt;
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  const sp=Math.hypot(b.vx,b.vy),f=Math.exp(-(sp>180?.3:2.2)*dt);b.vx*=f;b.vy*=f;
+  b.trail.push({x:b.x,y:b.y});if(b.trail.length>9)b.trail.shift();
+  if(b.y<FT+BR){b.y=FT+BR;b.vy=Math.abs(b.vy)*.8;}
+  if(b.y>FB-BR){b.y=FB-BR;b.vy=-Math.abs(b.vy)*.8;}
+  if(b.x<FL+BR){b.x=FL+BR;b.vx=Math.abs(b.vx)*.8;}
+  if(b.x>=FR-BR-2){   // rebound off the wall
+    b.x=FR-BR-2;
+    const out=clamp(Math.abs(b.vx)*.78,230,520);
+    b.vx=-out;b.vy=b.vy*.8+rnd(-120,120);b.age=Math.max(b.age,.2);
+    popup("WALL",b.x-30,b.y,"#cfe3ff");sfx("block");burst(b.x,b.y,6,"#cfe3ff",140,.25);
+  }
+  // catch
+  if(p.catchT>0&&dist(p,b)<CATCH_R&&b.age>.15){
+    b.owner=p;p.hasBall=true;p.imm=0;p.charge=0;p.charging=false;p.catchT=0;b.shooter=null;
+    wb.catches++;wb.streak++;wb.best=Math.max(wb.best,wb.streak);G.shake=Math.max(G.shake,3);
+    popup(wb.streak>=3?"CAUGHT! x"+wb.streak:"CAUGHT!",p.x+Math.cos(p.aim)*40,p.y-30,"#4ade80");burst(p.x,p.y,8,"#4ade80",180,.35);sfx("pick");
+    return;
+  }
+  // ball has come to rest: scoop it up (a dropped ball resets the streak)
+  if(sp<110&&p.noPick<=0&&dist(p,b)<p.r+BR+14){
+    b.owner=p;p.hasBall=true;p.imm=0;
+    if(wb.streak>0)popup("DROPPED",p.x,p.y-30,"#ff6b6b");
+    wb.streak=0;wb.drops++;
+  }
+}
+function endWall(){
+  G.state="over";sfx("whistle");
+  const wb=G.wb,r=store.get(),prev=r.wallBest||0,isBest=wb.catches>prev;
+  if(isBest){r.wallBest=wb.catches;store.set(r);}
+  $("rtitle").textContent="Time!";$("rtitle").style.color="#ffd23f";
+  $("rscore").textContent=`${wb.catches} catches`;
+  $("rstats").innerHTML=`Best streak: ${wb.best} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
+  setTimeout(()=>{if(G&&G.state==="over")show("result");},700);
 }
 function endMatch(){
   G.state="over";
@@ -945,7 +1012,7 @@ function glowBall(mesh,glow,on,charge,t,ownEmissive){
   }
 }
 
-let barrier=null;
+let barrier=null,wallMesh=null;
 const models={};let worldBall=null,ringMesh=null,actor=null,menuView="title",bh=BR;
 if(renderer){
   buildArena();
@@ -953,6 +1020,17 @@ if(renderer){
   buildViewmodel();worldBall=makeBall();
   barrier=new THREE.Mesh(new THREE.PlaneGeometry(FB-FT,90),BM(0xff4d4d,{transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}));
   barrier.rotation.y=PI/2;barrier.position.set(W/2,45,CY);barrier.visible=false;scene.add(barrier);
+  { // rebound wall: backdrop on the select screen, and the target in Wall Ball
+    const cv=document.createElement("canvas");cv.width=1024;cv.height=320;const c=cv.getContext("2d");
+    const g=c.createLinearGradient(0,0,0,320);g.addColorStop(0,"#53648a");g.addColorStop(1,"#3a4766");c.fillStyle=g;c.fillRect(0,0,1024,320);
+    c.strokeStyle="rgba(255,255,255,.12)";c.lineWidth=2;for(let x=0;x<=1024;x+=128){c.beginPath();c.moveTo(x,0);c.lineTo(x,320);c.stroke();}
+    for(let y=0;y<=320;y+=64){c.beginPath();c.moveTo(0,y);c.lineTo(1024,y);c.stroke();}
+    c.strokeStyle="#ffd23f";c.lineWidth=8;c.strokeRect(14,14,996,292);
+    c.strokeStyle="rgba(255,255,255,.55)";c.lineWidth=6;c.strokeRect(300,150,424,140);
+    c.fillStyle="#fff";c.font="900 92px 'Trebuchet MS',sans-serif";c.textAlign="center";c.textBaseline="middle";c.fillText("WALL BALL",512,78);
+    const t=new THREE.CanvasTexture(cv);t.anisotropy=8;
+    wallMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),BM(0xffffff,{map:t,side:THREE.DoubleSide}));wallMesh.visible=false;scene.add(wallMesh);
+  }
   ringMesh=new THREE.Mesh(new THREE.RingGeometry(20,25,32),BM(0xffd23f,{side:THREE.DoubleSide}));ringMesh.rotation.x=-PI/2;ringMesh.position.y=.6;scene.add(ringMesh);
 }
 
@@ -984,6 +1062,10 @@ function updateScene(dt){
   const view=inMatch?"match":(menuView==="select"?"lineup":"orbit");
   for(const o of OPPONENTS){const m=models[o.name];m.root.visible=view==="lineup"||(view==="match"&&m===actor);}
   vm.visible=view==="match";if(view!=="match")barrier.visible=false;worldBall.m.visible=view==="match";worldBall.sh.visible=view==="match";ringMesh.visible=view==="lineup"&&selected>=0;
+  wallMesh.visible=view==="lineup"||(view==="match"&&!!G.wall);
+  if(view==="lineup"){wallMesh.position.set(W/2,100,CY-170);wallMesh.rotation.y=0;wallMesh.scale.set(560,175,1);}
+  else if(view==="match"&&G.wall){wallMesh.position.set(FR-6,90,CY);wallMesh.rotation.y=-PI/2;wallMesh.scale.set(580,181,1);}
+  wallMesh.material.color.setHex(wallHot&&view==="lineup"?0xffeaa0:0xffffff);
   if(view==="orbit"){
     clearOffset();setFov(55);const a=TT*.15;
     camera.position.set(W/2+Math.cos(a)*720,230,CY+Math.sin(a)*620);camera.lookAt(W/2,25,CY);
@@ -1003,7 +1085,7 @@ function updateScene(dt){
     clearOffset();
     const {p,a,ball:b}=G;
     if(G.state!=="reset")G.camYaw+=angDiff(p.aim,G.camYaw)*Math.min(1,dt*9);
-    actor=models[G.op.name];actor.stick.visible=true;actor.lineStick.visible=false;animActor(actor,a,dt);
+    if(G.wall)actor=null;else{actor=models[G.op.name];actor.stick.visible=true;actor.lineStick.visible=false;animActor(actor,a,dt);}
     const sp=Math.hypot(p.vx,p.vy),sf=Math.min(1,sp/250);
     setFov(camFov+=((p.dashT>0?92:78)-camFov)*Math.min(1,dt*12));
     const sh=G.shake*.3,bob=Math.sin(G.t*10)*1.6*sf;
@@ -1029,10 +1111,10 @@ function updateScene(dt){
     const k=Math.min(1,dt*22);for(const q in T)vmS[q]+=(T[q]-vmS[q])*k;
     vm.position.set(vmS.x,vmS.y,vmS.z);vm.rotation.set(vmS.rx,vmS.ry,vmS.rz);
     vmBall.visible=p.hasBall;
-    barrier.visible=p.hasBall&&p.possT<MIDLINE_LOCK&&G.state==="play";
+    barrier.visible=!G.wall&&p.hasBall&&p.possT<MIDLINE_LOCK&&G.state==="play";
     // ball
     const spd=Math.hypot(b.vx,b.vy);
-    let target=BR*1.1;if(b.owner===a)target=actor.hy;else if(!b.owner&&spd>240)target=50;
+    let target=BR*1.1;if(actor&&b.owner===a)target=actor.hy;else if(!b.owner&&spd>240)target=50;
     bh+=(target-bh)*Math.min(1,dt*(b.owner?30:9));
     worldBall.m.visible=b.owner!==p;
     worldBall.m.position.set(b.x,bh,b.y);worldBall.m.rotation.z+=spd*dt*.05;
@@ -1065,7 +1147,27 @@ function drawRadar(){
   ctx.fillStyle=G.op.color;ctx.beginPath();ctx.arc(mx(a.x),my(a.y),5,0,6.283);ctx.fill();ctx.strokeStyle="#fff";ctx.lineWidth=1;ctx.stroke();
   ctx.fillStyle="#ffe14d";ctx.beginPath();ctx.arc(mx(b.x),my(b.y),3.2,0,6.283);ctx.fill();
 }
+function drawWallHUD(){
+  const wb=G.wb;
+  ctx.fillStyle="rgba(10,18,36,.92)";rr(W/2-300,8,600,54,14);ctx.fill();
+  ctx.fillStyle="#94a3b8";rr(W/2-300,8,12,54,6);ctx.fill();rr(W/2+288,8,12,54,6);ctx.fill();
+  text("CATCHES",W/2-225,24,15,"#9db8ff","center",false);text(String(wb.catches),W/2-225,46,30,"#fff","center",false);
+  const tm=Math.max(0,Math.ceil(G.time));
+  text(Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,26,G.time<=10?"#ff6b6b":"#ffd23f","center",false);
+  text("WALL BALL · LV 0",W/2,50,13,"#c9d6f5","center",false);
+  text("STREAK",W/2+225,24,15,"#9db8ff","center",false);text(String(wb.streak),W/2+225,46,30,wb.streak>=5?"#4ade80":"#fff","center",false);
+  if(G.time>WALL_TIME-5){
+    const msg=touch.enabled?"Hold SHOOT to throw at the wall, tap CATCH to catch the rebound":"Hold L to throw at the wall · tap SPACE to catch the rebound · WASD to move";
+    text(msg,W/2,H-110,18,"#fff");
+  }
+  if(!touch.enabled){const p=G.p;
+    ctx.fillStyle="rgba(10,18,36,.92)";rr(24,H-44,124,30,10);ctx.fill();
+    ctx.fillStyle=p.catchCD<=0?"#4ade80":"#3b4a73";rr(24,H-44,Math.max(0,124*(1-p.catchCD/CATCH_CD_WALL)),30,10);ctx.fill();
+    text("CATCH [SPACE]",86,H-29,13,"#fff","center",false);
+  }
+}
 function drawHUD(){
+  if(G.wall){drawWallHUD();return;}
   ctx.fillStyle="rgba(10,18,36,.92)";rr(W/2-300,8,600,54,14);ctx.fill();
   ctx.fillStyle="#3b82f6";rr(W/2-300,8,12,54,6);ctx.fill();
   ctx.fillStyle=G.op.color;rr(W/2+288,8,12,54,6);ctx.fill();
@@ -1087,7 +1189,7 @@ function drawHUD(){
   };
   if(!touch.enabled){
     cd(24,"DASH [K]",p.dashCD,1.35);cd(156,p.hasBall?"CRADLE [J]":"CHECK [J]",p.checkCD,1);
-    cd(288,"SHOOT [L]",0,1);cd(420,"CATCH [SPACE]",p.catchCD,CATCH_CD);
+    cd(288,"SHOOT [L]",0,1);cd(420,"CATCH [SPACE]",p.catchCD,G.wall?CATCH_CD_WALL:CATCH_CD);
   }
   drawRadar();
 }
@@ -1096,7 +1198,7 @@ function drawReticle(){
   ctx.strokeStyle="rgba(255,255,255,.85)";ctx.lineWidth=2;
   ctx.beginPath();ctx.arc(c.x,c.y,2.5,0,6.283);ctx.stroke();
   if(p.hasBall){
-    const ch=p.charging?p.charge:0,std=shotStd(ch),r=clamp(std*2*480,9,170);
+    const ch=p.charging?p.charge:0,std=shotStd(ch)*(G.wall?.25:1),r=clamp(std*2*480,9,170);
     ctx.strokeStyle=ch>=.98?"#4ade80":"rgba(255,210,63,.9)";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(c.x,c.y,r,0,6.283);ctx.stroke();
     if(p.charging){ctx.strokeStyle="rgba(0,0,0,.45)";ctx.lineWidth=6;ctx.beginPath();ctx.arc(c.x,c.y+0,r+10,-PI/2,-PI/2+6.283);ctx.stroke();
       ctx.strokeStyle=ch>=.98?"#4ade80":"#ffd23f";ctx.beginPath();ctx.arc(c.x,c.y,r+10,-PI/2,-PI/2+6.283*ch);ctx.stroke();}
@@ -1137,6 +1239,13 @@ function render(dt){
     if(G.bannerT>0){const k=Math.min(1,G.bannerT*4);ctx.globalAlpha=k;text(G.banner,W/2,CY-20,G.banner.length>3?96:130,G.bannerCol||"#ffd23f");ctx.globalAlpha=1;}
   } else if(menuView==="select"){
     const rec=store.get();
+    {
+      const wt=project(W/2,192,CY-170);
+      if(wt){const fs=wallHot?20:16,lv="LV 0";ctx.font=`900 ${fs}px "Trebuchet MS",sans-serif`;const w=ctx.measureText(lv).width+18;
+        ctx.fillStyle=wallHot?"#ffd23f":"rgba(10,18,36,.85)";rr(wt.x-w/2,wt.y-fs-4,w,fs+8,8);ctx.fill();
+        ctx.strokeStyle=wallHot?"#fff":"#ffd23f";ctx.lineWidth=2;ctx.stroke();
+        text(lv,wt.x,wt.y-fs/2,fs,wallHot?"#0b1220":"#ffd23f","center",false);}
+    }
     OPPONENTS.forEach((o,i)=>{
       const m=models[o.name],hot=i===selected;
       const top=project(m.root.position.x,m.H+22,CY),foot=project(m.root.position.x,0,CY+10);
@@ -1154,26 +1263,31 @@ function render(dt){
 
 /* ---- click an opponent in the lineup to pick them ---- */
 const pickRay=new THREE.Raycaster();
-function pickOpponent(e){
-  if(!renderer||mode==="match"||menuView!=="select")return -1;
+function pickTarget(e){
+  if(!renderer||mode==="match"||menuView!=="select")return null;
   const nx=(e.clientX/innerWidth)*2-1,ny=-(e.clientY/innerHeight)*2+1;
   pickRay.setFromCamera({x:nx,y:ny},camera);
-  const hits=pickRay.intersectObjects(OPPONENTS.map(o=>models[o.name].hit),false);
-  if(!hits.length)return -1;
-  return OPPONENTS.findIndex(o=>models[o.name].hit===hits[0].object);
+  const objs=OPPONENTS.map(o=>models[o.name].hit).concat([wallMesh]);
+  const hits=pickRay.intersectObjects(objs,false);
+  if(!hits.length)return null;
+  if(hits[0].object===wallMesh)return {wall:true};
+  return {opp:OPPONENTS.findIndex(o=>models[o.name].hit===hits[0].object)};
 }
 {
   const sel=$("select");
   sel.addEventListener("pointermove",e=>{
-    const i=pickOpponent(e);
-    sel.style.cursor=i>=0?"pointer":"default";
-    if(i>=0&&i!==selected){selected=i;buildSelect();sfx("pick");}
-    else if(i<0&&selected>=0&&e.pointerType==="mouse"){selected=-1;buildSelect();}
+    const t=pickTarget(e),i=t&&t.opp!==undefined?t.opp:-1,w=!!(t&&t.wall);
+    sel.style.cursor=t?"pointer":"default";
+    if(i>=0&&(i!==selected||wallHot)){selected=i;wallHot=false;buildSelect();sfx("pick");}
+    else if(w&&!wallHot){wallHot=true;selected=-1;buildSelect();sfx("pick");}
+    else if(!t&&e.pointerType==="mouse"&&(selected>=0||wallHot)){selected=-1;wallHot=false;buildSelect();}
   });
   sel.addEventListener("click",e=>{
     if(e.target.id==="selBack")return;
-    const i=pickOpponent(e);
-    if(i>=0){selected=i;startMatch();}
+    const t=pickTarget(e);
+    if(!t)return;
+    if(t.wall){wallHot=false;startWall();}
+    else{wallHot=false;selected=t.opp;startMatch();}
   });
 }
 
@@ -1186,7 +1300,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.LL={get G(){return G},update,updEnt,startMatch,OPPONENTS,get actor(){return actor}};
+window.LL={get G(){return G},update,updEnt,startWall,startMatch,OPPONENTS,get actor(){return actor}};
 
 </script>
 </body>
