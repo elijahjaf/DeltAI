@@ -507,7 +507,7 @@ function updEnt(e,o,inp,dt){
   }
   // charging / shooting
   if(e.hasBall&&!stunned&&e.checkT<=0&&!e.cradle){
-    if(inp.shoot){ if(!e.charging){e.charging=true;e.charge=0;} e.charge=Math.min(1,e.charge+dt/.9); }
+    if(inp.shoot){ if(!e.charging){e.charging=true;e.charge=0;} e.charge=Math.min(1,e.charge+dt/(G.wall?.45:.9)); }
     else if(e.charging){ shoot(e); }
   } else if(e.charging&&!e.hasBall){e.charging=false;e.charge=0;}
   // movement
