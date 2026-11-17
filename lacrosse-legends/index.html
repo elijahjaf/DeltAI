@@ -123,6 +123,7 @@ const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 120;  // goal half-mouth, crease 
 const BR = 7, PR = 16;                              // ball + player radius
 const MAX_LEVEL = 25;
 const CATCH_R = 68, CATCH_CD = 2.0, CATCH_WINDOW = .35;
+const FACEOFF_GAP = 104;   // just outside check reach (80)
 const DASH_LOCK = 1.5;   // no dashing for this long after getting the ball
 const MIDLINE_LOCK = 1.5;
 const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
@@ -246,8 +247,8 @@ function faceoff(who,animate){
   const {p,a,ball}=G;
   const blank={catchT:0,catchCD:0,possT:0,vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
   if(animate&&camera){G.from={x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw:G.camYaw,pitch:camera.rotation.x};}
-  Object.assign(p,blank,who===0?{x:W/2-190,y:CY,aim:0}:{x:W/2-70,y:CY,aim:0});
-  Object.assign(a,blank,who===1?{x:W/2+190,y:CY,aim:Math.PI}:{x:W/2+70,y:CY,aim:Math.PI});
+  Object.assign(p,blank,{x:W/2-FACEOFF_GAP/2,y:CY,aim:0});
+  Object.assign(a,blank,{x:W/2+FACEOFF_GAP/2,y:CY,aim:Math.PI});
   const h=who===0?p:a;
   Object.assign(ball,{vx:0,vy:0,owner:h,shooter:null,age:0,trail:[]});
   h.hasBall=true;h.imm=.6;h.dashCD=DASH_LOCK;const pk=pocket(h);ball.x=pk.x;ball.y=pk.y;
