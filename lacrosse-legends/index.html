@@ -255,7 +255,7 @@ function hideAll(){ show(""); }
 function buildSelect(){
   if(wallHot){
     const best=store.get().wallBest;
-    $("bio").innerHTML=`<b>Wall Ball — Level 0</b>Warm up on the wall. Throw the ball at it, catch the rebound, and go again as fast as you can. How many catches in ${WALL_TIME} seconds?${best?" Your best: "+best+".":""}`;
+    $("bio").innerHTML=`<b>Wall Ball — Level 0</b>Warm up on the wall. Throw the ball at it, walk in front of the rebound to catch it, and go again as fast as you can. How many catches in ${WALL_TIME} seconds?${best?" Your best: "+best+".":""}`;
     $("bars").innerHTML="";return;
   }
   if(selected<0){
@@ -352,6 +352,7 @@ function updateTouchUI(){
   $("touch").classList.toggle("on",!!on);
   if(!on){touch.joyOn=false;touch.shoot=false;touch.cradle=false;return;}
   const p=G.p;
+  $("tCatch").style.display=$("tCheck").style.display=G.wall?"none":"";
   $("tDash").style.setProperty("--cd",Math.min(1,p.dashCD/1.35));
   $("tCatch").style.setProperty("--cd",Math.min(1,p.catchCD/(G.wall?CATCH_CD_WALL:CATCH_CD)));
   $("tCheck").style.setProperty("--cd",p.hasBall?0:Math.min(1,p.checkCD/1));
@@ -483,7 +484,7 @@ function updEnt(e,o,inp,dt){
   }
   // catch (flying ball)
   e.catchCD=Math.max(0,e.catchCD-dt);e.catchT=Math.max(0,e.catchT-dt);
-  if(inp.catch&&!e.hasBall&&e.catchCD<=0&&!stunned&&e.catchT<=0){
+  if(inp.catch&&!G.wall&&!e.hasBall&&e.catchCD<=0&&!stunned&&e.catchT<=0){
     e.catchT=CATCH_WINDOW;e.catchCD=G.wall?CATCH_CD_WALL:CATCH_CD;e.charging=false;e.charge=0;sfx("swing");
   }
   // cradle (ball carrier only)
@@ -549,7 +550,7 @@ function shoot(e){
   const b=G.ball,c=e.ai?Math.max(.12,e.charge):e.charge;
   let ang=e.aim;
   if(e.ai)ang+=gauss()*G.prof.err; else{
-    ang+=gauss()*shotStd(c)*(G.wall?.25:1);
+    ang+=gauss()*shotStd(c)*(G.wall?.6:1);
     // a shot can never leave the player's field of view
     if(camera&&G.camYaw!==undefined){
       const lim=Math.atan(Math.tan(camera.fov*PI/360)*camera.aspect)*.85;
@@ -744,11 +745,11 @@ function updateWall(dt){
   if(b.x>=FR-BR-2){   // rebound off the wall
     b.x=FR-BR-2;
     const out=clamp(Math.abs(b.vx)*.78,230,520);
-    b.vx=-out;b.vy=b.vy*.8+rnd(-120,120);b.age=Math.max(b.age,.2);
+    b.vx=-out;b.vy=b.vy*.8+rnd(-190,190);b.age=Math.max(b.age,.2);
     popup("WALL",b.x-30,b.y,"#cfe3ff");sfx("block");burst(b.x,b.y,6,"#cfe3ff",140,.25);
   }
-  // catch
-  if(p.catchT>0&&dist(p,b)<CATCH_R&&b.age>.15){
+  // catch: just walk into the path of the rebound
+  if(b.age>.15&&b.x>=p.x-10&&dist(p,b)<p.r+BR+24){
     b.owner=p;p.hasBall=true;p.imm=0;p.charge=0;p.charging=false;p.catchT=0;b.shooter=null;
     wb.catches++;wb.streak++;wb.best=Math.max(wb.best,wb.streak);G.shake=Math.max(G.shake,3);
     popup(wb.streak>=3?"CAUGHT! x"+wb.streak:"CAUGHT!",p.x+Math.cos(p.aim)*40,p.y-30,"#4ade80");burst(p.x,p.y,8,"#4ade80",180,.35);sfx("pick");
@@ -1157,13 +1158,8 @@ function drawWallHUD(){
   text("WALL BALL · LV 0",W/2,50,13,"#c9d6f5","center",false);
   text("STREAK",W/2+225,24,15,"#9db8ff","center",false);text(String(wb.streak),W/2+225,46,30,wb.streak>=5?"#4ade80":"#fff","center",false);
   if(G.time>WALL_TIME-5){
-    const msg=touch.enabled?"Hold SHOOT to throw at the wall, tap CATCH to catch the rebound":"Hold L to throw at the wall · tap SPACE to catch the rebound · WASD to move";
+    const msg=touch.enabled?"Hold SHOOT to throw at the wall, then walk in front of the rebound to catch it":"Hold L to throw at the wall · walk in front of the rebound to catch it · WASD to move";
     text(msg,W/2,H-110,18,"#fff");
-  }
-  if(!touch.enabled){const p=G.p;
-    ctx.fillStyle="rgba(10,18,36,.92)";rr(24,H-44,124,30,10);ctx.fill();
-    ctx.fillStyle=p.catchCD<=0?"#4ade80":"#3b4a73";rr(24,H-44,Math.max(0,124*(1-p.catchCD/CATCH_CD_WALL)),30,10);ctx.fill();
-    text("CATCH [SPACE]",86,H-29,13,"#fff","center",false);
   }
 }
 function drawHUD(){
@@ -1198,7 +1194,7 @@ function drawReticle(){
   ctx.strokeStyle="rgba(255,255,255,.85)";ctx.lineWidth=2;
   ctx.beginPath();ctx.arc(c.x,c.y,2.5,0,6.283);ctx.stroke();
   if(p.hasBall){
-    const ch=p.charging?p.charge:0,std=shotStd(ch)*(G.wall?.25:1),r=clamp(std*2*480,9,170);
+    const ch=p.charging?p.charge:0,std=shotStd(ch)*(G.wall?.6:1),r=clamp(std*2*480,9,170);
     ctx.strokeStyle=ch>=.98?"#4ade80":"rgba(255,210,63,.9)";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(c.x,c.y,r,0,6.283);ctx.stroke();
     if(p.charging){ctx.strokeStyle="rgba(0,0,0,.45)";ctx.lineWidth=6;ctx.beginPath();ctx.arc(c.x,c.y+0,r+10,-PI/2,-PI/2+6.283);ctx.stroke();
       ctx.strokeStyle=ch>=.98?"#4ade80":"#ffd23f";ctx.beginPath();ctx.arc(c.x,c.y,r+10,-PI/2,-PI/2+6.283*ch);ctx.stroke();}
