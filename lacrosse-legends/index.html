@@ -722,7 +722,7 @@ function newWallBall(){
     score:[0,0], time:0, ot:false, state:"countdown", stT:1.4, lastBeep:3,
     clock:99, popups:[], parts:[], shake:0, banner:"", bannerT:0, hist:[], t:0, camYaw:0, kick:0,
     stats:{shots:0,hits:0,checks:0,aiShots:0}, ai:{side:1,sideT:0,shotCD:1,dumbT:0},
-    wb:{catches:0,streak:0,best:0,drops:0}
+    wb:{catches:0,drops:0}
   };
   const p=G.p,b=G.ball;
   p.aim=0;p.hasBall=true;b.owner=p;const pk=pocket(p);b.x=pk.x;b.y=pk.y;
@@ -754,15 +754,15 @@ function updateWall(dt){
   // catch: just walk into the path of the rebound
   if(b.age>.15&&b.x>=p.x-10&&dist(p,b)<p.r+BR+24){
     b.owner=p;p.hasBall=true;p.imm=0;p.charge=0;p.charging=false;p.catchT=0;b.shooter=null;
-    wb.catches++;wb.streak++;wb.best=Math.max(wb.best,wb.streak);G.shake=Math.max(G.shake,3);
-    popup(wb.streak>=3?"CAUGHT! x"+wb.streak:"CAUGHT!",p.x+Math.cos(p.aim)*40,p.y-30,"#4ade80");burst(p.x,p.y,8,"#4ade80",180,.35);sfx("pick");
+    wb.catches++;G.shake=Math.max(G.shake,3);
+    popup("CAUGHT!",p.x+Math.cos(p.aim)*40,p.y-30,"#4ade80");burst(p.x,p.y,8,"#4ade80",180,.35);sfx("pick");
     return;
   }
-  // ball has come to rest: scoop it up (a dropped ball resets the streak)
+  // ball has come to rest: scoop it up (counts as a drop)
   if(sp<110&&p.noPick<=0&&dist(p,b)<p.r+BR+14){
     b.owner=p;p.hasBall=true;p.imm=0;
-    if(wb.streak>0)popup("DROPPED",p.x,p.y-30,"#ff6b6b");
-    wb.streak=0;wb.drops++;
+    popup("DROPPED",p.x,p.y-30,"#ff6b6b");
+    wb.drops++;
   }
 }
 function endWall(){
@@ -772,7 +772,7 @@ function endWall(){
   const t=Math.floor(G.time),clock=Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
   $("rtitle").textContent="Practice Over";$("rtitle").style.color="#ffd23f";
   $("rscore").textContent=`${wb.catches} catches in ${clock}`;
-  $("rstats").innerHTML=`The ball got past you. Best streak: ${wb.best} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
+  $("rstats").innerHTML=`The ball got past you. Avg passes/sec: ${(wb.catches/Math.max(1,G.time)).toFixed(2)} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
   setTimeout(()=>{if(G&&G.state==="over")show("result");},700);
 }
 function endMatch(){
@@ -1168,7 +1168,7 @@ function drawWallHUD(){
   const tm=Math.floor(G.time);
   text(Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,26,"#ffd23f","center",false);
   text("WALL BALL · LV 0",W/2,50,13,"#c9d6f5","center",false);
-  text("STREAK",W/2+225,24,15,"#9db8ff","center",false);text(String(wb.streak),W/2+225,46,30,wb.streak>=5?"#4ade80":"#fff","center",false);
+  text("PASSES / SEC",W/2+225,24,15,"#9db8ff","center",false);text((wb.catches/Math.max(1,G.time)).toFixed(2),W/2+225,46,30,"#fff","center",false);
   if(G.time<5){
     const msg=touch.enabled?"Hold SHOOT to throw at the wall, then walk in front of the rebound to catch it":"Hold L to throw at the wall · walk in front of the rebound to catch it · WASD to move";
     text(msg,W/2,H-110,18,"#fff");
