@@ -906,7 +906,7 @@ function buildModel(op){
 
 /* ---- player's first-person stick ---- */
 let vm=null;const vmS={x:0,y:0,z:0,rx:0,ry:0,rz:0};
-let vmBall=null;
+let vmBall=null,vmGlow=null;
 function buildViewmodel(){
   vm=new THREE.Group();camera.add(vm);
   const dm=c=>LM(c,{depthTest:false,depthWrite:false});
@@ -918,11 +918,27 @@ function buildViewmodel(){
   const g2=new THREE.Mesh(new THREE.SphereGeometry(5.8,10,8),gm);g2.position.set(27,-42,-46);g2.renderOrder=21;vm.add(g2);
   const ar=new THREE.Mesh(new THREE.CylinderGeometry(5,6,80,8),dm(hex("#3b82f6")));ar.position.set(44,-80,-6);ar.rotation.x=.9;ar.renderOrder=19;vm.add(ar);
   vmBall=new THREE.Mesh(new THREE.SphereGeometry(6.2,12,10),dm(0xe8ff4a));vmBall.position.set(13,-23,-92);vmBall.renderOrder=22;vm.add(vmBall);
+  vmGlow=new THREE.Mesh(new THREE.SphereGeometry(1,14,12),BM(0x2de2d0,{transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthTest:false,depthWrite:false}));
+  vmGlow.scale.setScalar(2.3);vmGlow.renderOrder=23;vmBall.add(vmGlow);
 }
 function makeBall(){
   const m=new THREE.Mesh(new THREE.SphereGeometry(BR*1.15,14,12),LM(0xe8ff4a,{emissive:0x4a5a00}));scene.add(m);
   const sh=new THREE.Mesh(new THREE.CircleGeometry(BR,12),BM(0x000000,{transparent:true,opacity:.4,depthWrite:false}));sh.rotation.x=-PI/2;sh.position.y=.5;scene.add(sh);
-  return {m,sh};
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(1,14,12),BM(0x2de2d0,{transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+  glow.scale.setScalar(2.4);m.add(glow);
+  return {m,sh,glow};
+}
+// turquoise pulsing glow while the carrier is charging a shot
+function glowBall(mesh,glow,on,charge,t,ownEmissive){
+  if(on){
+    const pulse=.5+.5*Math.sin(t*(11+15*charge));
+    mesh.material.color.setHex(0x8ffcf2);mesh.material.emissive.setHex(0x1fe3cf);mesh.material.emissiveIntensity=.7+.9*pulse;
+    mesh.scale.setScalar(1+.12*pulse+.12*charge);
+    glow.material.opacity=.22+.3*pulse+.15*charge;
+  }else{
+    mesh.material.color.setHex(0xe8ff4a);mesh.material.emissive.setHex(ownEmissive);mesh.material.emissiveIntensity=1;
+    mesh.scale.setScalar(1);glow.material.opacity=0;
+  }
 }
 
 let barrier=null;
@@ -1010,6 +1026,9 @@ function updateScene(dt){
     bh+=(target-bh)*Math.min(1,dt*(b.owner?30:9));
     worldBall.m.visible=b.owner!==p;
     worldBall.m.position.set(b.x,bh,b.y);worldBall.m.rotation.z+=spd*dt*.05;
+    const ow=b.owner,chg=!!(ow&&ow.charging);
+    glowBall(worldBall.m,worldBall.glow,chg&&ow===a,chg?ow.charge:0,G.t,0x4a5a00);
+    glowBall(vmBall,vmGlow,chg&&ow===p,chg?ow.charge:0,G.t,0x000000);
     worldBall.sh.position.set(b.x,.5,b.y);worldBall.sh.scale.setScalar(Math.max(.4,1-bh/150));
   }
   camera.updateMatrixWorld();
