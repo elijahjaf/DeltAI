@@ -111,7 +111,7 @@ const FL = 60, FR = 1140, FT = 70, FB = 650;       // field bounds
 const CY = (FT + FB) / 2, MOUTH = 50, CREASE = 120;  // goal half-mouth, crease radius
 const BR = 7, PR = 16;                              // ball + player radius
 const MAX_LEVEL = 25;
-const WALL_TIME = 60, CATCH_CD_WALL = .45;
+const CATCH_CD_WALL = .45;
 const CATCH_R = 68, CATCH_CD = 2.0, CATCH_WINDOW = .35;
 const FACEOFF_GAP = 104;   // just outside check reach (80)
 const CRADLE_TIME = .15;   // one tap = a 0.15s cradle
@@ -255,7 +255,7 @@ function hideAll(){ show(""); }
 function buildSelect(){
   if(wallHot){
     const best=store.get().wallBest;
-    $("bio").innerHTML=`<b>Wall Ball — Level 0</b>Warm up on the wall. Throw the ball at it, walk in front of the rebound to catch it, and go again as fast as you can. How many catches in ${WALL_TIME} seconds?${best?" Your best: "+best+".":""}`;
+    $("bio").innerHTML=`<b>Wall Ball — Level 0</b>Warm up on the wall. Throw the ball at it, walk in front of the rebound to catch it, and go again as fast as you can. There is no time limit, but practice ends if the ball gets past you and hits the back wall. How many catches can you get?${best?" Your best: "+best+".":""}`;
     $("bars").innerHTML="";return;
   }
   if(selected<0){
@@ -718,7 +718,7 @@ function newWallBall(){
     wall:true, op:{name:"Wall Ball",lv:0,color:"#94a3b8"}, prof:profile(OPPONENTS[0]),
     p:mkEnt(FR-380,CY,"#3b82f6",false), a:mkEnt(-5000,-5000,"#999",true),
     ball:{x:0,y:0,vx:0,vy:0,owner:null,shooter:null,age:0,trail:[]},
-    score:[0,0], time:WALL_TIME, ot:false, state:"countdown", stT:1.4, lastBeep:3,
+    score:[0,0], time:0, ot:false, state:"countdown", stT:1.4, lastBeep:3,
     clock:99, popups:[], parts:[], shake:0, banner:"", bannerT:0, hist:[], t:0, camYaw:0, kick:0,
     stats:{shots:0,hits:0,checks:0,aiShots:0}, ai:{side:1,sideT:0,shotCD:1,dumbT:0},
     wb:{catches:0,streak:0,best:0,drops:0}
@@ -730,8 +730,7 @@ function newWallBall(){
 function startWall(){ initAudio(); newWallBall(); hideAll(); }
 function updateWall(dt){
   const {p,ball:b,wb}=G;
-  G.time-=dt;
-  if(G.time<=0){G.time=0;endWall();return;}
+  G.time+=dt;   // stopwatch: practice has no time limit
   G.hist.push({t:G.t,x:p.x,y:p.y});
   updEnt(p,G.a,playerInput(),dt);
   if(b.owner===p){const pk=pocket(p);b.x=pk.x;b.y=pk.y;b.vx=b.vy=0;return;}
@@ -741,7 +740,9 @@ function updateWall(dt){
   b.trail.push({x:b.x,y:b.y});if(b.trail.length>9)b.trail.shift();
   if(b.y<FT+BR){b.y=FT+BR;b.vy=Math.abs(b.vy)*.8;}
   if(b.y>FB-BR){b.y=FB-BR;b.vy=-Math.abs(b.vy)*.8;}
-  if(b.x<FL+BR){b.x=FL+BR;b.vx=Math.abs(b.vx)*.8;}
+  if(b.x<=FL+BR){   // got past the player and hit the back wall: practice is over
+    b.x=FL+BR;b.vx=Math.abs(b.vx)*.5;popup("MISSED",p.x,p.y-30,"#ff6b6b");sfx("lose");endWall();return;
+  }
   if(b.x>=FR-BR-2){   // rebound off the wall
     b.x=FR-BR-2;
     const out=clamp(Math.abs(b.vx)*.78,230,520);
@@ -766,9 +767,10 @@ function endWall(){
   G.state="over";sfx("whistle");
   const wb=G.wb,r=store.get(),prev=r.wallBest||0,isBest=wb.catches>prev;
   if(isBest){r.wallBest=wb.catches;store.set(r);}
-  $("rtitle").textContent="Time!";$("rtitle").style.color="#ffd23f";
-  $("rscore").textContent=`${wb.catches} catches`;
-  $("rstats").innerHTML=`Best streak: ${wb.best} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
+  const t=Math.floor(G.time),clock=Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
+  $("rtitle").textContent="Practice Over";$("rtitle").style.color="#ffd23f";
+  $("rscore").textContent=`${wb.catches} catches in ${clock}`;
+  $("rstats").innerHTML=`The ball got past you. Best streak: ${wb.best} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
   setTimeout(()=>{if(G&&G.state==="over")show("result");},700);
 }
 function endMatch(){
@@ -1153,11 +1155,11 @@ function drawWallHUD(){
   ctx.fillStyle="rgba(10,18,36,.92)";rr(W/2-300,8,600,54,14);ctx.fill();
   ctx.fillStyle="#94a3b8";rr(W/2-300,8,12,54,6);ctx.fill();rr(W/2+288,8,12,54,6);ctx.fill();
   text("CATCHES",W/2-225,24,15,"#9db8ff","center",false);text(String(wb.catches),W/2-225,46,30,"#fff","center",false);
-  const tm=Math.max(0,Math.ceil(G.time));
-  text(Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,26,G.time<=10?"#ff6b6b":"#ffd23f","center",false);
+  const tm=Math.floor(G.time);
+  text(Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,26,"#ffd23f","center",false);
   text("WALL BALL · LV 0",W/2,50,13,"#c9d6f5","center",false);
   text("STREAK",W/2+225,24,15,"#9db8ff","center",false);text(String(wb.streak),W/2+225,46,30,wb.streak>=5?"#4ade80":"#fff","center",false);
-  if(G.time>WALL_TIME-5){
+  if(G.time<5){
     const msg=touch.enabled?"Hold SHOOT to throw at the wall, then walk in front of the rebound to catch it":"Hold L to throw at the wall · walk in front of the rebound to catch it · WASD to move";
     text(msg,W/2,H-110,18,"#fff");
   }
