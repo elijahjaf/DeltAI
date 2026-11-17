@@ -84,12 +84,12 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
     <div><kbd>W A S D</kbd> / <kbd>Arrows</kbd></div><div><b>Move</b></div>
     <div><kbd>Auto-aim</kbd></div><div><b>Stick locks onto the goal when you have the ball, and onto your opponent when you don't</b></div>
     <div>Hold <kbd>L</kbd></div><div><b>Charge shot, release to fire. Longer charge = more accurate. A quick tap sprays wildly</b></div>
-    <div>Hold <kbd>J</kbd> with the ball</div><div><b>Cradle: protects you from stick checks, but slows you and stops shooting</b></div>
+    <div>Tap <kbd>J</kbd> with the ball</div><div><b>Cradle for 0.3s: protects you from stick checks, but slows you and stops shooting</b></div>
     <div>Tap <kbd>J</kbd> without the ball</div><div><b>Stick check (knocks the ball loose)</b></div>
     <div><kbd>K</kbd></div><div><b>Dash</b></div>
     <div><kbd>Space</kbd></div><div><b>Catch a flying ball (every 2 seconds). Opponents catch too</b></div>
     <div><kbd>P</kbd> / <kbd>Esc</kbd></div><div><b>Pause</b></div>
-    <div><kbd>Touch</kbd></div><div><b>Joystick on the left, buttons on the right. Hold the check button to cradle</b></div>
+    <div><kbd>Touch</kbd></div><div><b>Joystick on the left, buttons on the right. The check button also cradles when you have the ball</b></div>
   </div>
   <button id="btnPlay">Choose Opponent</button>
 </section>
@@ -124,6 +124,7 @@ const BR = 7, PR = 16;                              // ball + player radius
 const MAX_LEVEL = 25;
 const CATCH_R = 68, CATCH_CD = 2.0, CATCH_WINDOW = .35;
 const FACEOFF_GAP = 104;   // just outside check reach (80)
+const CRADLE_TIME = .3;   // one tap = a 0.3s cradle
 const DASH_LOCK = 1.5;   // no dashing for this long after getting the ball
 const MIDLINE_LOCK = 1.5;
 const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
@@ -245,7 +246,7 @@ function newMatch(op){
 function faceoff(who,animate){
   // who: 0 = player gets the ball, 1 = opponent gets the ball
   const {p,a,ball}=G;
-  const blank={catchT:0,catchCD:0,possT:0,vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
+  const blank={cradleT:0,catchT:0,catchCD:0,possT:0,vx:0,vy:0,hasBall:false,charge:0,charging:false,dashT:0,checkT:0,stun:0,imm:0,noPick:0,dashCD:0,checkCD:0,cradle:false};
   if(animate&&camera){G.from={x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw:G.camYaw,pitch:camera.rotation.x};}
   Object.assign(p,blank,{x:W/2-FACEOFF_GAP/2,y:CY,aim:0});
   Object.assign(a,blank,{x:W/2+FACEOFF_GAP/2,y:CY,aim:Math.PI});
@@ -296,7 +297,7 @@ addEventListener("keydown",e=>{
   const k=e.key.toLowerCase();
   if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();
   if((k==="escape"||k==="p")&&!e.repeat)togglePause();
-  if(!e.repeat){ if(k==="k")keys.__dash=true; if(k==="j")keys.__check=true; if(k===" ")keys.__catch=true; }
+  if(!e.repeat){ if(k==="k")keys.__dash=true; if(k==="j"){keys.__check=true;keys.__cradle=true;} if(k===" ")keys.__catch=true; }
   keys[k]=true;
 });
 addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false;});
@@ -317,8 +318,8 @@ function playerInput(){
   const p=G.p,a=G.a;
   // auto-aim: goal when attacking, opponent otherwise
   const aim=p.hasBall?Math.atan2(CY-p.y,FR-p.x):Math.atan2(a.y-p.y,a.x-p.x);
-  const inp={mx,my,aim,shoot:!!(keys.l||touch.shoot),check:!!keys.__check,dash:!!keys.__dash,cradle:!!(keys.j||touch.cradle),catch:!!keys.__catch};
-  keys.__check=false; keys.__dash=false; keys.__catch=false; return inp;
+  const inp={mx,my,aim,shoot:!!(keys.l||touch.shoot),check:!!keys.__check,dash:!!keys.__dash,cradle:!!keys.__cradle,catch:!!keys.__catch};
+  keys.__cradle=false;keys.__check=false; keys.__dash=false; keys.__catch=false; return inp;
 }
 
 /* ========================= TOUCH CONTROLS ========================= */
@@ -350,7 +351,7 @@ addEventListener("touchstart",enableTouch,{passive:true});
     el.addEventListener("contextmenu",e=>e.preventDefault());
   }
   btn("tShoot",()=>{touch.shoot=true;},()=>{touch.shoot=false;});
-  btn("tCheck",()=>{keys.__check=true;touch.cradle=true;},()=>{touch.cradle=false;});
+  btn("tCheck",()=>{keys.__check=true;keys.__cradle=true;});
   btn("tDash",()=>{keys.__dash=true;});
   btn("tCatch",()=>{keys.__catch=true;});
   $("tPause").addEventListener("pointerdown",e=>{e.preventDefault();togglePause();});
@@ -456,13 +457,11 @@ function aiInput(dt){
     // nudge opponent if they're closer to ball and in range
     if(dist(a,p)<a.r+p.r+50&&a.checkCD<=0&&Math.random()<P.checkRate*dt*.5){wantAim=Math.atan2(p.y-a.y,p.x-a.x);a.aim=wantAim;inp.check=true;}
   }
-  // cradle when a check is incoming
-  if(a.hasBall&&p.swingN!==S.seenSwing&&p.checkT>0){
-    S.seenSwing=p.swingN;
-    if(dist(a,p)<130&&Math.random()<.1+.85*P.t){S.cradleT=.4;}
+  // cradle (one tap) when the defender is in range and ready to check
+  S.cradleLock=Math.max(0,(S.cradleLock||0)-dt);
+  if(a.hasBall&&a.cradleT<=0&&S.cradleLock<=0&&dist(a,p)<110&&p.checkCD<=0&&Math.random()<(.8+4*P.t)*dt){
+    inp.cradle=true;S.cradleLock=.9;
   }
-  S.cradleT=Math.max(0,(S.cradleT||0)-dt);
-  if(S.cradleT>0){inp.cradle=true;inp.shoot=false;if(a.charging){a.charging=false;a.charge=0;}}
   if(S.dumbT>0){inp.mx=S.wx;inp.my=S.wy;inp.shoot=false;if(a.charging){a.charging=false;a.charge=0;}}
   inp.mx*=speedMul;inp.my*=speedMul;
   a.aim+=angDiff(wantAim,a.aim)*Math.min(1,dt*P.turn);
@@ -492,7 +491,9 @@ function updEnt(e,o,inp,dt){
     e.catchT=CATCH_WINDOW;e.catchCD=CATCH_CD;e.charging=false;e.charge=0;sfx("swing");
   }
   // cradle (ball carrier only)
-  e.cradle=!!(inp.cradle&&e.hasBall&&!stunned&&e.checkT<=0);
+  e.cradleT=Math.max(0,(e.cradleT||0)-dt);
+  if(inp.cradle&&e.hasBall&&e.cradleT<=0&&!stunned&&e.checkT<=0)e.cradleT=CRADLE_TIME;
+  e.cradle=e.cradleT>0&&e.hasBall;
   if(e.cradle){e.charging=false;e.charge=0;}
   // check (only without the ball)
   if(inp.check&&!e.hasBall&&e.checkCD<=0&&e.checkT<=0&&!stunned){
