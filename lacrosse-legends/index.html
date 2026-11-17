@@ -135,7 +135,7 @@ const OPPONENTS = [
   {name:"Keegan", lv:14, title:"The Legend",     color:"#e879f9", mod:{speed:1.0,check:1.1,err:.8,dash:1.1},
    look:{h:67,label:"5'7\" · very pale · blonde hair",skin:0xf7e4d7,build:1.06,hair:{style:"blond",color:0xe6cd7f}},   bio:"Hall of Fame. Reads your every move before you make it. Good luck."},
   {name:"Coach Joey", lv:25, title:"The Final Boss", color:"#64748b", mod:{check:1.1,err:.9,dash:1.1,range:10},
-   look:{h:78,label:"6'6\" · tan · straight brown hair",skin:0xe0b38b,build:1.02,brow:1.25,face:1.16,whistle:true,mole:true,hair:{style:"straight",color:0x5b3a22}},   bio:"Has coached every one of them, and he's never lost a scrimmage. Whistle around his neck, game plan in his head."}
+   look:{h:78,label:"6'6\" · tan · straight brown hair",skin:0xe0b38b,build:1.02,brow:1.25,face:1.16,whistle:true,hair:{style:"sidePart",color:0x5b3a22}},   bio:"Has coached every one of them, and he's never lost a scrimmage. Whistle around his neck, game plan in his head."}
 ];
 
 function profile(op){
@@ -840,6 +840,12 @@ function addHair(head,L,R,hairM){
   else if(st==="curlyLoose"){cap(.5*PI,.45,.085);scatter(70,.08,.09,.024,.04,s=>new THREE.TorusGeometry(s,s*.4,5,9));}
   else if(st==="curlyMed"){cap(.62*PI,.4,.086);scatter(170,-.38,.089,.022,.034,sph);}
   else if(st==="straight"){cap(.6*PI,.42,.088);fringe(.13,.4,0,.062);for(const s of [-1,1]){const sb=new THREE.Mesh(new THREE.BoxGeometry(.012,.05,.04),hairM);sb.position.set(s*.083,.0,.03);head.add(sb);}}
+  else if(st==="sidePart"){
+    cap(.56*PI,.42,.088);                                   // a touch shorter than Jonah's cut
+    fringe(.1,.4,.2,.06);head.children[head.children.length-1].position.x=-.022;   // swept to one side
+    const part=new THREE.Mesh(new THREE.BoxGeometry(.004,.003,.11),LM(0xcfa17a));part.position.set(.034,.0825,.0);part.rotation.x=-.12;head.add(part);
+    for(const sd of [-1,1]){const sb=new THREE.Mesh(new THREE.BoxGeometry(.012,.04,.04),hairM);sb.position.set(sd*.083,.008,.03);head.add(sb);}
+  }
   else if(st==="blond"){cap(.66*PI,.4,.088);fringe(.14,.35,.3,.064);scatter(14,.2,.092,.018,.026,sph);for(const s of [-1,1]){const sb=new THREE.Mesh(new THREE.BoxGeometry(.012,.06,.05),hairM);sb.position.set(s*.083,-.005,.02);head.add(sb);}}
   else if(st==="wavy"||st==="wavyCrop"){
     cap((st==="wavy"?.52:.48)*PI,.45,.085);
