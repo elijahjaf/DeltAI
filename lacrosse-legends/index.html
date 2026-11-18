@@ -140,20 +140,27 @@ const OPPONENTS = [
    look:{h:78,label:"6'6\" · tan · straight brown hair",skin:0xe0b38b,build:1.02,brow:1.25,face:1.16,whistle:true,hair:{style:"sidePart",color:0x5b3a22}},   bio:"Has coached every one of them, and he's never lost a scrimmage. Whistle around his neck, game plan in his head."}
 ];
 
+// Speed vs skill: every opponent runs closer to the player's speed (SPEED_PULL closes that share of the gap),
+// and pays for it with some of their skill (SPEED_COST skill points per 100 speed gained), so overall strength stays similar.
+const SPEED_PULL = .7, SPEED_COST = .7;
 function profile(op){
-  const t=clamp(.08+1.2*(op.lv-1)/(MAX_LEVEL-1),0,1), m=op.mod||{};   // skill: every opponent gets a boost
+  const t0=clamp(.08+1.2*(op.lv-1)/(MAX_LEVEL-1),0,1), m=op.mod||{};
+  const oldSpeed=Math.min(PLAYER_SPEED,(205+100*t0)*(m.speed||1));
+  const speed=PLAYER_SPEED-(PLAYER_SPEED-oldSpeed)*(1-SPEED_PULL);
+  const tt=clamp(t0-SPEED_COST*(speed-oldSpeed)/100,-.6,1);   // effective skill (can dip below level 1 for the slowest)
+  const t=clamp(tt,0,1);
   return {
     t,
-    speed:Math.min(PLAYER_SPEED,(205+100*t)*(m.speed||1)),   // nobody out-runs the player
-    react:0.42-0.36*t,
-    err:(0.24*Math.pow(1-t,1.3)+0.012)*(m.err||1),
-    chargeMin:0.18+0.2*t, chargeMax:0.35+0.55*t,
-    range:230+110*t+(m.range||0),
-    checkRate:(0.6+4.4*t)*(m.check||1),
-    checkErr:0.5*(1-t)+0.04,
-    dash:(0.15+0.85*t)*(m.dash||1),
-    turn:6+12*t,
-    dumb:(1-t)*0.3
+    speed,
+    react:0.42-0.36*tt,
+    err:(0.24*Math.pow(1-tt,1.3)+0.012)*(m.err||1),
+    chargeMin:Math.max(.1,0.18+0.2*tt), chargeMax:Math.max(.22,0.35+0.55*tt),
+    range:Math.max(190,230+110*tt)+(m.range||0),
+    checkRate:Math.max(.3,0.6+4.4*tt)*(m.check||1),
+    checkErr:0.5*(1-tt)+0.04,
+    dash:Math.max(.06,0.15+0.85*tt)*(m.dash||1),
+    turn:Math.max(4,6+12*tt),
+    dumb:Math.min(.6,(1-tt)*0.3)
   };
 }
 
