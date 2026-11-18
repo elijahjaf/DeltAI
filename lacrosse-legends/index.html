@@ -514,7 +514,7 @@ function updEnt(e,o,inp,dt){
   }
   // charging / shooting
   if(e.hasBall&&!stunned&&e.checkT<=0&&!e.cradle){
-    if(inp.shoot){ if(!e.charging){e.charging=true;e.charge=0;} e.charge=Math.min(1,e.charge+dt/(G.wall?.45:.9)); }
+    if(inp.shoot){ if(!e.charging){e.charging=true;e.charge=0;} e.charge=Math.min(1,e.charge+dt/chargeTime(e)); }
     else if(e.charging){ shoot(e); }
   } else if(e.charging&&!e.hasBall){e.charging=false;e.charge=0;}
   // movement
@@ -552,6 +552,12 @@ function doCheck(e,o){
     popup("CHECK!",o.x,o.y-34,"#ffd23f");burst(o.x,o.y,14,"#ffd23f",260,.5);sfx("check");
     if(!e.ai)G.stats.checks++;
   } else { o.stun=Math.max(o.stun,.12);burst(o.x,o.y,5,"#fff",120,.25);sfx("block");popup(o.imm>0?"SOLID":"BUMP",o.x,o.y-34,"#cfe3ff"); }
+}
+// Full charge takes 0.9s near the goal and up to ~2s from the far end of the field
+function chargeTime(e){
+  if(G.wall)return .45;
+  const d=Math.hypot(e.x-(e.ai?FL:FR),e.y-CY);
+  return .9*(1+1.2*clamp((d-250)/750,0,1));
 }
 function shotStd(c){return .01+.7*Math.pow(1-c,1.25);}
 // 0 at the half line, 1 at your own end: shooting from behind the half line is much less accurate
