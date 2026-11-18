@@ -434,7 +434,7 @@ function aiInput(dt){
     wantAim=Math.atan2(p.y-a.y,p.x-a.x)+gauss()*P.checkErr*.02;
     const dp=dist(a,p);
     if(dtgt>230&&a.dashCD<=0&&Math.random()<P.dash*dt*3){inp.dash=true;}
-    if(dp<a.r+p.r+54&&a.checkCD<=0&&Math.random()<P.checkRate*dt){
+    if(dp<a.r+p.r+54&&a.checkCD<=0&&Math.random()<P.checkRate*dt*(p.charging?1.5:1)){   // checks a little more often while the player winds up a shot
       wantAim=Math.atan2(p.y-a.y,p.x-a.x)+gauss()*P.checkErr; a.aim=wantAim; inp.check=true;
     }
   }
