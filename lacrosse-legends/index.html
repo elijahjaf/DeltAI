@@ -432,7 +432,7 @@ function aiInput(dt){
     inp.mx=(tx-a.x)/(dtgt||1); inp.my=(ty-a.y)/(dtgt||1);
     if(dtgt<12){inp.mx*=dtgt/12;inp.my*=dtgt/12;}
     wantAim=Math.atan2(p.y-a.y,p.x-a.x)+gauss()*P.checkErr*.02;
-    const dp=dist(a,p);
+    const dp=checkDist(a,p);
     if(dtgt>230&&a.dashCD<=0&&Math.random()<P.dash*dt*3){inp.dash=true;}
     if(dp<a.r+p.r+54&&a.checkCD<=0&&Math.random()<P.checkRate*dt*(p.charging?1.5:1)){   // checks a little more often while the player winds up a shot
       wantAim=Math.atan2(p.y-a.y,p.x-a.x)+gauss()*P.checkErr; a.aim=wantAim; inp.check=true;
@@ -470,6 +470,14 @@ function aiInput(dt){
 }
 
 /* ========================= ENTITY UPDATE ========================= */
+// Check distance. Nobody can enter the other side's crease, so a defender standing inside their own crease
+// is measured from the crease edge: the normal check range is unchanged, but they can still be checked from the edge.
+function checkDist(e,o){
+  const d=dist(e,o);
+  if(G.wall)return d;
+  const gx=o.ai?FR:FL,depth=Math.max(0,CREASE-Math.hypot(o.x-gx,o.y-CY));
+  return Math.max(0,d-depth);
+}
 function pocket(e){ return {x:e.x+Math.cos(e.aim)*(e.r+20),y:e.y+Math.sin(e.aim)*(e.r+20)}; }
 function popup(text,x,y,col="#fff"){G.popups.push({text,x,y,t:0,col});}
 function burst(x,y,n,col,sp=200,life=.5){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*.3,sp);G.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,max:life,col,size:rnd(2,5)});}}
@@ -507,7 +515,7 @@ function updEnt(e,o,inp,dt){
   if(e.checkT>0){
     e.checkT-=dt;
     if(!e.checkHit){
-      const d=dist(e,o);
+      const d=checkDist(e,o);
       if(d<e.r+o.r+48&&Math.abs(angDiff(Math.atan2(o.y-e.y,o.x-e.x),e.aim))<1.15) doCheck(e,o);
     }
     if(e.checkT<=0&&!e.checkHit)e.checkCD+=.4;
