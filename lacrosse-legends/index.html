@@ -447,6 +447,11 @@ function aiInput(dt){
     let dx=gx-seen.x,dy=gy-seen.y,dl=Math.hypot(dx,dy)||1; dx/=dl;dy/=dl;
     const gap=46+(1-P.t)*50;
     tx=seen.x+dx*gap; ty=seen.y+dy*gap;
+    // when the player winds up a shot, step into the shot lane right in front of them (better players commit to it more)
+    if(p.charging){
+      const w=.35+.65*P.t,bd=56,lx=seen.x+Math.cos(p.aim)*bd,ly=seen.y+Math.sin(p.aim)*bd;
+      tx+=(lx-tx)*w; ty+=(ly-ty)*w;
+    }
     const dtgt=Math.hypot(tx-a.x,ty-a.y);
     inp.mx=(tx-a.x)/(dtgt||1); inp.my=(ty-a.y)/(dtgt||1);
     if(dtgt<12){inp.mx*=dtgt/12;inp.my*=dtgt/12;}
