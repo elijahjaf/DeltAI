@@ -122,47 +122,46 @@ const RESET_T = .9, WIN_GOALS = 7, MATCH_TIME = 180, SHOT_CLOCK = 10;
 const PLAYER_SPEED = 300;
 
 const OPPONENTS = [
-  {name:"Jonah",  lv:1,  title:"The Rookie",      color:"#22d3ee", mod:{speed:.95,check:.5},
+  {name:"Jonah",  lv:1,  title:"The Rookie",      color:"#22d3ee", mod:{},
    look:{h:72,label:"6'0\" · tan · straight brown hair",skin:0xe0b38b,build:.98,hair:{style:"straight",color:0x5b3a22}},   bio:"Just picked up a stick last week. Mostly runs in circles and hopes for the best."},
-  {name:"Enzo",   lv:2,  title:"Fresh Legs",      color:"#4ade80", mod:{speed:1.05},
+  {name:"Enzo",   lv:2,  title:"Fresh Legs",      color:"#4ade80", mod:{},
    look:{h:72,label:"6'0\" · pale · frizzy black hair",skin:0xf2dccd,build:1.0,hair:{style:"frizzy",color:0x0e0e10}},   bio:"Quick on his feet but still learning where the net is."},
-  {name:"Elijah", lv:4,  title:"The Playmaker",  color:"#a78bfa", mod:{dash:1.4},
+  {name:"Elijah", lv:4,  title:"The Playmaker",  color:"#a78bfa", mod:{dash:1.25,check:.85},
    look:{h:78,label:"6'6\" · tan · short wavy dark brown",skin:0xc68a5b,build:.93,hair:{style:"wavy",color:0x2a1a11}},   bio:"Loves a fancy dodge. Will juke you out of your cleats if you let him."},
-  {name:"Mason",  lv:5,  title:"The Enforcer",   color:"#fb923c", mod:{check:1.7,err:1.1},
+  {name:"Mason",  lv:5,  title:"The Enforcer",   color:"#fb923c", mod:{check:1.3,err:1.15},
    look:{h:63,label:"5'3\" · tan · wavy brown hair",skin:0xcd9768,build:1.22,brow:1.5,hair:{style:"wavyCrop",color:0x4b2f1d}},   bio:"Lives to lay the lumber. Don't cradle too long around Mason."},
-  {name:"Landon", lv:9,  title:"The Sniper",     color:"#f43f5e", mod:{err:.55,range:70,speed:.96},
+  {name:"Landon", lv:9,  title:"The Sniper",     color:"#f43f5e", mod:{err:.75,check:.8},
    look:{h:68,label:"5'8\" · tan · ginger curly hair",skin:0xdcb18a,build:1.0,freckles:true,hair:{style:"curlyMed",color:0xc9561f}},   bio:"Cold-blooded finisher. Give him a sliver of daylight and it's in the pipe."},
-  {name:"Brayden",lv:9,  title:"The Speedster",  color:"#facc15", mod:{speed:1.06,dash:1.7,err:1.15},
+  {name:"Brayden",lv:9,  title:"The Speedster",  color:"#facc15", mod:{dash:1.3,err:1.15},
    look:{h:70,label:"5'10\" · tan · loose curly hair",skin:0xc9925e,build:.96,hair:{style:"curlyLoose",color:0x6a4429}},   bio:"Blink and he's behind you. Pure pace, relentless dashes, non-stop pressure."},
-  {name:"Keegan", lv:14, title:"The Legend",     color:"#e879f9", mod:{speed:1.0,check:1.1,err:.8,dash:1.1},
+  {name:"Keegan", lv:14, title:"The Legend",     color:"#e879f9", mod:{},
    look:{h:67,label:"5'7\" · very pale · blonde hair",skin:0xf7e4d7,build:1.06,hair:{style:"blond",color:0xe6cd7f}},   bio:"Hall of Fame. Reads your every move before you make it. Good luck."},
-  {name:"Coach Joey", lv:25, title:"The Final Boss", color:"#64748b", mod:{check:1.1,err:.9,dash:1.1,range:10},
-   look:{h:78,label:"6'6\" · tan · straight brown hair",skin:0xe0b38b,build:1.02,brow:1.25,face:1.16,whistle:true,hair:{style:"sidePart",color:0x5b3a22}},   bio:"Has coached every one of them, and he's never lost a scrimmage. Whistle around his neck, game plan in his head."}
+  {name:"Coach Joey", lv:25, title:"The Final Boss", color:"#64748b", mod:{},
+   look:{h:78,label:"6'6\" · tan · straight brown hair",skin:0xe0b38b,build:1.02,brow:1.25,face:1.16,whistle:true,hair:{style:"sidePart",color:0x5b3a22}},   bio:"Has coached every one of them, and he's never lost a scrimmage. Whistle around his neck, game plan in his head."},
+  {name:"Julian", lv:Infinity, title:"The Beast", color:"#d9a441", creature:"snailcheetah", mod:{err:.5,check:1.3,dash:1.3,range:40,react:.5},
+   look:{h:70,label:"cheetah-snail",skin:0xeed9aa,build:1,hair:{style:"none",color:0}},   bio:"Half cheetah, half snail, and somehow faster than the snail half suggests. Nobody has found the top of his level."}
 ];
 
-// Speed vs skill: every opponent runs closer to the player's speed (SPEED_PULL closes that share of the gap),
-// and pays for it with some of their skill (SPEED_COST skill points per 100 speed gained), so overall strength stays similar.
-const SPEED_PULL = .7, SPEED_COST = .7;
+// Difficulty ladder: every stat moves by the same amount for each level from 1 to 25 (level infinity is the top rung plus extras).
+// Speed stays close to the player's (255 at level 1, 300 at level 25) so skill is what separates the levels.
 function profile(op){
-  const t0=clamp(.08+1.2*(op.lv-1)/(MAX_LEVEL-1),0,1), m=op.mod||{};
-  const oldSpeed=Math.min(PLAYER_SPEED,(205+100*t0)*(m.speed||1));
-  const speed=PLAYER_SPEED-(PLAYER_SPEED-oldSpeed)*(1-SPEED_PULL);
-  const tt=clamp(t0-SPEED_COST*(speed-oldSpeed)/100,-.6,1);   // effective skill (can dip below level 1 for the slowest)
-  const t=clamp(tt,0,1);
+  const u=clamp((op.lv-1)/(MAX_LEVEL-1),0,1), m=op.mod||{};
+  const L=(lo,hi)=>lo+(hi-lo)*u;
   return {
-    t,
-    speed,
-    react:0.42-0.36*tt,
-    err:(0.24*Math.pow(1-tt,1.3)+0.012)*(m.err||1),
-    chargeMin:Math.max(.1,0.18+0.2*tt), chargeMax:Math.max(.22,0.35+0.55*tt),
-    range:Math.max(190,230+110*tt)+(m.range||0),
-    checkRate:Math.max(.3,0.6+4.4*tt)*(m.check||1),
-    checkErr:0.5*(1-tt)+0.04,
-    dash:Math.max(.06,0.15+0.85*tt)*(m.dash||1),
-    turn:Math.max(4,6+12*tt),
-    dumb:Math.min(.6,(1-tt)*0.3)
+    t:u,
+    speed:Math.min(PLAYER_SPEED,L(255,PLAYER_SPEED)),
+    react:Math.max(.02,L(.58,.06)*(m.react||1)),
+    err:L(.38,.012)*(m.err||1),
+    chargeMin:L(.1,.38), chargeMax:L(.22,.9),
+    range:L(190,340)+(m.range||0),
+    checkRate:L(.2,5.5)*(m.check||1),
+    checkErr:L(.8,.04),
+    dash:L(.06,1)*(m.dash||1),
+    turn:L(4,18),
+    dumb:L(.5,0)
   };
 }
+const lvText=o=>isFinite(o.lv)?String(o.lv):"∞";
 
 /* ========================= HELPERS ========================= */
 const $=id=>document.getElementById(id);
@@ -271,8 +270,8 @@ function buildSelect(){
     $("bars").innerHTML="";return;
   }
   const o=OPPONENTS[selected], p=profile(o), beaten=store.get()[o.name];
-  $("bio").innerHTML=`<b>${o.name} — Level ${o.lv} of ${MAX_LEVEL}${beaten?" ✔":""}</b>${o.title}. ${o.bio}`;
-  const bars=[["SPEED",(p.speed-195)/125],["AIM",1-p.err/0.26],["POWER",p.chargeMax],["CHECK",p.checkRate/5.5],["REFLEX",1-(p.react-.05)/.4],["DASH",p.dash/1.9]];
+  $("bio").innerHTML=`<b>${o.name} — ${isFinite(o.lv)?"Level "+o.lv+" of "+MAX_LEVEL:"Level ∞"}${beaten?" ✔":""}</b>${o.title}. ${o.bio}`;
+  const bars=[["SPEED",(p.speed-255)/45],["AIM",1-(p.err-.012)/.4],["POWER",p.chargeMax],["CHECK",p.checkRate/7],["REFLEX",1-(p.react-.02)/.56],["DASH",p.dash/1.3]];
   $("bars").innerHTML=bars.map(([n,v])=>`<div class="bar"><em>${n}</em><i><u style="width:${clamp(v,.04,1)*100}%"></u></i></div>`).join("");
 }
 function startMatch(){ initAudio(); newMatch(OPPONENTS[selected]); hideAll(); }
@@ -810,9 +809,9 @@ function endMatch(){
   if(win){const r=store.get();r[G.op.name]=(r[G.op.name]||0)+1;store.set(r);}
   $("rtitle").textContent=win?"Victory!":"Defeat";
   $("rtitle").style.color=win?"#ffd23f":"#ff6b6b";
-  $("rscore").textContent=`You ${G.score[0]} — ${G.score[1]} ${G.op.name} (Lv ${G.op.lv})`;
+  $("rscore").textContent=`You ${G.score[0]} — ${G.score[1]} ${G.op.name} (Lv ${lvText(G.op)})`;
   const s=G.stats;
-  $("rstats").innerHTML=`Shots: ${s.shots} · Checks landed: ${s.checks} · ${G.op.name}'s shots: ${s.aiShots}<br>${win?(G.op.lv>=25?"You beat Coach Joey. You ARE a legend.":"Nice one! Try a tougher opponent."):"Shake it off and run it back."}`;
+  $("rstats").innerHTML=`Shots: ${s.shots} · Checks landed: ${s.checks} · ${G.op.name}'s shots: ${s.aiShots}<br>${win?(G.op.name==="Julian"?"You beat Julian. That should not be possible.":G.op.lv>=25?"You beat Coach Joey. You ARE a legend.":"Nice one! Try a tougher opponent."):"Shake it off and run it back."}`;
   setTimeout(()=>{if(G&&G.state==="over")show("result");},900);
 }
 
@@ -955,8 +954,43 @@ function addHair(head,L,R,hairM){
     scatter(st==="wavy"?55:30,.12,.089,.017,.026,sph);
   }
 }
+function buildSnailCheetah(op){
+  const H=op.look.h*PXIN,R=mulberry(777);
+  const root=new THREE.Group(),body=new THREE.Group();root.add(body);
+  const cream=LM(0xeed9aa),spot=LM(0x2b2014),shellM=LM(0x8a5a2e),shellD=LM(0x5e3a1c);
+  const ell=(sx,sy,sz,x,y,z,mat,g)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),mat);m.scale.set(sx,sy,sz);m.position.set(x,y,z);(g||body).add(m);return m;};
+  // snail foot, shell and neck
+  ell(23,5.5,62,0,5.5,-30,cream);
+  for(let i=0;i<60;i++){const x=(R()*2-1)*19,z=-86+R()*112,k=1-Math.pow(x/23,2)-Math.pow((z+30)/62,2);if(k<.1)continue;const r=1.2+R()*1.7;ell(r,r*.35,r,x,5.5+5.5*Math.sqrt(k)+.2,z,spot);}
+  const shell=ell(31,40,42,0,41,-46,shellM);
+  for(const sd of [-1,1])[26,18,10].forEach((rad,i)=>{const t=new THREE.Mesh(new THREE.TorusGeometry(rad,2.4,6,24),shellD);t.rotation.y=PI/2;t.position.set(sd*(28-i*1.4),42,-46);body.add(t);});
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(10,14,48,16),cream);neck.position.set(0,30,6);neck.rotation.x=-.08;body.add(neck);
+  for(let i=0;i<46;i++){const th=(R()-.5)*3.6,y=8+R()*42,r=1.2+R()*1.9,x=Math.sin(th)*(11.6+(50-y)*-.04),z=6+Math.cos(th)*(11.6+(50-y)*-.04);const m=ell(r,r,r*.4,x,y,z,spot);m.rotation.y=th;}
+  // cheetah head
+  const head=new THREE.Group();head.position.set(0,57,8);head.scale.setScalar(1.22);body.add(head);
+  ell(13,12.5,14,0,0,0,cream,head);ell(7,5.5,8,0,-4,11,cream,head);
+  ell(3,2.4,2.4,0,-1.2,18.6,LM(0x15110e),head);
+  for(const sd of [-1,1]){
+    ell(3,2.5,1.6,sd*6.4,3.5,11.4,LM(0x15110e),head);ell(.9,.9,.5,sd*6.8,4.2,12.6,LM(0xffffff),head);
+    const tear=new THREE.Mesh(new THREE.BoxGeometry(1.6,12,.8),LM(0x15110e));tear.position.set(sd*5.2,-2.5,13.2);tear.rotation.z=sd*.14;head.add(tear);
+    const ear=ell(4.6,6,2.6,sd*9.6,13,-2,cream,head);ear.rotation.z=-sd*.35;
+    const ei=ell(2.6,4,1.4,sd*9.6,12.6,-.6,LM(0x6d5238),head);ei.rotation.z=-sd*.35;
+    const nb=new THREE.Mesh(new THREE.BoxGeometry(.5,.5,4),LM(0xf2f2f2));nb.position.set(sd*5,-5,17);nb.rotation.y=sd*.4;head.add(nb);
+  }
+  for(let i=0;i<30;i++){const th=R()*6.28,ph=R()*1.35,r=.8+R()*1.2,rad=13;const x=Math.sin(th)*Math.sin(ph)*rad,y=Math.cos(ph)*rad,z=Math.cos(th)*Math.sin(ph)*rad;if(z<-4)continue;ell(r,r,r*.4,x*.97,y*.95,z*1.02,spot,head);}
+  // lacrosse stick held out in front of the mouth
+  const hy=H*.5,stick=new THREE.Group();
+  stick.add(buildStick(V3(0,52,-4),V3(0,hy-4,38),false,false,1.7));root.add(stick);
+  const lineStick=new THREE.Group();lineStick.add(buildStick(V3(40,.03*H,10),V3(40,.86*H-HEAD_L/2,10),false,false,1.7,V3(0,0,1)));lineStick.visible=false;root.add(lineStick);
+  const hit=new THREE.Mesh(new THREE.CylinderGeometry(40,40,H+14,8),new THREE.MeshBasicMaterial({visible:false}));hit.position.set(0,(H+14)/2,-20);root.add(hit);
+  const blob=new THREE.Mesh(new THREE.CircleGeometry(22,16),BM(0x000000,{transparent:true,opacity:.32,depthWrite:false}));blob.rotation.x=-PI/2;blob.scale.set(1.15,3,1);blob.position.set(0,.4,-28);root.add(blob);
+  const dummy=()=>new THREE.Group();
+  scene.add(root);
+  return {root,body,legs:[dummy(),dummy()],arms:[dummy(),dummy()],stick,lineStick,hit,H,hy,phase:0,op,creature:true};
+}
 function buildModel(op){
-  const L=op.look,H=L.h*PXIN,b=L.build,R=mulberry(op.lv*977+op.name.length*31+op.name.charCodeAt(0));
+  if(op.creature)return buildSnailCheetah(op);
+  const L=op.look,H=L.h*PXIN,b=L.build,R=mulberry((isFinite(op.lv)?op.lv:99)*977+op.name.length*31+op.name.charCodeAt(0));
   const root=new THREE.Group(),body=new THREE.Group();body.scale.setScalar(H);root.add(body);
   const skin=LM(L.skin),jersey=LM(hex(op.color)),shorts=LM(0x182036),sock=LM(0xeeeeee),shoe=LM(0x14161e),hairM=LM(L.hair.color);
   const legs=[];
@@ -1113,11 +1147,11 @@ function updateScene(dt){
     camera.position.set(W/2+Math.cos(a)*720,230,CY+Math.sin(a)*620);camera.lookAt(W/2,25,CY);
   } else if(view==="lineup"){
     setFov(38);clearOffset();
-    const n=OPPONENTS.length,gap=56,need=(n-1)*gap+120,asp=innerWidth/innerHeight;
+    const n=OPPONENTS.length,gap=56,need=(n-1)*gap+220,asp=innerWidth/innerHeight;
     const dist=Math.max(520,need/(2*Math.tan(19*PI/180)*asp));
     camera.position.set(W/2,95,CY+dist);camera.lookAt(W/2,62,CY);
-    OPPONENTS.forEach((o,i)=>{const m=models[o.name];m.root.position.set(W/2+(i-(n-1)/2)*gap,0,CY);
-      m.root.rotation.y=(i===selected?Math.sin(TT*1.4)*.35:Math.sin(TT*.5+i)*.06);
+    OPPONENTS.forEach((o,i)=>{const m=models[o.name];m.root.position.set(W/2+(i-(n-1)/2)*gap+(m.creature?36:0),0,CY);
+      m.root.rotation.y=(m.creature?.55:0)+(i===selected?Math.sin(TT*1.4)*.35:Math.sin(TT*.5+i)*.06);
       m.legs[0].rotation.x=m.legs[1].rotation.x=0;m.body.rotation.x=0;
       m.arms[1].rotation.set(-.2,0,.25);m.arms[0].rotation.set(-.05,0,-.1);   // right hand on the pole
       m.stick.visible=false;m.lineStick.visible=true;});
@@ -1210,7 +1244,7 @@ function drawHUD(){
   ctx.fillStyle=G.op.color;rr(W/2+288,8,12,54,6);ctx.fill();
   text("YOU",W/2-240,24,15,"#9db8ff","center",false);
   text(String(G.score[0]),W/2-240,46,30,"#fff","center",false);
-  text(G.op.name.toUpperCase()+" · LV"+G.op.lv,W/2+215,24,14,G.op.color,"center",false);
+  text(G.op.name.toUpperCase()+" · LV"+lvText(G.op),W/2+215,24,14,G.op.color,"center",false);
   text(String(G.score[1]),W/2+240,46,30,"#fff","center",false);
   const tm=Math.max(0,Math.ceil(G.time));
   text(G.ot?"SUDDEN DEATH":Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,G.ot?16:26,G.time<=10&&!G.ot?"#ff6b6b":"#ffd23f","center",false);
@@ -1288,7 +1322,7 @@ function render(dt){
       const top=project(m.root.position.x,m.H+22,CY),foot=project(m.root.position.x,0,CY+10);
       if(!top||!foot)return;
       // level badge above the head
-      const lv="LV "+o.lv,fs=hot?20:16;
+      const lv="LV "+lvText(o),fs=hot?20:16;
       ctx.font=`900 ${fs}px "Trebuchet MS",sans-serif`;const w=ctx.measureText(lv).width+18;
       ctx.fillStyle=hot?"#ffd23f":"rgba(10,18,36,.85)";rr(top.x-w/2,top.y-fs-4,w,fs+8,8);ctx.fill();
       ctx.strokeStyle=hot?"#fff":"#ffd23f";ctx.lineWidth=2;ctx.stroke();
