@@ -597,7 +597,7 @@ function doCheck(e,o){
 // Full charge takes 0.9s near the goal and up to ~2s from the far end of the field
 const CHARGE_SCALE = .85;   // 15% shorter everywhere
 function chargeTime(e){
-  if(G.wall)return .45*CHARGE_SCALE;
+  if(G.wall)return .24*CHARGE_SCALE;
   const d=Math.hypot(e.x-(e.ai?FL:FR),e.y-CY);
   return .9*(1+1.2*clamp((d-250)/750,0,1))*CHARGE_SCALE;
 }
@@ -818,8 +818,13 @@ function updateWall(dt){
   G.hist.push({t:G.t,x:p.x,y:p.y});
   updEnt(p,G.a,playerInput(),dt);
   p.x=Math.min(p.x,FR-WALL_BARRIER-p.r);
-  if(b.owner===p){const pk=pocket(p);b.x=pk.x;b.y=pk.y;b.vx=b.vy=0;return;}
+  if(b.owner===p){const pk=pocket(p);b.x=pk.x;b.y=pk.y;b.vx=b.vy=0;b.homing=false;return;}
   b.age+=dt;
+  // after the rebound the ball curves slightly toward the player
+  if(b.homing&&b.vx<0&&b.x>p.x){
+    const t=Math.max(.08,(b.x-p.x)/Math.abs(b.vx)),need=(p.y-b.y)/t;
+    b.vy+=(need-b.vy)*Math.min(1,dt*1.0);
+  }
   b.x+=b.vx*dt;b.y+=b.vy*dt;
   const sp=Math.hypot(b.vx,b.vy),f=Math.exp(-(sp>180?.3:2.2)*dt);b.vx*=f;b.vy*=f;
   b.trail.push({x:b.x,y:b.y});if(b.trail.length>9)b.trail.shift();
@@ -831,7 +836,7 @@ function updateWall(dt){
   if(b.x>=FR-BR-2){   // rebound off the wall
     b.x=FR-BR-2;
     const out=clamp(Math.abs(b.vx)*.88,340,820);
-    b.vx=-out;b.vy=b.vy*.8+rnd(-190,190);b.age=Math.max(b.age,.2);
+    b.vx=-out;b.vy=b.vy*.8+rnd(-190,190);b.age=Math.max(b.age,.2);b.homing=true;
     popup("WALL",b.x-30,b.y,"#cfe3ff");sfx("block");burst(b.x,b.y,6,"#cfe3ff",140,.25);
     const ck=wb.clock;
     if(ck&&Math.abs(b.y-ck.z)<CLOCK_R+BR){   // hit the clock
