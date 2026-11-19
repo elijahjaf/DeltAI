@@ -200,6 +200,14 @@ function sfx(n){
     case"go":tone(990,.3,"square",.1);break;
     case"whistle":tone(2100,.35,"sine",.08,200);break;
     case"clock":tone(300,.08,"square",.06);break;
+    case"shatter":{
+      if(!AC)break;const t=AC.currentTime,len=Math.floor(AC.sampleRate*.4),buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0);
+      for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.2);
+      const src=AC.createBufferSource(),hp=AC.createBiquadFilter(),g=AC.createGain();src.buffer=buf;hp.type="highpass";hp.frequency.value=2200;g.gain.value=.35;
+      src.connect(hp).connect(g).connect(AC.destination);src.start(t);
+      for(let i=0;i<9;i++)tone(2200+Math.random()*4200,.07+Math.random()*.1,"triangle",.05,-600,Math.random()*.18);
+      tone(900,.12,"square",.07,-500);
+      break;}
   }
 }
 
@@ -479,7 +487,7 @@ function checkDist(e,o){
 }
 function pocket(e){ return {x:e.x+Math.cos(e.aim)*(e.r+20),y:e.y+Math.sin(e.aim)*(e.r+20)}; }
 function popup(text,x,y,col="#fff"){G.popups.push({text,x,y,t:0,col});}
-function burst(x,y,n,col,sp=200,life=.5){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*.3,sp);G.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,max:life,col,size:rnd(2,5)});}}
+function burst(x,y,n,col,sp=200,life=.5,h){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*.3,sp),q={x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,max:life,col,size:rnd(2,5)};if(h!==undefined){q.h=h;q.vh=rnd(-40,200);}G.parts.push(q);}}
 
 function updEnt(e,o,inp,dt){
   e.noPick=Math.max(0,e.noPick-dt); e.imm=Math.max(0,e.imm-dt); e.stun=Math.max(0,e.stun-dt);
@@ -495,6 +503,7 @@ function updEnt(e,o,inp,dt){
       const toP=Math.atan2(o.y-e.y,o.x-e.x),da=angDiff(Math.atan2(dy,dx),toP),lim=1.0;
       if(Math.abs(da)>lim){const na=toP+Math.sign(da)*lim;dx=Math.cos(na);dy=Math.sin(na);}
     }
+    cancelCharge(e);
     const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=e.ai?1.5:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
   }
   // catch (flying ball)
@@ -504,7 +513,7 @@ function updEnt(e,o,inp,dt){
   }
   // cradle (ball carrier only)
   e.cradleT=Math.max(0,(e.cradleT||0)-dt);
-  if(inp.cradle&&e.hasBall&&e.cradleT<=0&&!stunned&&e.checkT<=0)e.cradleT=CRADLE_TIME;
+  if(inp.cradle&&e.hasBall&&e.cradleT<=0&&!stunned&&e.checkT<=0){e.cradleT=CRADLE_TIME;cancelCharge(e);}
   e.cradle=e.cradleT>0&&e.hasBall;
   if(e.cradle){e.charging=false;e.charge=0;}
   // check (only without the ball)
@@ -521,9 +530,11 @@ function updEnt(e,o,inp,dt){
   }
   // charging / shooting
   if(e.hasBall&&!stunned&&e.checkT<=0&&!e.cradle){
-    if(inp.shoot){ if(!e.charging){e.charging=true;e.charge=0;} e.charge=Math.min(1,e.charge+dt/chargeTime(e)); }
+    if(e.shotLock){ if(!inp.shoot)e.shotLock=false; }   // a cancelled shot needs a fresh press
+    else if(inp.shoot){ if(!e.charging){e.charging=true;e.charge=0;} e.charge=Math.min(1,e.charge+dt/chargeTime(e)); }
     else if(e.charging){ shoot(e); }
   } else if(e.charging&&!e.hasBall){e.charging=false;e.charge=0;}
+  if(!inp.shoot)e.shotLock=false;
   // movement
   let sp=e.speed*(e.hasBall?.93:1)*(e.charging?.68:1)*(e.checkT>0?.55:1)*(e.cradle?.55:1);
   if(stunned)sp=0;
@@ -545,6 +556,12 @@ function updEnt(e,o,inp,dt){
     const dx=e.x-gx,dy=e.y-CY,d=Math.hypot(dx,dy);
     if(d<CREASE){const nx=d?dx/d:(gx===FL?1:-1),ny=d?dy/d:0;e.x=gx+nx*CREASE;e.y=CY+ny*CREASE;}
   }
+}
+// Dashing or cradling cancels a shot that is being charged (the player has to let go of shoot and press it again)
+function cancelCharge(e){
+  if(!e.charging)return;
+  e.charging=false;e.charge=0;
+  if(!e.ai){e.shotLock=true;popup("CANCELED",e.x,e.y-34,"#ffb02e");}
 }
 function doCheck(e,o){
   e.checkHit=true;
@@ -693,7 +710,7 @@ function scored(who){ // who: 0 = player, 1 = AI
 function update(dt){
   G.t+=dt;
   G.popups.forEach(p=>p.t+=dt);G.popups=G.popups.filter(p=>p.t<.9);
-  G.parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt;});G.parts=G.parts.filter(p=>p.life>0);
+  G.parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt;if(p.h!==undefined){p.h=Math.max(2,p.h+p.vh*dt);p.vh-=520*dt;}});G.parts=G.parts.filter(p=>p.life>0);
   G.shake=Math.max(0,G.shake-dt*40);
   G.bannerT=Math.max(0,G.bannerT-dt);
   if(G.state==="paused"||G.state==="over")return;
@@ -750,11 +767,32 @@ function newWallBall(){
     score:[0,0], time:0, ot:false, state:"countdown", stT:1.4, lastBeep:3,
     clock:99, popups:[], parts:[], shake:0, banner:"", bannerT:0, hist:[], t:0, camYaw:0, kick:0,
     stats:{shots:0,hits:0,checks:0,aiShots:0}, ai:{side:1,sideT:0,shotCD:1,dumbT:0},
-    wb:{catches:0,drops:0}
+    wb:{catches:0,drops:0,clocks:0,clock:null,clockPop:0}
   };
   const p=G.p,b=G.ball;
   p.aim=0;p.hasBall=true;b.owner=p;const pk=pocket(p);b.x=pk.x;b.y=pk.y;
+  spawnClock();
   mode="match";
+}
+const CLOCK_R = 26;
+// a clock appears at a random spot on the wall; hit it with the ball to shatter it and it reappears somewhere else
+function drawClockFace(){
+  if(!clockCtx)return;const c=clockCtx;c.clearRect(0,0,256,256);
+  c.fillStyle="#fff8e6";c.beginPath();c.arc(128,128,124,0,6.283);c.fill();
+  c.strokeStyle="#2b2b33";c.lineWidth=7;c.stroke();
+  for(let i=0;i<12;i++){const a=i*PI/6;c.lineWidth=i%3?5:9;c.beginPath();c.moveTo(128+Math.sin(a)*100,128-Math.cos(a)*100);c.lineTo(128+Math.sin(a)*114,128-Math.cos(a)*114);c.stroke();}
+  const hr=Math.random()*12,mn=Math.random()*60;
+  c.lineCap="round";c.lineWidth=10;c.beginPath();c.moveTo(128,128);c.lineTo(128+Math.sin((hr+mn/60)*PI/6)*58,128-Math.cos((hr+mn/60)*PI/6)*58);c.stroke();
+  c.lineWidth=6;c.beginPath();c.moveTo(128,128);c.lineTo(128+Math.sin(mn*PI/30)*88,128-Math.cos(mn*PI/30)*88);c.stroke();
+  c.strokeStyle="#d83a3a";c.lineWidth=3;const sc=Math.random()*60;c.beginPath();c.moveTo(128,128);c.lineTo(128+Math.sin(sc*PI/30)*96,128-Math.cos(sc*PI/30)*96);c.stroke();
+  c.fillStyle="#2b2b33";c.beginPath();c.arc(128,128,8,0,6.283);c.fill();
+  if(clockTex)clockTex.needsUpdate=true;
+}
+function spawnClock(){
+  const wb=G.wb,prev=wb.clock?wb.clock.z:null;let z;
+  do{z=rnd(FT+60,FB-60);}while(prev!==null&&Math.abs(z-prev)<130);
+  wb.clock={z,h:rnd(45,140)};wb.clockPop=.25;
+  drawClockFace();
 }
 function startWall(){ initAudio(); newWallBall(); hideAll(); }
 function updateWall(dt){
@@ -778,6 +816,13 @@ function updateWall(dt){
     const out=clamp(Math.abs(b.vx)*.88,340,820);
     b.vx=-out;b.vy=b.vy*.8+rnd(-190,190);b.age=Math.max(b.age,.2);
     popup("WALL",b.x-30,b.y,"#cfe3ff");sfx("block");burst(b.x,b.y,6,"#cfe3ff",140,.25);
+    const ck=wb.clock;
+    if(ck&&Math.abs(b.y-ck.z)<CLOCK_R+BR){   // hit the clock
+      wb.clocks++;sfx("shatter");G.shake=Math.max(G.shake,6);
+      burst(FR-14,ck.z,26,"#e8eef8",260,.9,ck.h);burst(FR-14,ck.z,12,"#ffd23f",200,.8,ck.h);
+      popup("CLOCK SMASHED!",FR-90,ck.z,"#ffd23f");
+      spawnClock();
+    }
   }
   // catch: just walk into the path of the rebound
   if(b.age>.15&&b.x>=p.x-10&&dist(p,b)<p.r+BR+24){
@@ -800,7 +845,7 @@ function endWall(){
   const t=Math.floor(G.time),clock=Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
   $("rtitle").textContent="Practice Over";$("rtitle").style.color="#ffd23f";
   $("rscore").textContent=`${wb.catches} catches in ${clock}`;
-  $("rstats").innerHTML=`The ball got past you. Avg passes/min: ${(wb.catches/Math.max(1,G.time)*60).toFixed(1)} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
+  $("rstats").innerHTML=`The ball got past you. Clocks broken: ${wb.clocks} · Avg passes/min: ${(wb.catches/Math.max(1,G.time)*60).toFixed(1)} · Throws: ${G.stats.shots} · Drops: ${wb.drops}<br>${isBest?"New personal best!":"Personal best: "+prev}`;
   setTimeout(()=>{if(G&&G.state==="over")show("result");},700);
 }
 function endMatch(){
@@ -1095,7 +1140,7 @@ function glowBall(mesh,glow,on,charge,t,ownEmissive){
   }
 }
 
-let barrier=null,wallMesh=null,wallBar=null;
+let barrier=null,wallMesh=null,wallBar=null,clockObj=null,clockCtx=null,clockTex=null;
 const models={};let worldBall=null,ringMesh=null,actor=null,menuView="title",bh=BR;
 if(renderer){
   buildArena();
@@ -1103,6 +1148,14 @@ if(renderer){
   buildViewmodel();worldBall=makeBall();
   barrier=new THREE.Mesh(new THREE.PlaneGeometry(FB-FT,90),BM(0xff4d4d,{transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}));
   barrier.rotation.y=PI/2;barrier.position.set(W/2,45,CY);barrier.visible=false;scene.add(barrier);
+  { // the wall clock
+    const cv=document.createElement("canvas");cv.width=cv.height=256;clockCtx=cv.getContext("2d");
+    clockTex=new THREE.CanvasTexture(cv);
+    clockObj=new THREE.Group();
+    const face=new THREE.Mesh(new THREE.CircleGeometry(CLOCK_R,40),new THREE.MeshBasicMaterial({map:clockTex,side:THREE.DoubleSide}));
+    const rim=new THREE.Mesh(new THREE.RingGeometry(CLOCK_R,CLOCK_R+3.5,40),new THREE.MeshBasicMaterial({color:0xffb02e,side:THREE.DoubleSide}));
+    rim.position.z=-.1;clockObj.add(face);clockObj.add(rim);clockObj.rotation.y=-PI/2;clockObj.visible=false;scene.add(clockObj);
+  }
   { // wall-ball barrier: a low amber fence plus a stripe on the turf
     wallBar=new THREE.Group();
     const fence=new THREE.Mesh(new THREE.PlaneGeometry(FB-FT,46),BM(0xffb02e,{transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}));
@@ -1154,6 +1207,9 @@ function updateScene(dt){
   vm.visible=view==="match";if(view!=="match")barrier.visible=false;worldBall.m.visible=view==="match";worldBall.sh.visible=view==="match";ringMesh.visible=view==="lineup"&&selected>=0;
   wallMesh.visible=view==="lineup"||(view==="match"&&!!G.wall);
   wallBar.visible=view==="match"&&!!G.wall;
+  clockObj.visible=view==="match"&&!!G.wall&&!!G.wb.clock;
+  if(clockObj.visible){const ck=G.wb.clock,pop=G.wb.clockPop=Math.max(0,G.wb.clockPop-dt);
+    clockObj.position.set(FR-8,ck.h,ck.z);clockObj.scale.setScalar(1-.8*(pop/.25)*(pop/.25));}
   if(view==="lineup"){wallMesh.position.set(W/2,100,CY-170);wallMesh.rotation.y=0;wallMesh.scale.set(560,175,1);}
   else if(view==="match"&&G.wall){wallMesh.position.set(FR-6,90,CY);wallMesh.rotation.y=-PI/2;wallMesh.scale.set(580,181,1);}
   wallMesh.material.color.setHex(wallHot&&view==="lineup"?0xffeaa0:0xffffff);
@@ -1206,7 +1262,7 @@ function updateScene(dt){
     barrier.visible=!G.wall&&p.hasBall&&p.possT<MIDLINE_LOCK&&G.state==="play";
     // ball
     const spd=Math.hypot(b.vx,b.vy);
-    let target=BR*1.1;if(actor&&b.owner===a)target=actor.hy;else if(!b.owner&&spd>240)target=50;
+    let target=BR*1.1;if(actor&&b.owner===a)target=actor.hy;else if(!b.owner&&spd>240){target=50;if(G.wall&&G.wb.clock&&b.vx>0)target=50+(G.wb.clock.h-50)*clamp(1-(FR-b.x)/320,0,1);}
     bh+=(target-bh)*Math.min(1,dt*(b.owner?30:9));
     worldBall.m.visible=b.owner!==p;
     worldBall.m.position.set(b.x,bh,b.y);worldBall.m.rotation.z+=spd*dt*.05;
@@ -1242,6 +1298,8 @@ function drawRadar(){
 function drawWallHUD(){
   const wb=G.wb;
   ctx.fillStyle="rgba(10,18,36,.92)";rr(W/2-300,8,600,54,14);ctx.fill();
+  ctx.fillStyle="rgba(10,18,36,.92)";rr(W/2-105,68,210,28,10);ctx.fill();
+  text("CLOCKS BROKEN",W/2-28,82,13,"#c9d6f5","center",false);text(String(wb.clocks),W/2+78,82,20,"#ffd23f","center",false);
   ctx.fillStyle="#94a3b8";rr(W/2-300,8,12,54,6);ctx.fill();rr(W/2+288,8,12,54,6);ctx.fill();
   text("CATCHES",W/2-225,24,15,"#9db8ff","center",false);text(String(wb.catches),W/2-225,46,30,"#fff","center",false);
   const tm=Math.floor(G.time);
@@ -1318,7 +1376,7 @@ function render(dt){
   updateScene(dt);
   renderer.render(scene,camera);
   if(G&&mode==="match"){
-    G.parts.forEach(q=>{const s=project(q.x,28,q.y);if(!s)return;ctx.globalAlpha=q.life/q.max;ctx.fillStyle=q.col;ctx.fillRect(s.x,s.y,q.size*1.5,q.size*1.5);});ctx.globalAlpha=1;
+    G.parts.forEach(q=>{const s=project(q.x,q.h!==undefined?q.h:28,q.y);if(!s)return;ctx.globalAlpha=q.life/q.max;ctx.fillStyle=q.col;ctx.fillRect(s.x,s.y,q.size*1.5,q.size*1.5);});ctx.globalAlpha=1;
     G.popups.forEach(q=>{const s=project(q.x,95+q.t*30,q.y);if(!s)return;ctx.globalAlpha=1-q.t/.9;text(q.text,s.x,s.y,24,q.col);});ctx.globalAlpha=1;
     if(G.state==="play"||G.state==="countdown")drawReticle();
     drawBallArrow();
