@@ -27,6 +27,9 @@ section{z-index:10}
 canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #select{background:none;padding-block:18px;justify-content:space-between;overflow:hidden;cursor:default}
 #select h2{margin:0;text-shadow:0 3px 14px rgba(0,0,0,.8)}
+#joinBox{display:flex;align-items:center;justify-content:center;gap:6px;margin:10px 0}
+#joinBox[hidden]{display:none}
+#joinCode{font:inherit;font-weight:900;font-size:34px;letter-spacing:8px;text-transform:uppercase;text-align:center;width:6.2em;padding:8px 10px;border-radius:12px;border:2px solid var(--line);background:var(--panel);color:var(--txt)}
 #selHint{color:#c9d6f5;font-weight:700;letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,.9);font-size:14px}
 #selHint a{color:var(--acc);cursor:pointer;text-decoration:underline}
 #select #detail{pointer-events:none;position:absolute;left:50%;transform:translateX(-50%);bottom:54px;width:min(720px,calc(100% - 32px));gap:14px}
@@ -89,12 +92,21 @@ kbd{background:#25345a;border-radius:5px;padding:1px 7px;color:#fff;font-size:13
     <div><kbd>Touch</kbd></div><div><b>Joystick on the left, buttons on the right. The check button also cradles when you have the ball</b></div>
   </div>
   <button id="btnPlay">Choose Opponent</button>
+  <button class="alt" id="btnOnline">1v1 Online</button>
 </section>
 
 <section id="select">
   <h2>Choose Your Opponent</h2>
   <div id="detail"><div id="bio"></div><div class="bars" id="bars"></div></div>
   <div id="selHint">Click an opponent to face them, or the wall for Wall Ball &nbsp;·&nbsp; <a id="selBack">Back</a> (Esc)</div>
+</section>
+
+<section id="online">
+  <h2>1v1 Online</h2>
+  <p class="sub" id="onlineMsg">Play a friend head to head. One of you creates a room and shares the code, the other joins with it.</p>
+  <div id="onlineChoice"><button id="btnCreate">Create</button><button id="btnJoin">Join</button></div>
+  <div id="joinBox" hidden><input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="btnJoinGo">Join Room</button></div>
+  <div><button class="alt" id="btnOnlineBack">Back</button></div>
 </section>
 
 <section id="pause">
@@ -193,6 +205,7 @@ function tone(f,d,type="square",v=.08,slide=0,delay=0){
   o.connect(g).connect(AC.destination); o.start(t); o.stop(t+d+.02);
 }
 function sfx(n){
+  if(typeof netEv==="function")netEv("s",[n]);
   switch(n){
     case"shot":tone(300,.18,"sawtooth",.09,500);break;
     case"swing":tone(500,.09,"triangle",.06,-250);break;
@@ -294,15 +307,20 @@ function buildSelect(){
   const bars=[["SPEED",(p.speed-255)/45],["AIM",1-(p.err-.012)/.4],["POWER",p.chargeMax],["CHECK",p.checkRate/7],["REFLEX",1-(p.react-.02)/.56],["DASH",p.dash/1.3]];
   $("bars").innerHTML=bars.map(([n,v])=>`<div class="bar"><em>${n}</em><i><u style="width:${maxed?100:clamp(v,.04,1)*100}%"></u></i></div>`).join("");
 }
-function startMatch(){ initAudio(); newMatch(OPPONENTS[selected]); hideAll(); }
+function startMatch(){ initAudio(); netLeave(); newMatch(OPPONENTS[selected]); hideAll(); }
 $("btnPlay").onclick=()=>{initAudio();selected=-1;wallHot=false;buildSelect();show("select");};
 $("selHint").addEventListener("click",e=>{if(e.target.id==="selBack")show("title");});
 $("btnRematch").onclick=()=>{ if(G&&G.wall)startWall(); else startMatch(); };
-$("btnOpp").onclick=()=>{mode="menu";selected=-1;wallHot=false;buildSelect();show("select");};
+$("btnOpp").onclick=()=>{netLeave();mode="menu";selected=-1;wallHot=false;buildSelect();show("select");};
 $("btnResume").onclick=()=>togglePause(false);
-$("btnQuit").onclick=()=>{G=null;mode="menu";selected=-1;wallHot=false;buildSelect();show("select");};
+$("btnQuit").onclick=()=>{netLeave();G=null;mode="menu";selected=-1;wallHot=false;buildSelect();show("select");};
 function togglePause(force){
   if(mode!=="match"||!G||G.state==="over")return;
+  if(G.net){   // a live match can't be frozen: the menu just sits on top
+    const on=force===undefined?!$("pause").classList.contains("on"):force;
+    if(on&&force===undefined)show("pause");else if(!on)hideAll();
+    return;
+  }
   const want=force===undefined?G.state!=="paused":force;
   if(want&&G.state!=="paused"){G.prev=G.state;G.state="paused";show("pause");}
   else if(!want&&G.state==="paused"){G.state=G.prev;hideAll();}
@@ -335,7 +353,8 @@ function playerInput(){
   }
   const p=G.p,a=G.a;
   // auto-aim: goal when attacking, opponent otherwise
-  const aim=G.wall?0:p.hasBall?Math.atan2(CY-p.y,FR-p.x):Math.atan2(a.y-p.y,a.x-p.x);
+  const loose=!G.wall&&G.state==="play"&&!G.ball.owner;   // nobody has the ball: look at it
+  const aim=G.wall?0:p.hasBall?Math.atan2(CY-p.y,FR-p.x):loose?Math.atan2(G.ball.y-p.y,G.ball.x-p.x):Math.atan2(a.y-p.y,a.x-p.x);
   const inp={mx,my,aim,shoot:!!(keys.l||touch.shoot),check:!!keys.__check,dash:!!keys.__dash,cradle:!!keys.__cradle,catch:!!keys.__catch};
   keys.__cradle=false;keys.__check=false; keys.__dash=false; keys.__catch=false; return inp;
 }
@@ -503,25 +522,26 @@ function checkDist(e,o){
   return Math.max(0,d-depth);
 }
 function pocket(e){ return {x:e.x+Math.cos(e.aim)*(e.r+20),y:e.y+Math.sin(e.aim)*(e.r+20)}; }
-function popup(text,x,y,col="#fff"){G.popups.push({text,x,y,t:0,col});}
-function burst(x,y,n,col,sp=200,life=.5,h){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*.3,sp),q={x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,max:life,col,size:rnd(2,5)};if(h!==undefined){q.h=h;q.vh=rnd(-40,200);}G.parts.push(q);}}
+function netEv(k,a){const N=G&&G.net;if(N&&N.role==="host"){N.evq.push({id:++N.evId,k,a});if(N.evq.length>14)N.evq.shift();}}
+function popup(text,x,y,col="#fff"){G.popups.push({text,x,y,t:0,col});netEv("p",[text,x,y,col]);}
+function burst(x,y,n,col,sp=200,life=.5,h){netEv("b",[Math.round(x),Math.round(y),Math.min(n,30),col,sp,life,h]);for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*.3,sp),q={x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,max:life,col,size:rnd(2,5)};if(h!==undefined){q.h=h;q.vh=rnd(-40,200);}G.parts.push(q);}}
 
 function updEnt(e,o,inp,dt){
   e.noPick=Math.max(0,e.noPick-dt); e.imm=Math.max(0,e.imm-dt); e.stun=Math.max(0,e.stun-dt);
   e.checkCD=Math.max(0,e.checkCD-dt); e.dashCD=Math.max(0,e.dashCD-dt);
   const stunned=e.stun>0;
   // aim (player sets directly)
-  if(!e.ai)e.aim=inp.aim;
+  if(!e.ai||e.human)e.aim=inp.aim;
   // dash
   if(inp.dash&&e.dashCD<=0&&!stunned){
     let dx=inp.mx,dy=inp.my; if(Math.hypot(dx,dy)<.1){dx=Math.cos(e.aim);dy=Math.sin(e.aim);}
     // an opponent defending against the ball carrier may only dash somewhat toward them
-    if(e.ai&&o.hasBall){
+    if(e.ai&&!e.human&&o.hasBall){
       const toP=Math.atan2(o.y-e.y,o.x-e.x),da=angDiff(Math.atan2(dy,dx),toP),lim=1.0;
       if(Math.abs(da)>lim){const na=toP+Math.sign(da)*lim;dx=Math.cos(na);dy=Math.sin(na);}
     }
     cancelCharge(e);
-    const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=e.ai?1.5:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
+    const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=(e.ai&&!e.human)?1.5:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
   }
   // catch (flying ball)
   e.catchCD=Math.max(0,e.catchCD-dt);e.catchT=Math.max(0,e.catchT-dt);
@@ -556,7 +576,7 @@ function updEnt(e,o,inp,dt){
   let sp=e.speed*(e.hasBall?.93:1)*(e.charging?.68:1)*(e.checkT>0?.55:1)*(e.cradle?.55:1);
   if(stunned)sp=0;
   const tvx=inp.mx*sp,tvy=inp.my*sp;
-  const k=Math.min(1,dt*(e.ai?11:15));
+  const k=Math.min(1,dt*((e.ai&&!e.human)?11:15));
   e.vx+=(tvx-e.vx)*k; e.vy+=(tvy-e.vy)*k;
   let mvx=e.vx,mvy=e.vy;
   if(e.dashT>0){e.dashT-=dt;mvx=e.dx*760;mvy=e.dy*760;e.vx=e.dx*420;e.vy=e.dy*420;}
@@ -564,7 +584,7 @@ function updEnt(e,o,inp,dt){
   e.x+=mvx*dt; e.y+=mvy*dt;
   if(e.hasBall)e.possT=(e.possT||0)+dt;
   // the player may not carry the ball past the midline until 3s into the possession
-  if(!G.wall&&!e.ai&&e.hasBall&&e.possT<MIDLINE_LOCK&&px<=W/2-e.r+.01)e.x=Math.min(e.x,W/2-e.r);
+  if(!G.wall&&(!e.ai||e.human)&&e.hasBall&&e.possT<MIDLINE_LOCK&&px<=W/2-e.r+.01)e.x=Math.min(e.x,W/2-e.r);
   e.trail.push({x:e.x,y:e.y}); if(e.trail.length>7)e.trail.shift();
   // field + crease
   e.x=clamp(e.x,FL+e.r,FR-e.r); e.y=clamp(e.y,FT+e.r,FB-e.r);
@@ -578,7 +598,7 @@ function updEnt(e,o,inp,dt){
 function cancelCharge(e){
   if(!e.charging)return;
   e.charging=false;e.charge=0;
-  if(!e.ai){e.shotLock=true;popup("CANCELED",e.x,e.y-34,"#ffb02e");}
+  if(!e.ai||e.human){e.shotLock=true;popup("CANCELED",e.x,e.y-34,"#ffb02e");}
 }
 function doCheck(e,o){
   e.checkHit=true;
@@ -610,12 +630,12 @@ function shotNoise(e,c){
   return shotStd(c)*1.25*(1+1.2*d)+d*.03;
 }
 function shoot(e){
-  const b=G.ball,c=e.ai?Math.max(.12,e.charge):e.charge;
+  const b=G.ball,cpu=e.ai&&!e.human,c=cpu?Math.max(.12,e.charge):e.charge;
   let ang=e.aim;
-  if(e.ai)ang+=gauss()*(G.prof.err*(G.wall?1:1.1+1.2*behindDepth(e))+behindDepth(e)*.03); else{
+  if(cpu)ang+=gauss()*(G.prof.err*(G.wall?1:1.1+1.2*behindDepth(e))+behindDepth(e)*.03); else{
     ang+=gauss()*shotNoise(e,c);
     // a shot can never leave the player's field of view
-    if(camera&&G.camYaw!==undefined){
+    if(!e.human&&camera&&G.camYaw!==undefined){
       const lim=Math.atan(Math.tan(camera.fov*PI/360)*camera.aspect)*.85;
       ang=G.camYaw+clamp(angDiff(ang,G.camYaw),-lim,lim);
     }
@@ -730,6 +750,7 @@ function update(dt){
   G.parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt;if(p.h!==undefined){p.h=Math.max(2,p.h+p.vh*dt);p.vh-=520*dt;}});G.parts=G.parts.filter(p=>p.life>0);
   G.shake=Math.max(0,G.shake-dt*40);
   G.bannerT=Math.max(0,G.bannerT-dt);
+  if(G.net&&G.net.role==="guest"){guestTick(dt);return;}
   if(G.state==="paused"||G.state==="over")return;
   if(G.wall&&G.state==="play"){updateWall(dt);return;}
 
@@ -766,7 +787,7 @@ function update(dt){
   }
   G.hist.push({t:G.t,x:G.p.x,y:G.p.y});
   while(G.hist.length&&G.t-G.hist[0].t>1.2)G.hist.shift();
-  const pin=playerInput(), ain=aiInput(dt);
+  const pin=playerInput(), ain=G.net?netRemoteInput():aiInput(dt);
   updEnt(G.p,G.a,pin,dt); updEnt(G.a,G.p,ain,dt);
   // body collision
   const dx=G.a.x-G.p.x,dy=G.a.y-G.p.y,d=Math.hypot(dx,dy),min=PR*2;
@@ -811,7 +832,7 @@ function spawnClock(){
   wb.clock={z,h:rnd(45,140)};wb.clockPop=.25;
   drawClockFace();
 }
-function startWall(){ initAudio(); newWallBall(); hideAll(); }
+function startWall(keepRoom){ initAudio(); if(!keepRoom)netLeave(); newWallBall(); hideAll(); }
 function updateWall(dt){
   const {p,ball:b,wb}=G;
   G.time+=dt;   // stopwatch: practice has no time limit
@@ -830,6 +851,10 @@ function updateWall(dt){
   b.trail.push({x:b.x,y:b.y});if(b.trail.length>9)b.trail.shift();
   if(b.y<FT+BR){b.y=FT+BR;b.vy=Math.abs(b.vy)*.8;}
   if(b.y>FB-BR){b.y=FB-BR;b.vy=-Math.abs(b.vy)*.8;}
+  if(b.x<=FL+BR&&G.netWait){   // waiting for an opponent: just get the ball back and keep practising
+    b.owner=p;p.hasBall=true;p.imm=0;p.charging=false;p.charge=0;b.vx=b.vy=0;b.homing=false;
+    popup("MISSED",p.x,p.y-30,"#ff6b6b");wb.drops++;sfx("block");return;
+  }
   if(b.x<=FL+BR){   // got past the player and hit the back wall: practice is over
     b.x=FL+BR;b.vx=Math.abs(b.vx)*.5;popup("MISSED",p.x,p.y-30,"#ff6b6b");sfx("lose");endWall();return;
   }
@@ -861,6 +886,7 @@ function updateWall(dt){
   }
 }
 function endWall(){
+  $("btnRematch").style.display="";
   G.state="over";sfx("whistle");
   const wb=G.wb,r=store.get(),prev=r.wallBest||0,isBest=wb.catches>prev;
   if(isBest){r.wallBest=wb.catches;store.set(r);}
@@ -871,6 +897,8 @@ function endWall(){
   setTimeout(()=>{if(G&&G.state==="over")show("result");},700);
 }
 function endMatch(){
+  if(G.net){endNet();return;}
+  $("btnRematch").style.display="";
   G.state="over";
   const win=G.score[0]>G.score[1];
   if(win){const r=store.get();r[G.op.name]=(r[G.op.name]||0)+1;store.set(r);}
@@ -1168,6 +1196,7 @@ const models={};let worldBall=null,ringMesh=null,actor=null,menuView="title",bh=
 if(renderer){
   buildArena();
   OPPONENTS.forEach(o=>{models[o.name]=buildModel(o);models[o.name].root.visible=false;});
+  models.Rival=buildModel({name:"Rival",lv:5,color:"#ef4444",look:{h:70,label:"",skin:0xd9a87c,build:1,hair:{style:"straight",color:0x3a2616}}});models.Rival.root.visible=false;
   buildViewmodel();worldBall=makeBall();
   barrier=new THREE.Mesh(new THREE.PlaneGeometry(FB-FT,90),BM(0xff4d4d,{transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}));
   barrier.rotation.y=PI/2;barrier.position.set(W/2,45,CY);barrier.visible=false;scene.add(barrier);
@@ -1227,6 +1256,7 @@ function updateScene(dt){
   const inMatch=!!(G&&mode==="match");
   const view=inMatch?"match":(menuView==="select"?"lineup":"orbit");
   for(const o of OPPONENTS){const m=models[o.name];m.root.visible=view==="lineup"||(view==="match"&&m===actor);}
+  models.Rival.root.visible=view==="match"&&models.Rival===actor;
   vm.visible=view==="match";if(view!=="match")barrier.visible=false;worldBall.m.visible=view==="match";worldBall.sh.visible=view==="match";ringMesh.visible=view==="lineup"&&selected>=0;
   wallMesh.visible=view==="lineup"||(view==="match"&&!!G.wall);
   wallBar.visible=view==="match"&&!!G.wall;
@@ -1329,6 +1359,12 @@ function drawWallHUD(){
   text(Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,26,"#ffd23f","center",false);
   text("WALL BALL · LV 0",W/2,50,13,"#c9d6f5","center",false);
   text("PASSES / MIN",W/2+225,24,15,"#9db8ff","center",false);text((wb.catches/Math.max(1,G.time)*60).toFixed(1),W/2+225,46,30,"#fff","center",false);
+  if(G.netWait){
+    ctx.fillStyle="rgba(10,18,36,.92)";rr(W/2-300,100,600,58,14);ctx.fill();
+    text("ROOM CODE",W/2-215,118,13,"#9db8ff","center",false);text(G.netWait.code,W/2-215,144,32,"#ffd23f","center",false);
+    text("Waiting for a player to JOIN with this code.",W/2+80,121,14,"#c9d6f5","center",false);
+    text("Keep practising until they arrive!",W/2+80,142,13,"#8fa0c8","center",false);
+  }
   if(G.time<5){
     const msg=touch.enabled?"Hold SHOOT to throw at the wall, then walk in front of the rebound to catch it":"Hold L to throw at the wall · walk in front of the rebound to catch it · WASD to move";
     text(msg,W/2,H-110,18,"#fff");
@@ -1341,7 +1377,7 @@ function drawHUD(){
   ctx.fillStyle=G.op.color;rr(W/2+288,8,12,54,6);ctx.fill();
   text("YOU",W/2-240,24,15,"#9db8ff","center",false);
   text(String(G.score[0]),W/2-240,46,30,"#fff","center",false);
-  text(G.op.name.toUpperCase()+" · LV"+lvText(G.op),W/2+215,24,14,G.op.color,"center",false);
+  text((G.op.label||G.op.name).toUpperCase()+(G.net?"":" · LV"+lvText(G.op)),W/2+215,24,14,G.op.color,"center",false);
   text(String(G.score[1]),W/2+240,46,30,"#fff","center",false);
   const tm=Math.max(0,Math.ceil(G.time));
   text(G.ot?"SUDDEN DEATH":Math.floor(tm/60)+":"+String(tm%60).padStart(2,"0"),W/2,28,G.ot?16:26,G.time<=10&&!G.ot?"#ff6b6b":"#ffd23f","center",false);
@@ -1465,11 +1501,175 @@ function pickTarget(e){
   });
 }
 
+
+/* ========================= 1v1 ONLINE (room capability) ========================= */
+// Host-authoritative: the creator runs the whole game; the joiner sends inputs and renders what the host sends back.
+// Everything travels as "presence" objects in a named room (ll-<code>). The joiner plays in a mirrored world
+// (x -> W-x) so they attack the right-hand goal like every player does in their own view.
+const NET={nr:null,code:"",role:"",joining:false,joinT:0,lastSend:0,lastPoll:0};
+const CODE_CHARS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const genCode=()=>Array.from({length:4},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join("");
+const r1=v=>Math.round(v*10)/10, r2=v=>Math.round(v*100)/100;
+const normAng=a=>Math.atan2(Math.sin(a),Math.cos(a));
+const onlineMsg=t=>{$("onlineMsg").textContent=t;};
+async function netEnter(code){
+  let room=null;
+  try{ room=(window.claude&&window.claude.use)?await window.claude.use("room"):null; }catch(e){}
+  if(!room){onlineMsg("1v1 needs the Claude artifact viewer and a signed-in account. It isn't available in this view.");return null;}
+  try{ const nr=await room.join("ll-"+code.toLowerCase()); NET.nr=nr;NET.code=code;return nr; }
+  catch(e){
+    const c=(e&&e.code)||"error";
+    onlineMsg(c==="not_permitted"||c==="not_granted"?"Online rooms need you to be signed in with access to this artifact. Public-link visitors can't connect.":"Couldn't open the room ("+c+"). Try again.");
+    return null;
+  }
+}
+function netLeave(){ try{ if(NET.nr)NET.nr.leave(); }catch(e){} NET.nr=null;NET.code="";NET.role="";NET.joining=false; }
+function netPresence(obj){ try{ const p=NET.nr&&NET.nr.presence(obj); if(p&&p.catch)p.catch(()=>{}); }catch(e){} }
+
+$("btnOnline").onclick=()=>{initAudio();$("joinBox").hidden=true;onlineMsg("Play a friend head to head. One of you creates a room and shares the code, the other joins with it.");show("online");};
+$("btnOnlineBack").onclick=()=>{netLeave();show("title");};
+$("btnCreate").onclick=async()=>{
+  netLeave();onlineMsg("Opening a room…");
+  const code=genCode(),nr=await netEnter(code);if(!nr)return;
+  NET.role="host";netPresence({role:"host",code});
+  startWall(true);G.netWait={code};   // practise on the wall until someone joins
+};
+$("btnJoin").onclick=()=>{$("joinBox").hidden=false;$("joinCode").focus();};
+$("btnJoinGo").onclick=async()=>{
+  const code=$("joinCode").value.trim().toUpperCase();
+  if(code.length!==4){onlineMsg("Enter the 4-character room code.");return;}
+  netLeave();onlineMsg("Looking for room "+code+"…");
+  const nr=await netEnter(code);if(!nr)return;
+  NET.role="guest";NET.joining=true;NET.joinT=performance.now();
+  netPresence({role:"guest",code,inp:[0,0,0,0,0,0,0,0]});
+};
+$("joinCode").addEventListener("keydown",e=>{if(e.key==="Enter")$("btnJoinGo").click();e.stopPropagation();});
+$("joinCode").addEventListener("keyup",e=>e.stopPropagation());
+
+function newNetMatch(role){
+  const op={name:"Rival",label:"PLAYER 2",lv:0,color:"#ef4444"};
+  G={
+    op,prof:profile(OPPONENTS[0]),net:{role,seq:0,evq:[],evId:0,lastEv:0,remote:{inp:[0,0,0,0,0,0,0,0],c:[0,0,0,0]},missing:0,ck:0,ds:0,cr:0,ct:0,myInp:[0,0,0,0,0,0,0,0],guestPeer:null,latest:null,lastQ:-1,teleport:true},
+    p:mkEnt(0,0,"#3b82f6",false),a:mkEnt(0,0,op.color,true),
+    ball:{x:0,y:0,vx:0,vy:0,owner:null,shooter:null,age:0,trail:[]},
+    score:[0,0],time:MATCH_TIME,ot:false,state:"countdown",stT:3.2,lastBeep:4,
+    clock:SHOT_CLOCK,popups:[],parts:[],shake:0,banner:"",bannerT:0,hist:[],t:0,
+    stats:{shots:0,hits:0,checks:0,aiShots:0},ai:{side:1,sideT:0,shotCD:1,dumbT:0,wander:0,wx:0,wy:0,target:null,chargeGoal:0,dashLook:0}
+  };
+  G.a.human=true;G.a.speed=PLAYER_SPEED;G.camYaw=0;G.kick=0;
+  if(typeof boardR!=="undefined"&&boardR)boardR.color.set(op.color);
+  if(role==="host")faceoff(Math.random()<.5?0:1,false);
+  actor=null;mode="match";
+}
+function startNetHost(guestPeer){
+  newNetMatch("host");G.net.guestPeer=guestPeer;hideAll();
+}
+function startNetGuest(){
+  newNetMatch("guest");NET.joining=false;hideAll();
+}
+// host: decode the joiner's input (sent in their mirrored world) into a normal input object
+function netRemoteInput(){
+  const r=G.net.remote,i=r.inp;
+  const out={mx:-i[0],my:i[1],aim:normAng(PI-i[2]),shoot:!!i[3],check:i[4]!==r.c[0],dash:i[5]!==r.c[1],cradle:i[6]!==r.c[2],catch:i[7]!==r.c[3]};
+  r.c=[i[4],i[5],i[6],i[7]];
+  return out;
+}
+function netEncode(){
+  const N=G.net,b=G.ball;
+  const ent=e=>[r1(e.x),r1(e.y),r1(e.vx),r1(e.vy),r2(e.aim),e.hasBall?1:0,e.charging?1:0,r2(e.charge),r2(e.dashT),r2(e.dashCD),r2(e.checkT),r2(e.checkCD),e.cradle?1:0,r2(e.catchT),r2(e.catchCD),r2(e.stun),r2(e.imm),r2(e.possT||0)];
+  return {q:++N.seq,st:G.state,rT:r2(G.resetT||0),sc:G.score,tm:r1(G.time),ot:G.ot?1:0,ck:r1(G.clock),bn:G.banner||"",bt:r2(G.bannerT),bc:G.bannerCol||"",sh:r1(G.shake),
+    h:ent(G.p),g:ent(G.a),b:[r1(b.x),r1(b.y),r1(b.vx),r1(b.vy),b.owner===G.p?0:b.owner===G.a?1:-1],ev:N.evq.slice(-12)};
+}
+// guest: write a host snapshot into the local (mirrored) game state
+function setNetEnt(e,a,own){
+  e.tx=W-a[0];e.ty=a[1];e.vx=-a[2];e.vy=a[3];
+  if(!own)e.aim=normAng(PI-a[4]);
+  e.hasBall=!!a[5];e.charging=!!a[6];e.charge=a[7];e.dashT=a[8];e.dashCD=a[9];e.checkT=a[10];e.checkCD=a[11];e.cradle=!!a[12];e.catchT=a[13];e.catchCD=a[14];e.stun=a[15];e.imm=a[16];e.possT=a[17];
+}
+function netApply(s){
+  const N=G.net;
+  if(s.st!==G.state){
+    N.teleport=true;
+    if(s.st==="reset"){G.from={x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw:G.camYaw,pitch:camera.rotation.x};G.resetT=0;}
+    if(s.st==="countdown"&&G.state==="reset")G.camYaw=G.p.aim;
+    G.state=s.st;
+  }
+  G.score=[s.sc[1],s.sc[0]];G.time=s.tm;G.ot=!!s.ot;G.clock=s.ck;
+  G.banner=s.bn;G.bannerT=s.bt;G.bannerCol=s.bc;G.shake=Math.max(G.shake,s.sh);
+  setNetEnt(G.p,s.g,true);setNetEnt(G.a,s.h,false);
+  const b=G.ball;b.tx=W-s.b[0];b.ty=s.b[1];b.vx=-s.b[2];b.vy=s.b[3];
+  b.owner=s.b[4]===1?G.p:s.b[4]===0?G.a:null;
+  for(const ev of s.ev){ if(ev.id>N.lastEv){N.lastEv=ev.id;const a=ev.a;
+    if(ev.k==="p")popup(a[0],W-a[1],a[2],a[3]);else if(ev.k==="b")burst(W-a[0],a[1],a[2],a[3],a[4],a[5],a[6]);else if(ev.k==="s")sfx(a[0]);} }
+  if(s.st==="over"&&!N.ended){N.ended=true;endNet();}
+}
+function guestTick(dt){
+  const N=G.net;
+  if(N.latest&&N.latest.q!==N.lastQ){N.lastQ=N.latest.q;netApply(N.latest);}
+  if(G.state==="reset")G.resetT+=dt;
+  // my own input, in my (mirrored) world
+  const inp=playerInput();
+  if(inp.check)N.ck++;if(inp.dash)N.ds++;if(inp.cradle)N.cr++;if(inp.catch)N.ct++;
+  N.myInp=[r2(inp.mx),r2(inp.my),r2(inp.aim),inp.shoot?1:0,N.ck,N.ds,N.cr,N.ct];
+  G.p.aim=inp.aim;
+  // glide everything toward the latest host positions
+  const k=N.teleport?1:Math.min(1,dt*20);
+  for(const e of [G.p,G.a]){if(e.tx===undefined)continue;e.x+=(e.tx-e.x)*k;e.y+=(e.ty-e.y)*k;}
+  const b=G.ball;if(b.tx!==undefined){b.x+=(b.tx-b.x)*k;b.y+=(b.ty-b.y)*k;}
+  N.teleport=false;
+}
+function endNet(left){
+  const N=G.net;
+  G.state="over";N.ended=true;$("btnRematch").style.display="none";
+  const win=G.score[0]>G.score[1];
+  $("rtitle").textContent=left?"Opponent Left":win?"Victory!":G.score[0]===G.score[1]?"Draw":"Defeat";
+  $("rtitle").style.color=win?"#ffd23f":"#ff6b6b";
+  $("rscore").textContent=`You ${G.score[0]} — ${G.score[1]} Opponent`;
+  $("rstats").innerHTML=left?"The other player disconnected.":"Thanks for playing! Head back to the menu to start another room.";
+  setTimeout(()=>{if(G&&G.state==="over")show("result");},left?200:900);
+}
+// per-frame: look at who's in the room, move data between the two players
+function netPoll(now){
+  const nr=NET.nr;if(!nr)return;
+  let peers=[];try{peers=nr.peers();}catch(e){return;}
+  if(NET.role==="host"){
+    if(G&&G.netWait){
+      const g=peers.find(p=>!p.isMe&&p.presence&&p.presence.role==="guest"&&p.presence.code===NET.code);
+      if(g)startNetHost(g.peer);
+    }else if(G&&G.net&&G.net.role==="host"){
+      const g=peers.find(p=>p.peer===G.net.guestPeer);
+      if(g){G.net.missing=0;if(g.presence&&g.presence.inp)G.net.remote.inp=g.presence.inp;}
+      else if(G.state!=="over"){G.net.missing=(G.net.missing||0)+(now-(NET.lastPoll||now));if(G.net.missing>2500)endNet(true);}
+    }
+  }else if(NET.role==="guest"){
+    const h=peers.find(p=>!p.isMe&&p.presence&&p.presence.role==="host"&&p.presence.code===NET.code);
+    const me=peers.find(p=>p.isMe);
+    if(NET.joining){
+      if(h&&h.presence.snap){
+        if(h.presence.gp&&me&&h.presence.gp!==me.peer){onlineMsg("That room already has two players.");netLeave();show("online");}
+        else startNetGuest();
+      }else if(now-NET.joinT>8000){onlineMsg("No room found with code "+NET.code+". Check the code and try again.");netLeave();}
+    }else if(G&&G.net&&G.net.role==="guest"){
+      if(h&&h.presence.snap){G.net.latest=h.presence.snap;G.net.missing=0;}
+      else if(G.state!=="over"){G.net.missing=(G.net.missing||0)+(now-(NET.lastPoll||now));if(G.net.missing>3000)endNet(true);}
+    }
+  }
+  NET.lastPoll=now;
+}
+function netSend(now){
+  if(!NET.nr||!G||!G.net||now-NET.lastSend<33)return;
+  NET.lastSend=now;
+  if(G.net.role==="host")netPresence({role:"host",code:NET.code,gp:G.net.guestPeer,snap:netEncode()});
+  else netPresence({role:"guest",code:NET.code,inp:G.net.myInp});
+}
+
 /* ========================= LOOP ========================= */
 let last=performance.now();
 function frame(now){
   const dt=Math.min(1/30,(now-last)/1000);last=now;
+  try{netPoll(now);}catch(err){console.error(err);}
   if(G&&mode==="match")update(dt);
+  try{netSend(now);}catch(err){console.error(err);}
   try{render(dt);updateTouchUI();}catch(err){console.error(err);}
   requestAnimationFrame(frame);
 }
