@@ -542,7 +542,7 @@ function updEnt(e,o,inp,dt){
       if(Math.abs(da)>lim){const na=toP+Math.sign(da)*lim;dx=Math.cos(na);dy=Math.sin(na);}
     }
     cancelCharge(e);
-    const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=(e.ai&&!e.human)?1.5:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
+    const l=Math.hypot(dx,dy);e.dx=dx/l;e.dy=dy/l;e.dashT=.17;e.dashCD=(e.ai&&!e.human)?1.7:1.35;sfx("dash");burst(e.x,e.y,8,"#cfe3ff",120,.3);
   }
   // catch (flying ball)
   e.catchCD=Math.max(0,e.catchCD-dt);e.catchT=Math.max(0,e.catchT-dt);
