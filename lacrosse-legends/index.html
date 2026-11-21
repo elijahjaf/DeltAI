@@ -409,7 +409,8 @@ function aiInput(dt){
   const inp={mx:0,my:0,aim:a.aim,shoot:false,check:false,dash:false,catch:false};
   // delayed perception of the player
   let seen={x:p.x,y:p.y};
-  for(let i=G.hist.length-1;i>=0;i--){ if(G.t-G.hist[i].t>=P.react*(p.hasBall?.7:1)){seen=G.hist[i];break;}   // defenders read the carrier faster }
+  // defenders read the ball carrier faster
+  for(let i=G.hist.length-1;i>=0;i--){ if(G.t-G.hist[i].t>=P.react*(p.hasBall?.7:1)){seen=G.hist[i];break;} }
   S.sideT-=dt; if(S.sideT<=0){S.side=Math.random()<.5?1:-1;S.sideT=rnd(.8,1.8);}
   S.shotCD-=dt; S.dumbT-=dt;
   if(S.dumbT<=0 && Math.random()<P.dumb*dt*1.2){S.dumbT=rnd(.25,.6);S.wx=rnd(-1,1);S.wy=rnd(-1,1);}
