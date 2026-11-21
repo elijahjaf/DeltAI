@@ -629,7 +629,11 @@ function shotNoise(e,c){
 function shoot(e){
   const b=G.ball,cpu=e.ai,c=cpu?Math.max(.12,e.charge):e.charge;
   let ang=e.aim;
-  if(cpu)ang+=gauss()*(G.prof.err*(G.wall?1:1.1+1.2*behindDepth(e))+behindDepth(e)*.03); else{
+  if(cpu){
+    // an opponent can never be more than 20% more accurate than the player would be with the same charge from the same spot
+    const own=G.prof.err*(G.wall?1:1.1+1.2*behindDepth(e))+behindDepth(e)*.03,floor=shotNoise(e,c)/1.2;
+    ang+=gauss()*Math.max(own,floor);
+  } else{
     ang+=gauss()*shotNoise(e,c);
     // a shot can never leave the player's field of view
     if(camera&&G.camYaw!==undefined){
