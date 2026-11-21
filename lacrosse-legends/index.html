@@ -165,11 +165,11 @@ function profile(op){
     t:u,
     speed:Math.min(PLAYER_SPEED,L(255,PLAYER_SPEED)),
     react:Math.max(.02,L(.58,.06)*(m.react||1)),
-    err:L(.38,.012)*(m.err||1),
+    err:L(.38,.012)*1.1*(m.err||1),   // offence: ~10% wilder shots
     chargeMin:L(.1,.38), chargeMax:isFinite(op.lv)?L(.22,.9):1,
     range:L(190,340)+(m.range||0),
-    checkRate:L(.2,5.5)*(m.check||1),
-    checkErr:L(.8,.04),
+    checkRate:L(.2,5.5)*1.3*(m.check||1),   // defence: +30% checking
+    checkErr:L(.8,.04)*.7,
     dash:L(.06,1)*(m.dash||1),
     turn:L(4,18),
     dumb:L(.5,0)
@@ -409,7 +409,7 @@ function aiInput(dt){
   const inp={mx:0,my:0,aim:a.aim,shoot:false,check:false,dash:false,catch:false};
   // delayed perception of the player
   let seen={x:p.x,y:p.y};
-  for(let i=G.hist.length-1;i>=0;i--){ if(G.t-G.hist[i].t>=P.react){seen=G.hist[i];break;} }
+  for(let i=G.hist.length-1;i>=0;i--){ if(G.t-G.hist[i].t>=P.react*(p.hasBall?.7:1)){seen=G.hist[i];break;}   // defenders read the carrier faster }
   S.sideT-=dt; if(S.sideT<=0){S.side=Math.random()<.5?1:-1;S.sideT=rnd(.8,1.8);}
   S.shotCD-=dt; S.dumbT-=dt;
   if(S.dumbT<=0 && Math.random()<P.dumb*dt*1.2){S.dumbT=rnd(.25,.6);S.wx=rnd(-1,1);S.wy=rnd(-1,1);}
@@ -452,7 +452,7 @@ function aiInput(dt){
       speedMul=.9;
       wantAim=Math.atan2(S.aimPt-a.y,gx-a.x);
       inp.shoot=true;
-      if(a.charge>=S.chargeGoal){inp.shoot=false;S.shotCD=rnd(.5,1.2);}
+      if(a.charge>=S.chargeGoal){inp.shoot=false;S.shotCD=rnd(.65,1.45);}
     } else wantAim=Math.atan2(gy-a.y,gx-a.x)+Math.sin(G.t*3)*.15;
     // dash away from pressure
     if(dd<110&&a.dashCD<=0&&Math.random()<P.dash*dt*5){inp.dash=true;mvx+= -(seen.x-a.x)/dd*0; }
@@ -461,11 +461,11 @@ function aiInput(dt){
   else if(p.hasBall){
     const gx=FR, gy=CY;
     let dx=gx-seen.x,dy=gy-seen.y,dl=Math.hypot(dx,dy)||1; dx/=dl;dy/=dl;
-    const gap=46+(1-P.t)*50;
+    const gap=40+(1-P.t)*40;   // marks tighter
     tx=seen.x+dx*gap; ty=seen.y+dy*gap;
     // when the player winds up a shot, step into the shot lane right in front of them (better players commit to it more)
     if(p.charging){
-      const w=.35+.65*P.t,bd=56,lx=seen.x+Math.cos(p.aim)*bd,ly=seen.y+Math.sin(p.aim)*bd;
+      const w=.5+.5*P.t,bd=56,lx=seen.x+Math.cos(p.aim)*bd,ly=seen.y+Math.sin(p.aim)*bd;
       tx+=(lx-tx)*w; ty+=(ly-ty)*w;
     }
     const dtgt=Math.hypot(tx-a.x,ty-a.y);
