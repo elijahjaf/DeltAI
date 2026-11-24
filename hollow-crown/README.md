@@ -8,16 +8,18 @@ A real-time, top-down dungeon raid that runs in the browser. You fight through f
 
 | Input | Action |
 | --- | --- |
-| WASD / arrow keys | Move |
-| Mouse | Aim |
-| Left click (hold) | Attack with the current weapon |
-| Right click / Space / Shift (hold) | Weapon ability |
+| Arrow keys | Move (and, without the mouse, aim the way you move) |
+| Z / left click (hold) | Attack with the current weapon |
+| X / right click (hold) | Weapon ability |
+| Mouse | Aim, whenever you move it or click; otherwise you aim the way you move |
 | 1–4 / mouse wheel | Swap weapon |
 | E | Use a console, lever or grounding rod |
 | Q | Spirit Draught (heals 50% HP over 3 seconds, 2 per phase) |
 | F | Wish (full heal and 2 seconds of invulnerability, once per phase) |
 | P / Esc | Pause |
 | M | Sound on or off |
+
+Z also confirms on the title, loadout and dialogue screens. In console puzzles, arrow keys move a gold cursor, Z presses the highlighted tile, and X or E steps away. Clicking still works too.
 
 ## Loadout
 
